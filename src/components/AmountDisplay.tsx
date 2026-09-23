@@ -25,8 +25,8 @@ export const AmountDisplay: React.FC<AmountDisplayProps> = ({
 }) => {
   const formatted = formatAUDAmount(amount);
 
-  const fontSize = size === 'sm' ? 20 : size === 'md' ? 28 : size === 'lg' ? 34 : 42;
-  const currSize = size === 'sm' ? 18 : size === 'md' ? 26 : size === 'lg' ? 32 : 40;
+  const fontSize = size === 'sm' ? 18 : size === 'md' ? 24 : size === 'lg' ? 30 : 36;
+  const currSize = size === 'sm' ? 16 : size === 'md' ? 22 : size === 'lg' ? 28 : 34;
 
   return (
     <View style={styles.container}>

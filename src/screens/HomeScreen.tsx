@@ -79,28 +79,30 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           </Text>
         </View>
         <TouchableOpacity style={styles.settingsBtn} activeOpacity={0.6}>
-          <Ionicons name="settings-outline" size={22} color="#1E293B" />
+          <Ionicons name="settings-outline" size={20} color="#1E293B" />
         </TouchableOpacity>
       </View>
+      <View style={{ gap: 10, marginBottom: 4 }}>
 
-      <View style={styles.toggleRow}>
-        <MethodToggle
-          selectedMethod={paymentMethod}
-          onSelectMethod={setPaymentMethod}
-        />
+        <View style={styles.toggleRow}>
+          <MethodToggle
+            selectedMethod={paymentMethod}
+            onSelectMethod={setPaymentMethod}
+          />
+        </View>
+
+        {/* ── Store Selector Card ── */}
+        <TouchableOpacity style={styles.storeCard} activeOpacity={0.75}>
+          <View style={styles.storeIconWrap}>
+            <Ionicons name="storefront-outline" size={17} color="#2563EB" />
+          </View>
+          <View style={styles.storeInfo}>
+            <Text style={styles.storeName}>Demo Store</Text>
+            <Text style={styles.storeSub}>Soumen's Business</Text>
+          </View>
+          <Ionicons name="chevron-down" size={14} color="#64748B" />
+        </TouchableOpacity>
       </View>
-
-      {/* ── Store Selector Card ── */}
-      <TouchableOpacity style={styles.storeCard} activeOpacity={0.75}>
-        <View style={styles.storeIconWrap}>
-          <Ionicons name="storefront-outline" size={20} color="#2563EB" />
-        </View>
-        <View style={styles.storeInfo}>
-          <Text style={styles.storeName}>Demo Store</Text>
-          <Text style={styles.storeSub}>Soumen's Business</Text>
-        </View>
-        <Ionicons name="chevron-down" size={16} color="#64748B" />
-      </TouchableOpacity>
 
       {/* ── Centered Amount Display (e.g. A$100.00) ── */}
       <View style={styles.amountSection}>
@@ -141,8 +143,8 @@ const styles = StyleSheet.create({
   },
   toggleRow: {
     alignItems: 'center',
-    marginTop: 4,
-    marginBottom: 16,
+    // marginTop: 2,
+    // marginBottom: 8,
   },
   headerRow: {
     flexDirection: 'row',
@@ -161,10 +163,10 @@ const styles = StyleSheet.create({
     letterSpacing: -0.4,
   },
   pageSubtitle: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#64748B',
     marginTop: 4,
-    lineHeight: 18,
+    lineHeight: 16,
   },
   settingsBtn: {
     padding: 4,
@@ -174,17 +176,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F4F6F9',
-    borderRadius: 18,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    gap: 12,
-    marginBottom: 8,
+    borderRadius: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    gap: 10,
+    marginBottom: 4,
+
   },
   storeIconWrap: {
     width: 44,
     height: 44,
     backgroundColor: '#EFF6FF',
-    borderRadius: 12,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -192,24 +195,24 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   storeName: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     color: '#0F172A',
   },
   storeSub: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748B',
-    marginTop: 2,
+    marginTop: 1,
   },
   amountSection: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
+    paddingVertical: 4,
   },
   keypadSection: {
     width: '100%',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   buttonWrapper: {
     marginBottom: 12,
@@ -226,7 +229,7 @@ const styles = StyleSheet.create({
   },
   continueBtnText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
   },
 });

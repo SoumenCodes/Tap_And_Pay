@@ -10,7 +10,7 @@ interface MethodToggleProps {
 
 // Crisp contactless icon
 const ContactlessIcon: React.FC<{ color: string }> = ({ color }) => (
-  <Svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+  <Svg width="16" height="16" viewBox="0 0 24 24" fill="none">
     <Circle cx="8" cy="12" r="1.8" fill={color} />
     <Path
       d="M12 7 C14.5 9 14.5 15 12 17"
@@ -31,7 +31,7 @@ const ContactlessIcon: React.FC<{ color: string }> = ({ color }) => (
 
 // Crisp card icon
 const CardIcon: React.FC<{ color: string }> = ({ color }) => (
-  <Svg width="20" height="16" viewBox="0 0 20 16" fill="none">
+  <Svg width="18" height="14" viewBox="0 0 20 16" fill="none">
     <Rect
       x="1"
       y="1"
@@ -90,9 +90,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'center',
-    width: 236,
-    height: 44,
-    borderRadius: 22,
+    width: 210,
+    height: 38,
+    borderRadius: 19,
     borderWidth: 1,
     borderColor: '#CBD5E1',
     backgroundColor: '#FFFFFF',
@@ -104,15 +104,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
   },
   leftSegment: {
-    borderTopLeftRadius: 21,
-    borderBottomLeftRadius: 21,
+    borderTopLeftRadius: 18,
+    borderBottomLeftRadius: 18,
   },
   rightSegment: {
-    borderTopRightRadius: 21,
-    borderBottomRightRadius: 21,
+    borderTopRightRadius: 18,
+    borderBottomRightRadius: 18,
   },
   activeSegment: {
     backgroundColor: '#DCEBFE',
@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#CBD5E1',
   },
   label: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '600',
   },
   activeLabel: {

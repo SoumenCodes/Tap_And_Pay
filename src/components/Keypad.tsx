@@ -39,7 +39,7 @@ export const Keypad: React.FC<KeypadProps> = ({ onPress, disabled = false }) => 
               disabled={disabled}
             >
               {key === 'backspace' ? (
-                <Ionicons name="backspace-outline" size={22} color="#0F172A" />
+                <Ionicons name="backspace-outline" size={20} color="#0F172A" />
               ) : (
                 <Text style={styles.keyText}>{key}</Text>
               )}
@@ -54,18 +54,18 @@ export const Keypad: React.FC<KeypadProps> = ({ onPress, disabled = false }) => 
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    gap: 10,
+    gap: 8,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 10,
+    gap: 8,
   },
   key: {
     flex: 1,
-    height: 54,
+    height: 46,
     backgroundColor: '#F4F6F9',
-    borderRadius: 16,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   keyText: {
-    fontSize: 22,
+    fontSize: 19,
     fontWeight: '600',
     color: '#0F172A',
   },

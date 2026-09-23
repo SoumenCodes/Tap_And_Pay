@@ -1,13 +1,19 @@
 // Shared types across the application
+import type { FeeBreakdown, PaymentMethodType } from '../utils/feeCalculator';
 
-export type Currency = '₹' | '$' | '£' | '€';
+export type Currency = 'A$' | '$';
 
 export interface Transaction {
   id: string;
-  amount: number;
+  amount: number; // final amount charged
+  originalAmount?: number;
+  fee?: number;
+  fixedFee?: number;
+  percentageFee?: number;
   currency: Currency;
   status: 'success' | 'failed' | 'cancelled';
-  paymentMethod: string;
+  paymentMethod: string; // e.g. "Tap to Pay" or "Card"
+  paymentMethodType?: PaymentMethodType;
   cardLast4: string;
   cardBrand: string;
   paymentId: string;
@@ -23,10 +29,35 @@ export interface Store {
 
 export type RootStackParamList = {
   Main: undefined;
-  TapReady: { amount: number; currency: Currency };
-  Processing: { amount: number; currency: Currency };
-  Success: { amount: number; currency: Currency; transaction: Transaction };
-  Receipt: { transaction: Transaction };
+  FeeConfirmation: {
+    amount: number;
+    paymentMethod: PaymentMethodType;
+    currency: Currency;
+  };
+  TapReady: {
+    amount: number; // final total
+    feeBreakdown: FeeBreakdown;
+    currency: Currency;
+  };
+  CardEntry: {
+    amount: number; // final total
+    feeBreakdown: FeeBreakdown;
+    currency: Currency;
+  };
+  Processing: {
+    amount: number;
+    feeBreakdown?: FeeBreakdown;
+    currency: Currency;
+    paymentMethod: PaymentMethodType;
+  };
+  Success: {
+    amount: number;
+    currency: Currency;
+    transaction: Transaction;
+  };
+  Receipt: {
+    transaction: Transaction;
+  };
 };
 
 export type MainTabParamList = {

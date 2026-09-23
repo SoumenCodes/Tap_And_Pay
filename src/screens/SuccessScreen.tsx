@@ -79,10 +79,12 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({ navigation, route 
 
       {/* ── Payment Details Card ── */}
       <View style={styles.card}>
-        {/* Row 1: Card info */}
+        {/* Row 1: Method & Card info */}
         <View style={styles.row}>
           <Ionicons name="card-outline" size={18} color="#64748B" />
-          <Text style={styles.rowText}>Visa •••• 4242</Text>
+          <Text style={styles.rowText}>
+            {transaction.paymentMethod}: {transaction.cardBrand} •••• {transaction.cardLast4}
+          </Text>
         </View>
 
         <View style={styles.divider} />

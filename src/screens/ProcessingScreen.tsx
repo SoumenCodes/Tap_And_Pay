@@ -13,7 +13,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 
-import type { RootStackParamList, Transaction } from '../types';
+import type { RootStackParamList, Transaction, Currency } from '../types';
+import type { FeeBreakdown, PaymentMethodType } from '../utils/feeCalculator';
 
 type ProcessingNavProp = NativeStackNavigationProp<RootStackParamList, 'Processing'>;
 type ProcessingRouteProp = RouteProp<RootStackParamList, 'Processing'>;
@@ -23,18 +24,29 @@ interface ProcessingScreenProps {
   route: ProcessingRouteProp;
 }
 
-function makeMockTransaction(amount: number): Transaction {
+function makeMockTransaction(
+  amount: number,
+  currency: Currency,
+  paymentMethod: PaymentMethodType,
+  feeBreakdown?: FeeBreakdown
+): Transaction {
+  const isTap = paymentMethod === 'tap';
   return {
     id: 'tx_' + Math.random().toString(36).substring(2, 9),
     amount,
-    currency: '₹',
+    originalAmount: feeBreakdown?.originalAmount,
+    fee: feeBreakdown?.totalFee,
+    percentageFee: feeBreakdown?.percentageFee,
+    fixedFee: feeBreakdown?.fixedFee,
+    currency,
     status: 'success',
-    paymentMethod: 'Visa',
+    paymentMethod: isTap ? 'Tap to Pay' : 'Card',
+    paymentMethodType: paymentMethod,
     cardLast4: '4242',
     cardBrand: 'Visa',
     paymentId: 'pi_3N5x...8F2d',
     storeName: 'Demo Store',
-    timestamp: new Date('2026-09-21T09:41:00'),
+    timestamp: new Date(),
   };
 }
 
@@ -149,20 +161,21 @@ const ringStyles = StyleSheet.create({
 // ─── Main Processing Screen ───
 export const ProcessingScreen: React.FC<ProcessingScreenProps> = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
-  const topPadding = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 28) : 24) + 16;
-  const { amount, currency } = route.params;
+  const topPadding =
+    Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight || 28 : 24) + 16;
+  const { amount, currency, paymentMethod, feeBreakdown } = route.params;
 
   useEffect(() => {
     const timer = setTimeout(() => {
       navigation.replace('Success', {
         amount,
         currency,
-        transaction: makeMockTransaction(amount),
+        transaction: makeMockTransaction(amount, currency, paymentMethod, feeBreakdown),
       });
     }, 2800);
 
     return () => clearTimeout(timer);
-  }, [navigation, amount, currency]);
+  }, [navigation, amount, currency, paymentMethod, feeBreakdown]);
 
   return (
     <View style={[styles.root, { paddingTop: topPadding, paddingBottom: Math.max(insets.bottom, 16) }]}>
@@ -174,7 +187,11 @@ export const ProcessingScreen: React.FC<ProcessingScreenProps> = ({ navigation, 
 
         {/* Labels below */}
         <Text style={styles.title}>Processing payment...</Text>
-        <Text style={styles.subtitle}>Please don't remove the card.</Text>
+        <Text style={styles.subtitle}>
+          {paymentMethod === 'tap'
+            ? "Please don't remove the card or phone."
+            : 'Authorizing card transaction...'}
+        </Text>
       </View>
 
       {/* Home Indicator */}

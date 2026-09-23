@@ -7,6 +7,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HomeScreen } from '../screens/HomeScreen';
 import { TransactionsScreen } from '../screens/TransactionsScreen';
+import { FeeConfirmationScreen } from '../screens/FeeConfirmationScreen';
+import { CardEntryScreen } from '../screens/CardEntryScreen';
 import { TapReadyScreen } from '../screens/TapReadyScreen';
 import { ProcessingScreen } from '../screens/ProcessingScreen';
 import { SuccessScreen } from '../screens/SuccessScreen';
@@ -146,6 +148,16 @@ export function AppNavigator() {
       }}
     >
       <Stack.Screen name="Main" component={MainTabs} />
+      <Stack.Screen
+        name="FeeConfirmation"
+        component={FeeConfirmationScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="CardEntry"
+        component={CardEntryScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
       <Stack.Screen
         name="TapReady"
         component={TapReadyScreen}

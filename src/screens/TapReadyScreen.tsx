@@ -238,10 +238,15 @@ const illStyles = StyleSheet.create({
 export const TapReadyScreen: React.FC<TapReadyScreenProps> = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const topPadding = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 28) : 24) + 16;
-  const { amount, currency } = route.params;
+  const { amount, currency, feeBreakdown } = route.params;
 
   const handleStartPayment = () => {
-    navigation.navigate('Processing', { amount, currency });
+    navigation.navigate('Processing', {
+      amount,
+      currency,
+      paymentMethod: 'tap',
+      feeBreakdown,
+    });
   };
 
   return (

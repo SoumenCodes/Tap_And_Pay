@@ -56,7 +56,7 @@ export const ReceiptScreen: React.FC<ReceiptScreenProps> = ({ navigation, route 
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `Receipt from ${transaction.storeName}\nAmount: ${transaction.currency} ${transaction.amount}\nStatus: Paid\nDate: 21 Sep 2026, 09:41 AM\nPayment ID: pi_3N5x...8F2d\nPowered by Stripe`,
+        message: `Receipt from ${transaction.storeName}\nTotal Paid: A$${transaction.amount.toFixed(2)}\nMethod: ${transaction.paymentMethod}\nStatus: Paid\nDate: 21 Sep 2026, 09:41 AM\nPayment ID: ${transaction.paymentId}\nPowered by Stripe`,
       });
     } catch {
       // ignore
@@ -137,16 +137,37 @@ export const ReceiptScreen: React.FC<ReceiptScreenProps> = ({ navigation, route 
             <View style={styles.detailBlock}>
               <Text style={styles.fieldLabel}>Payment Method</Text>
               <View style={styles.rowBetween}>
-                <Text style={styles.fieldValue}>Visa •••• 4242</Text>
+                <Text style={styles.fieldValue}>
+                  {transaction.paymentMethod} ({transaction.cardBrand} •••• {transaction.cardLast4})
+                </Text>
                 <VisaBadge />
               </View>
             </View>
+
+            {/* Base Amount & Fee (if breakdown available) */}
+            {transaction.originalAmount !== undefined && (
+              <View style={styles.detailBlock}>
+                <Text style={styles.fieldLabel}>Base Amount</Text>
+                <Text style={styles.fieldValue}>
+                  A${transaction.originalAmount.toFixed(2)}
+                </Text>
+              </View>
+            )}
+
+            {transaction.fee !== undefined && (
+              <View style={styles.detailBlock}>
+                <Text style={styles.fieldLabel}>Processing Fee (1.7% + Fixed)</Text>
+                <Text style={styles.fieldValue}>
+                  A${transaction.fee.toFixed(2)}
+                </Text>
+              </View>
+            )}
 
             {/* Payment ID */}
             <View style={styles.detailBlock}>
               <Text style={styles.fieldLabel}>Payment ID</Text>
               <View style={styles.rowBetween}>
-                <Text style={styles.fieldValue}>pi_3N5x...8F2d</Text>
+                <Text style={styles.fieldValue}>{transaction.paymentId}</Text>
                 <TouchableOpacity activeOpacity={0.6}>
                   <Ionicons name="copy-outline" size={16} color="#64748B" />
                 </TouchableOpacity>

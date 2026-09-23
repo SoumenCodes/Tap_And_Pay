@@ -10,25 +10,23 @@ interface AmountDisplayProps {
   color?: string;
 }
 
-function formatAmount(amount: number): string {
-  if (amount === 0) return '0';
-  const str = amount.toString();
-  if (str.length <= 3) return str;
-  const last3 = str.slice(-3);
-  const rest = str.slice(0, -3);
-  return rest.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + ',' + last3;
+function formatAUDAmount(amount: number): string {
+  return amount.toLocaleString('en-AU', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 export const AmountDisplay: React.FC<AmountDisplayProps> = ({
   amount,
-  currency = '₹',
+  currency = 'A$',
   size = 'lg',
   color = colors.textPrimary,
 }) => {
-  const formatted = formatAmount(amount);
+  const formatted = formatAUDAmount(amount);
 
-  const fontSize = size === 'sm' ? 20 : size === 'md' ? 28 : size === 'lg' ? 34 : 40;
-  const currSize = size === 'sm' ? 16 : size === 'md' ? 22 : size === 'lg' ? 26 : 30;
+  const fontSize = size === 'sm' ? 20 : size === 'md' ? 28 : size === 'lg' ? 34 : 42;
+  const currSize = size === 'sm' ? 18 : size === 'md' ? 26 : size === 'lg' ? 32 : 40;
 
   return (
     <View style={styles.container}>
@@ -51,15 +49,15 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'baseline',
     justifyContent: 'center',
   },
   currency: {
-    fontWeight: '700',
-    marginRight: 6,
+    fontWeight: '800',
+    letterSpacing: -0.5,
   },
   integer: {
-    fontWeight: '700',
+    fontWeight: '800',
     letterSpacing: -0.5,
   },
 });

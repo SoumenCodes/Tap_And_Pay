@@ -14,7 +14,9 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, radius } from '../constants/theme';
 import { AmountDisplay } from '../components/AmountDisplay';
 import { Keypad } from '../components/Keypad';
+import { MethodToggle } from '../components/MethodToggle';
 import type { RootStackParamList, Currency } from '../types';
+import type { PaymentMethodType } from '../utils/feeCalculator';
 
 type HomeScreenNavProp = NativeStackNavigationProp<RootStackParamList, 'Main'>;
 
@@ -22,42 +24,53 @@ interface HomeScreenProps {
   navigation: HomeScreenNavProp;
 }
 
-const CURRENCY: Currency = '₹';
-const MAX_AMOUNT = 9999999;
+const CURRENCY: Currency = 'A$';
+const MAX_CENTS = 999999999; // up to $9,999,999.99
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const topPadding = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 28) : 24) + 18;
+  const topPadding =
+    Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight || 28 : 24) + 16;
 
-  // Default to 1250 as shown in the Figma reference
-  const [rawAmount, setRawAmount] = useState('1250');
+  // Selected payment method toggle (Tap vs Card)
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('tap');
 
-  const numericAmount = parseInt(rawAmount, 10) || 0;
+  // Amount in cents (10000 = A$100.00 matching the user's example)
+  const [rawCents, setRawCents] = useState<number>(10000);
+
+  const numericAmount = rawCents / 100;
   const isValid = numericAmount > 0;
 
   const handleKeyPress = useCallback((key: string) => {
-    setRawAmount((prev) => {
+    setRawCents((prev) => {
       if (key === 'backspace') {
-        const next = prev.slice(0, -1);
-        return next === '' ? '0' : next;
+        return Math.floor(prev / 10);
       }
-      if (prev === '0' && key !== '00') return key;
-      const next = prev + key;
-      if (parseInt(next, 10) > MAX_AMOUNT) return prev;
-      return next;
+      if (key === '00') {
+        const next = prev * 100;
+        return next > MAX_CENTS ? prev : next;
+      }
+      const digit = parseInt(key, 10);
+      if (isNaN(digit)) return prev;
+      const next = prev * 10 + digit;
+      return next > MAX_CENTS ? prev : next;
     });
   }, []);
 
   const handleContinue = () => {
     if (!isValid) return;
-    navigation.navigate('TapReady', { amount: numericAmount, currency: CURRENCY });
+    navigation.navigate('FeeConfirmation', {
+      amount: numericAmount,
+      paymentMethod,
+      currency: CURRENCY,
+    });
   };
 
   return (
     <View style={[styles.root, { paddingTop: topPadding }]}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {/* ── Header: Title + Settings Icon (aligned as in Figma) ── */}
+      {/* ── Top Pill Method Toggle: [ ))) Tap | 💳 Card ] ── */}
       <View style={styles.headerRow}>
         <View style={styles.titleCol}>
           <Text style={styles.pageTitle}>Tap to Pay</Text>
@@ -68,6 +81,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         <TouchableOpacity style={styles.settingsBtn} activeOpacity={0.6}>
           <Ionicons name="settings-outline" size={22} color="#1E293B" />
         </TouchableOpacity>
+      </View>
+
+      <View style={styles.toggleRow}>
+        <MethodToggle
+          selectedMethod={paymentMethod}
+          onSelectMethod={setPaymentMethod}
+        />
       </View>
 
       {/* ── Store Selector Card ── */}
@@ -82,7 +102,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         <Ionicons name="chevron-down" size={16} color="#64748B" />
       </TouchableOpacity>
 
-      {/* ── Centered Amount Display with Generous Vertical Breathing Room ── */}
+      {/* ── Centered Amount Display (e.g. A$100.00) ── */}
       <View style={styles.amountSection}>
         <AmountDisplay
           amount={numericAmount}
@@ -118,6 +138,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 20,
     justifyContent: 'space-between',
+  },
+  toggleRow: {
+    alignItems: 'center',
+    marginTop: 4,
+    marginBottom: 16,
   },
   headerRow: {
     flexDirection: 'row',

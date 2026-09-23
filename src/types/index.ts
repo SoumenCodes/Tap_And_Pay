@@ -1,7 +1,7 @@
 // Shared types across the application
 import type { FeeBreakdown, PaymentMethodType } from '../utils/feeCalculator';
 
-export type Currency = 'A$' | '$';
+export type Currency = '$';
 
 export interface Transaction {
   id: string;

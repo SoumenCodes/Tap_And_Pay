@@ -56,7 +56,7 @@ export const ReceiptScreen: React.FC<ReceiptScreenProps> = ({ navigation, route 
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `Receipt from ${transaction.storeName}\nTotal Paid: A$${transaction.amount.toFixed(2)}\nMethod: ${transaction.paymentMethod}\nStatus: Paid\nDate: 21 Sep 2026, 09:41 AM\nPayment ID: ${transaction.paymentId}\nPowered by Stripe`,
+        message: `Receipt from ${transaction.storeName}\nTotal Paid: $${transaction.amount.toFixed(2)}\nMethod: ${transaction.paymentMethod}\nStatus: Paid\nDate: 21 Sep 2026, 09:41 AM\nPayment ID: ${transaction.paymentId}\nPowered by Stripe`,
       });
     } catch {
       // ignore
@@ -149,7 +149,7 @@ export const ReceiptScreen: React.FC<ReceiptScreenProps> = ({ navigation, route 
               <View style={styles.detailBlock}>
                 <Text style={styles.fieldLabel}>Base Amount</Text>
                 <Text style={styles.fieldValue}>
-                  A${transaction.originalAmount.toFixed(2)}
+                  ${transaction.originalAmount.toFixed(2)}
                 </Text>
               </View>
             )}
@@ -158,7 +158,7 @@ export const ReceiptScreen: React.FC<ReceiptScreenProps> = ({ navigation, route 
               <View style={styles.detailBlock}>
                 <Text style={styles.fieldLabel}>Processing Fee (1.7% + Fixed)</Text>
                 <Text style={styles.fieldValue}>
-                  A${transaction.fee.toFixed(2)}
+                  ${transaction.fee.toFixed(2)}
                 </Text>
               </View>
             )}

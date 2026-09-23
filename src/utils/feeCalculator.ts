@@ -12,8 +12,8 @@ export interface FeeBreakdown {
 
 /**
  * Calculates fee breakdown dynamically based on amount and payment method
- * Tap to Pay: 1.7% + A$0.10
- * Card: 1.7% + A$0.30
+ * Tap to Pay: 1.7% + $0.10
+ * Card: 1.7% + $0.30
  */
 export function calculateFee(amount: number, method: PaymentMethodType): FeeBreakdown {
   const percentageRate = 0.017;
@@ -38,13 +38,13 @@ export function calculateFee(amount: number, method: PaymentMethodType): FeeBrea
 }
 
 /**
- * Formats a number to AUD currency string with A$ symbol and 2 decimal places
- * e.g., 100 -> A$100.00, 101.8 -> A$101.80
+ * Formats a number to currency string with $ symbol and 2 decimal places
+ * e.g., 100 -> $100.00, 101.8 -> $101.80
  */
 export function formatAUD(amount: number): string {
-  const formatted = amount.toLocaleString('en-AU', {
+  const formatted = amount.toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-  return `A$${formatted}`;
+  return `$${formatted}`;
 }

@@ -92,7 +92,7 @@ export const FeeConfirmationScreen: React.FC<FeeConfirmationScreenProps> = ({
             onSelectMethod={setSelectedMethod}
           />
           <Text style={styles.methodRateHint}>
-            {isTap ? 'Tap to Pay: 1.7% + A$0.10 fixed fee' : 'Card: 1.7% + A$0.30 fixed fee'}
+            {isTap ? 'Tap to Pay: 1.7% + $0.10 fixed fee' : 'Card: 1.7% + $0.30 fixed fee'}
           </Text>
         </View>
 

@@ -4,14 +4,27 @@ import { colors } from '../constants/theme';
 import type { Currency } from '../types';
 
 interface AmountDisplayProps {
-  amount: number;
+  amount?: number;
+  displayValue?: string;
   currency?: Currency;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   color?: string;
 }
 
-function formatAUDAmount(amount: number): string {
-  return amount.toLocaleString('en-AU', {
+function formatWithCommas(str: string): string {
+  if (!str) return '0';
+  if (str.includes('.')) {
+    const [intPart, decPart] = str.split('.');
+    const parsed = parseInt(intPart || '0', 10);
+    const formattedInt = isNaN(parsed) ? '0' : parsed.toLocaleString('en-US');
+    return `${formattedInt}.${decPart}`;
+  }
+  const parsed = parseInt(str, 10);
+  return isNaN(parsed) ? '0' : parsed.toLocaleString('en-US');
+}
+
+function formatNumber(amount: number): string {
+  return amount.toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
@@ -19,14 +32,18 @@ function formatAUDAmount(amount: number): string {
 
 export const AmountDisplay: React.FC<AmountDisplayProps> = ({
   amount,
-  currency = 'A$',
+  displayValue,
+  currency = '$',
   size = 'lg',
   color = colors.textPrimary,
 }) => {
-  const formatted = formatAUDAmount(amount);
+  const formatted =
+    displayValue !== undefined
+      ? formatWithCommas(displayValue)
+      : formatNumber(amount ?? 0);
 
-  const fontSize = size === 'sm' ? 18 : size === 'md' ? 24 : size === 'lg' ? 30 : 36;
-  const currSize = size === 'sm' ? 16 : size === 'md' ? 22 : size === 'lg' ? 28 : 34;
+  const fontSize = size === 'sm' ? 20 : size === 'md' ? 28 : size === 'lg' ? 34 : 42;
+  const currSize = size === 'sm' ? 18 : size === 'md' ? 26 : size === 'lg' ? 32 : 40;
 
   return (
     <View style={styles.container}>

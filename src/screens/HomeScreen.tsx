@@ -24,8 +24,7 @@ interface HomeScreenProps {
   navigation: HomeScreenNavProp;
 }
 
-const CURRENCY: Currency = 'A$';
-const MAX_CENTS = 999999999; // up to $9,999,999.99
+const CURRENCY: Currency = '$';
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
@@ -35,25 +34,34 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   // Selected payment method toggle (Tap vs Card)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('tap');
 
-  // Amount in cents (10000 = A$100.00 matching the user's example)
-  const [rawCents, setRawCents] = useState<number>(10000);
+  // Left-to-right string input (default '100' for $100.00 example)
+  const [rawInput, setRawInput] = useState<string>('100');
 
-  const numericAmount = rawCents / 100;
+  const numericAmount = parseFloat(rawInput) || 0;
   const isValid = numericAmount > 0;
 
   const handleKeyPress = useCallback((key: string) => {
-    setRawCents((prev) => {
+    setRawInput((prev) => {
       if (key === 'backspace') {
-        return Math.floor(prev / 10);
+        if (prev.length <= 1) return '0';
+        return prev.slice(0, -1);
       }
-      if (key === '00') {
-        const next = prev * 100;
-        return next > MAX_CENTS ? prev : next;
+      if (key === '.') {
+        if (prev.includes('.')) return prev;
+        return prev + '.';
       }
-      const digit = parseInt(key, 10);
-      if (isNaN(digit)) return prev;
-      const next = prev * 10 + digit;
-      return next > MAX_CENTS ? prev : next;
+      // If currently '0', replace with the entered digit
+      if (prev === '0') {
+        return key;
+      }
+      // Max 2 decimal digits after dot
+      if (prev.includes('.')) {
+        const [, decPart] = prev.split('.');
+        if (decPart && decPart.length >= 2) return prev;
+      }
+      // Max 8 integer digits
+      if (prev.replace('.', '').length >= 8) return prev;
+      return prev + key;
     });
   }, []);
 
@@ -100,21 +108,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             <Text style={styles.storeName}>Demo Store</Text>
             <Text style={styles.storeSub}>Soumen's Business</Text>
           </View>
-          <Ionicons name="chevron-down" size={14} color="#64748B" />
+          <Ionicons name="chevron-down" size={16} color="#64748B" />
         </TouchableOpacity>
       </View>
 
-      {/* ── Centered Amount Display (e.g. A$100.00) ── */}
+      {/* ── Centered Amount Display (Left-to-Right with . decimal) ── */}
       <View style={styles.amountSection}>
         <AmountDisplay
-          amount={numericAmount}
+          displayValue={rawInput}
           currency={CURRENCY}
           size="xl"
           color="#0F172A"
         />
       </View>
 
-      {/* ── Numeric Keypad ── */}
+      {/* ── Numeric Keypad with . decimal ── */}
       <View style={styles.keypadSection}>
         <Keypad onPress={handleKeyPress} />
       </View>

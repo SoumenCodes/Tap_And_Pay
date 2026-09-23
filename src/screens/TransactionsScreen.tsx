@@ -18,7 +18,7 @@ const MOCK_TRANSACTIONS = [
   {
     id: '1',
     amount: 101.80,
-    currency: 'A$' as const,
+    currency: '$' as const,
     method: 'Tap to Pay',
     status: 'success' as const,
     cardBrand: 'Visa',
@@ -30,7 +30,7 @@ const MOCK_TRANSACTIONS = [
   {
     id: '2',
     amount: 35.00,
-    currency: 'A$' as const,
+    currency: '$' as const,
     method: 'Card',
     status: 'success' as const,
     cardBrand: 'Mastercard',
@@ -42,7 +42,7 @@ const MOCK_TRANSACTIONS = [
   {
     id: '3',
     amount: 12.50,
-    currency: 'A$' as const,
+    currency: '$' as const,
     method: 'Tap to Pay',
     status: 'failed' as const,
     cardBrand: 'Visa',
@@ -54,7 +54,7 @@ const MOCK_TRANSACTIONS = [
   {
     id: '4',
     amount: 102.00,
-    currency: 'A$' as const,
+    currency: '$' as const,
     method: 'Card',
     status: 'success' as const,
     cardBrand: 'Amex',

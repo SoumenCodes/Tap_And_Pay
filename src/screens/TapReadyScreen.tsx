@@ -15,6 +15,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 
 import { radius } from '../constants/theme';
+import { config } from '../constants/config';
 import { AmountDisplay } from '../components/AmountDisplay';
 import { useTerminal } from '../context/TerminalContext';
 import type { RootStackParamList } from '../types';
@@ -301,10 +302,16 @@ export const TapReadyScreen: React.FC<TapReadyScreenProps> = ({ navigation, rout
             onPress={handleStartPayment}
             hintText={
               isConnecting
-                ? 'Connecting simulated reader...'
+                ? config.simulatedReader
+                  ? 'Connecting simulated reader...'
+                  : 'Initializing device NFC reader...'
                 : connectedReader
-                ? 'Simulated reader ready · Tap to pay'
-                : 'Tap card or anywhere to simulate'
+                ? config.simulatedReader
+                  ? 'Simulated reader ready · Tap to pay'
+                  : 'NFC Ready · Tap to begin card read'
+                : config.simulatedReader
+                ? 'Tap card or anywhere to simulate'
+                : 'Tap to start contactless payment'
             }
           />
         </View>

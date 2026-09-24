@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { NativeModules } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
 import type { Reader } from '@stripe/stripe-terminal-react-native';
 import { config } from '../constants/config';
 import {
@@ -169,7 +169,10 @@ const SimulatedTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
 // ─── 2. Native Provider (For Expo Development Build with real SDK) ───
 const NativeTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { useStripeTerminal } = require('@stripe/stripe-terminal-react-native');
+  const {
+    useStripeTerminal,
+    requestNeededAndroidPermissions,
+  } = require('@stripe/stripe-terminal-react-native');
 
   const [isConnecting, setIsConnecting] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -223,6 +226,22 @@ const NativeTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       setIsConnecting(true);
       setErrorMessage(null);
+
+      // 1. Check and request Android permissions if on Android
+      if (Platform.OS === 'android') {
+        setStatusMessage('Checking device permissions...');
+        try {
+          if (typeof requestNeededAndroidPermissions === 'function') {
+            const permRes = await requestNeededAndroidPermissions();
+            if (permRes?.error) {
+              console.warn('⚠️ Missing Android permissions:', permRes.error);
+            }
+          }
+        } catch (permEx) {
+          console.warn('⚠️ Permission request error:', permEx);
+        }
+      }
+
       setStatusMessage('Initializing reader...');
 
       if (!isInitialized) {
@@ -244,7 +263,11 @@ const NativeTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ child
         // ignore
       }
 
-      setStatusMessage(config.simulatedReader ? 'Discovering simulated reader...' : 'Initializing device NFC reader...');
+      setStatusMessage(
+        config.simulatedReader
+          ? 'Discovering simulated reader...'
+          : 'Initializing device NFC antenna...'
+      );
       const { error: discoverError } = await discoverReaders({
         discoveryMethod: 'tapToPay',
         simulated: config.simulatedReader,
@@ -262,10 +285,14 @@ const NativeTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       const readerToConnect = discoveredReadersRef.current[0];
       if (!readerToConnect) {
-        throw new Error('No simulated reader found during discovery.');
+        throw new Error(
+          config.simulatedReader
+            ? 'No simulated reader found during discovery.'
+            : 'No Tap to Pay reader detected on device. Ensure NFC is enabled in Android settings.'
+        );
       }
 
-      setStatusMessage('Connecting to reader...');
+      setStatusMessage(config.simulatedReader ? 'Connecting to reader...' : 'Connecting NFC reader...');
       let locationId = getCachedLocationId() || config.locationId;
       if (!locationId || locationId === 'loc_simulated') {
         const termConfig = await fetchTerminalConfig();
@@ -279,6 +306,7 @@ const NativeTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ child
         discoveryMethod: 'tapToPay',
         reader: readerToConnect,
         locationId,
+        autoReconnectOnUnexpectedDisconnect: true,
       });
 
       if (connectError) {
@@ -296,7 +324,7 @@ const NativeTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setIsConnecting(false);
       return false;
     }
-  }, [isInitialized, connectedReader, initialize, discoverReaders, cancelDiscovering, connectReader]);
+  }, [isInitialized, connectedReader, initialize, discoverReaders, cancelDiscovering, connectReader, requestNeededAndroidPermissions]);
 
   const runSimulatedPayment = useCallback(
     async (
@@ -342,10 +370,18 @@ const NativeTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         // Tap to Pay flow with real native SDK
         if (!connectedReader) {
-          setStatusMessage('Connecting simulated reader...');
+          setStatusMessage(
+            config.simulatedReader
+              ? 'Connecting simulated reader...'
+              : 'Connecting device NFC reader...'
+          );
           const connected = await initAndConnectSimulatedReader();
           if (!connected) {
-            throw new Error('Could not connect to simulated reader. Please check backend connection.');
+            throw new Error(
+              config.simulatedReader
+                ? 'Could not connect to simulated reader. Please check backend connection.'
+                : 'Could not connect to Tap to Pay reader. Ensure NFC is enabled and backend is online.'
+            );
           }
         }
 
@@ -359,7 +395,11 @@ const NativeTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ child
           throw new Error(retrieveError?.message || 'Could not retrieve payment intent');
         }
 
-        setStatusMessage('Simulating contactless tap...');
+        setStatusMessage(
+          config.simulatedReader
+            ? 'Simulating contactless tap...'
+            : 'Ready for tap. Hold card against the back of your phone...'
+        );
         const { paymentIntent: collectedIntent, error: collectError } =
           await collectPaymentMethod({ paymentIntent });
 

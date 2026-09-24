@@ -7,16 +7,13 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "backgroundColor": "#FFFFFF",
-    "splash": {
-      "image": "./assets/taxi-logo.webp",
-      "resizeMode": "contain",
-      "backgroundColor": "#FFFFFF"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.syscentric.taptopay",
       "infoPlist": {
-        "UIBackgroundModes": ["bluetooth-central"],
+        "UIBackgroundModes": [
+          "bluetooth-central"
+        ],
         "NSLocationWhenInUseUsageDescription": "Location access is required to accept contactless payments with Stripe Terminal.",
         "NSBluetoothAlwaysUsageDescription": "Bluetooth access is required to connect to card readers.",
         "NSBluetoothPeripheralUsageDescription": "Bluetooth access is required to connect to card readers."
@@ -57,14 +54,28 @@
         {
           "android": {
             "minSdkVersion": 30,
-            "compileSdkVersion": 34,
-            "targetSdkVersion": 34
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35
           }
+        }
+      ],
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/taxi-logo.webp",
+          "resizeMode": "contain",
+          "backgroundColor": "#FFFFFF"
         }
       ]
     ],
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "e8e852a7-451f-4b51-91a3-a69d3a026c31"
+      }
     }
   }
 }

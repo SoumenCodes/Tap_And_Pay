@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,14 +7,17 @@ import {
   Animated,
   Easing,
   Platform,
+  TouchableOpacity,
 } from 'react-native';
-import Svg, { Path, Circle, G } from 'react-native-svg';
+import Svg, { Path, Circle } from 'react-native-svg';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 
-import type { RootStackParamList, Transaction, Currency } from '../types';
-import type { FeeBreakdown, PaymentMethodType } from '../utils/feeCalculator';
+import { useTerminal } from '../context/TerminalContext';
+import { radius } from '../constants/theme';
+import type { RootStackParamList, Transaction } from '../types';
 
 type ProcessingNavProp = NativeStackNavigationProp<RootStackParamList, 'Processing'>;
 type ProcessingRouteProp = RouteProp<RootStackParamList, 'Processing'>;
@@ -24,39 +27,13 @@ interface ProcessingScreenProps {
   route: ProcessingRouteProp;
 }
 
-function makeMockTransaction(
-  amount: number,
-  currency: Currency,
-  paymentMethod: PaymentMethodType,
-  feeBreakdown?: FeeBreakdown
-): Transaction {
-  const isTap = paymentMethod === 'tap';
-  return {
-    id: 'tx_' + Math.random().toString(36).substring(2, 9),
-    amount,
-    originalAmount: feeBreakdown?.originalAmount,
-    fee: feeBreakdown?.totalFee,
-    percentageFee: feeBreakdown?.percentageFee,
-    fixedFee: feeBreakdown?.fixedFee,
-    currency,
-    status: 'success',
-    paymentMethod: isTap ? 'Tap to Pay' : 'Card',
-    paymentMethodType: paymentMethod,
-    cardLast4: '4242',
-    cardBrand: 'Visa',
-    paymentId: 'pi_3N5x...8F2d',
-    storeName: 'Demo Store',
-    timestamp: new Date(),
-  };
-}
-
 const RING_SIZE = 190;
 const RADIUS = 88;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
 // ─── Circular Progress Arc Ring matching Figma screen 3 ───
 const ProcessingRing: React.FC = () => {
-  const rotateAnim = useRef(new Animated.Value(0)).current;
+  const [rotateAnim] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     Animated.loop(
@@ -165,34 +142,117 @@ export const ProcessingScreen: React.FC<ProcessingScreenProps> = ({ navigation, 
     Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight || 28 : 24) + 16;
   const { amount, currency, paymentMethod, feeBreakdown } = route.params;
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      navigation.replace('Success', {
-        amount,
-        currency,
-        transaction: makeMockTransaction(amount, currency, paymentMethod, feeBreakdown),
-      });
-    }, 2800);
+  const { runSimulatedPayment, statusMessage, errorMessage } = useTerminal();
+  const [hasError, setHasError] = useState(false);
+  const [errorText, setErrorText] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
-    return () => clearTimeout(timer);
-  }, [navigation, amount, currency, paymentMethod, feeBreakdown]);
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function process() {
+      setHasError(false);
+      setErrorText(null);
+
+      const result = await runSimulatedPayment(amount, paymentMethod, feeBreakdown);
+
+      if (isCancelled) return;
+
+      if (result.success && result.paymentIntent) {
+        const pi = result.paymentIntent;
+        const charge = pi.charges?.[0];
+        const cardDetails =
+          charge?.paymentMethodDetails?.cardPresentDetails ||
+          charge?.paymentMethodDetails?.cardDetails;
+
+        const rawBrand = cardDetails?.brand || 'Visa';
+        const brand = rawBrand.charAt(0).toUpperCase() + rawBrand.slice(1);
+        const last4 = cardDetails?.last4 || '4242';
+
+        const transaction: Transaction = {
+          id: pi.id || 'tx_' + Math.random().toString(36).substring(2, 9),
+          amount,
+          originalAmount: feeBreakdown?.originalAmount,
+          fee: feeBreakdown?.totalFee,
+          percentageFee: feeBreakdown?.percentageFee,
+          fixedFee: feeBreakdown?.fixedFee,
+          currency,
+          status: 'success',
+          paymentMethod: paymentMethod === 'tap' ? 'Tap to Pay' : 'Card',
+          paymentMethodType: paymentMethod,
+          cardLast4: last4,
+          cardBrand: brand,
+          paymentId: pi.id,
+          storeName: 'Demo Store',
+          timestamp: new Date(),
+        };
+
+        setTimeout(() => {
+          if (!isCancelled) {
+            navigation.replace('Success', {
+              amount,
+              currency,
+              transaction,
+            });
+          }
+        }, 500);
+      } else {
+        setHasError(true);
+        setErrorText(result.error || errorMessage || 'Payment could not be completed.');
+      }
+    }
+
+    process();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [navigation, amount, currency, paymentMethod, feeBreakdown, runSimulatedPayment, retryCount, errorMessage]);
+
+  const handleRetry = () => {
+    setRetryCount((c) => c + 1);
+  };
 
   return (
     <View style={[styles.root, { paddingTop: topPadding, paddingBottom: Math.max(insets.bottom, 16) }]}>
       <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
 
-      <View style={styles.centerContent}>
-        {/* Animated Processing Ring */}
-        <ProcessingRing />
+      {hasError ? (
+        <View style={styles.centerContent}>
+          <View style={styles.errorIconWrap}>
+            <Ionicons name="close-circle-outline" size={64} color="#EF4444" />
+          </View>
+          <Text style={styles.title}>Payment Failed</Text>
+          <Text style={styles.errorSubtitle}>{errorText}</Text>
 
-        {/* Labels below */}
-        <Text style={styles.title}>Processing payment...</Text>
-        <Text style={styles.subtitle}>
-          {paymentMethod === 'tap'
-            ? "Please don't remove the card or phone."
-            : 'Authorizing card transaction...'}
-        </Text>
-      </View>
+          <View style={styles.actionRow}>
+            <TouchableOpacity style={styles.retryBtn} onPress={handleRetry} activeOpacity={0.85}>
+              <Text style={styles.retryBtnText}>Try Again</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => navigation.goBack()} activeOpacity={0.85}>
+              <Text style={styles.cancelBtnText}>Back</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
+        <View style={styles.centerContent}>
+          {/* Animated Processing Ring */}
+          <ProcessingRing />
+
+          {/* Labels below */}
+          <Text style={styles.title}>
+            {paymentMethod === 'tap' ? 'Processing payment...' : 'Authorizing card...'}
+          </Text>
+          <Text style={styles.subtitle}>
+            {statusMessage && statusMessage !== 'Ready'
+              ? statusMessage
+              : paymentMethod === 'tap'
+              ? "Please don't remove the card or phone."
+              : 'Authorizing card transaction...'}
+          </Text>
+        </View>
+      )}
 
       {/* Home Indicator */}
       <View style={styles.homeIndicator} />
@@ -212,6 +272,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    width: '100%',
   },
   title: {
     fontSize: 18,
@@ -224,6 +285,49 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#94A3B8',
     marginTop: 8,
+    textAlign: 'center',
+    paddingHorizontal: 16,
+  },
+  errorIconWrap: {
+    marginBottom: 8,
+  },
+  errorSubtitle: {
+    fontSize: 13,
+    color: '#F87171',
+    marginTop: 10,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+    lineHeight: 18,
+  },
+  actionRow: {
+    width: '100%',
+    paddingHorizontal: 24,
+    marginTop: 28,
+    gap: 12,
+  },
+  retryBtn: {
+    backgroundColor: '#2563EB',
+    height: 48,
+    borderRadius: radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  retryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  cancelBtn: {
+    backgroundColor: '#1E293B',
+    height: 48,
+    borderRadius: radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelBtnText: {
+    color: '#94A3B8',
+    fontSize: 15,
+    fontWeight: '600',
   },
   homeIndicator: {
     width: 120,

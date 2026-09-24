@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, View, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Animated, StyleSheet } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { colors } from '../constants/theme';
 
@@ -14,7 +14,7 @@ export const NfcIcon: React.FC<NfcIconProps> = ({
   color = colors.primary,
   animate = false,
 }) => {
-  const pulse = useRef(new Animated.Value(1)).current;
+  const [pulse] = useState(() => new Animated.Value(1));
 
   useEffect(() => {
     if (!animate) return;
@@ -41,7 +41,7 @@ export const NfcIcon: React.FC<NfcIconProps> = ({
 };
 
 export const NfcCircleIcon: React.FC<{ size?: number }> = ({ size = 96 }) => {
-  const pulse = useRef(new Animated.Value(1)).current;
+  const [pulse] = useState(() => new Animated.Value(1));
 
   useEffect(() => {
     Animated.loop(

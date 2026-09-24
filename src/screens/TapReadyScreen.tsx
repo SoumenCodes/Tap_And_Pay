@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -14,8 +14,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 
-import { colors, radius } from '../constants/theme';
+import { radius } from '../constants/theme';
 import { AmountDisplay } from '../components/AmountDisplay';
+import { useTerminal } from '../context/TerminalContext';
 import type { RootStackParamList } from '../types';
 
 type TapReadyNavProp = NativeStackNavigationProp<RootStackParamList, 'TapReady'>;
@@ -28,7 +29,7 @@ interface TapReadyScreenProps {
 
 // ─── Contactless Wave Icon in soft blue circle ───
 const ContactlessBadge: React.FC = () => {
-  const pulse = useRef(new Animated.Value(1)).current;
+  const [pulse] = useState(() => new Animated.Value(1));
 
   useEffect(() => {
     Animated.loop(
@@ -83,8 +84,11 @@ const badgeStyles = StyleSheet.create({
 });
 
 // ─── Minimalist Hand + Card Tapping Phone Line-Art Illustration ───
-const TapIllustration: React.FC<{ onPress: () => void }> = ({ onPress }) => {
-  const cardFloat = useRef(new Animated.Value(0)).current;
+const TapIllustration: React.FC<{ onPress: () => void; hintText?: string }> = ({
+  onPress,
+  hintText = 'Tap card or anywhere to simulate',
+}) => {
+  const [cardFloat] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     Animated.loop(
@@ -217,7 +221,7 @@ const TapIllustration: React.FC<{ onPress: () => void }> = ({ onPress }) => {
           </G>
         </G>
       </Svg>
-      <Text style={illStyles.tapHint}>Tap card or anywhere to simulate</Text>
+      <Text style={illStyles.tapHint}>{hintText}</Text>
     </TouchableOpacity>
   );
 };
@@ -239,6 +243,15 @@ export const TapReadyScreen: React.FC<TapReadyScreenProps> = ({ navigation, rout
   const insets = useSafeAreaInsets();
   const topPadding = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 28) : 24) + 16;
   const { amount, currency, feeBreakdown } = route.params;
+
+  const { initAndConnectSimulatedReader, connectedReader, isConnecting } = useTerminal();
+
+  // Proactively connect to simulated reader on mount
+  useEffect(() => {
+    if (!connectedReader && !isConnecting) {
+      initAndConnectSimulatedReader().catch(() => {});
+    }
+  }, [connectedReader, isConnecting, initAndConnectSimulatedReader]);
 
   const handleStartPayment = () => {
     navigation.navigate('Processing', {
@@ -284,7 +297,16 @@ export const TapReadyScreen: React.FC<TapReadyScreenProps> = ({ navigation, rout
 
         {/* Tap Illustration */}
         <View style={styles.illustWrap}>
-          <TapIllustration onPress={handleStartPayment} />
+          <TapIllustration
+            onPress={handleStartPayment}
+            hintText={
+              isConnecting
+                ? 'Connecting simulated reader...'
+                : connectedReader
+                ? 'Simulated reader ready · Tap to pay'
+                : 'Tap card or anywhere to simulate'
+            }
+          />
         </View>
       </View>
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Animated, View, StyleSheet, Easing } from 'react-native';
 import { colors } from '../constants/theme';
 
@@ -18,12 +18,12 @@ export const RadarAnimation: React.FC<RadarAnimationProps> = ({
   color = colors.primary,
   rings = 3,
 }) => {
-  const ringRefs = useRef<Ring[]>(
+  const [ringRefs] = useState<Ring[]>(() =>
     Array.from({ length: rings }, () => ({
       scale: new Animated.Value(0.3),
       opacity: new Animated.Value(0.8),
     }))
-  ).current;
+  );
 
   useEffect(() => {
     const delay = 600;

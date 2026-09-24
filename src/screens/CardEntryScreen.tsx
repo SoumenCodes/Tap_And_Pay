@@ -14,8 +14,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
-
-import { colors, radius } from '../constants/theme';
 import { formatAUD } from '../utils/feeCalculator';
 import type { RootStackParamList } from '../types';
 
@@ -40,7 +38,7 @@ export const CardEntryScreen: React.FC<CardEntryScreenProps> = ({
   const [cardNumber, setCardNumber] = useState('4242 4242 4242 4242');
   const [expiry, setExpiry] = useState('12/28');
   const [cvc, setCvc] = useState('123');
-  const [cardholder, setCardholder] = useState('Jane Rocket');
+  const [cardholder, setCardholder] = useState('');
 
   const handlePay = () => {
     navigation.navigate('Processing', {

@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 
-import { colors, radius } from '../constants/theme';
+import { radius } from '../constants/theme';
 import { AmountDisplay } from '../components/AmountDisplay';
 import type { RootStackParamList } from '../types';
 
@@ -53,10 +53,19 @@ export const ReceiptScreen: React.FC<ReceiptScreenProps> = ({ navigation, route 
   const topPadding = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 28) : 24) + 16;
   const { transaction } = route.params;
 
+  const formattedDate = new Date(transaction.timestamp).toLocaleDateString('en-AU', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `Receipt from ${transaction.storeName}\nTotal Paid: $${transaction.amount.toFixed(2)}\nMethod: ${transaction.paymentMethod}\nStatus: Paid\nDate: 21 Sep 2026, 09:41 AM\nPayment ID: ${transaction.paymentId}\nPowered by Stripe`,
+        message: `Receipt from ${transaction.storeName}\nTotal Paid: $${transaction.amount.toFixed(2)}\nMethod: ${transaction.paymentMethod}\nStatus: Paid\nDate: ${formattedDate}\nPayment ID: ${transaction.paymentId}\nPowered by Stripe`,
       });
     } catch {
       // ignore
@@ -106,7 +115,7 @@ export const ReceiptScreen: React.FC<ReceiptScreenProps> = ({ navigation, route 
             </View>
             <View>
               <Text style={styles.storeName}>Demo Store</Text>
-              <Text style={styles.storeSub}>Soumen's Business</Text>
+              <Text style={styles.storeSub}>{"Soumen's Business"}</Text>
             </View>
           </View>
 
@@ -130,7 +139,7 @@ export const ReceiptScreen: React.FC<ReceiptScreenProps> = ({ navigation, route 
             {/* Date & Time */}
             <View style={styles.detailBlock}>
               <Text style={styles.fieldLabel}>Date & Time</Text>
-              <Text style={styles.fieldValue}>21 Sep 2026, 09:41 AM</Text>
+              <Text style={styles.fieldValue}>{formattedDate}</Text>
             </View>
 
             {/* Payment Method */}

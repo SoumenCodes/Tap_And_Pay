@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, typography, spacing, radius } from '../constants/theme';
+import { typography, spacing, radius } from '../constants/theme';
 
 interface StatusBadgeProps {
   status: 'paid' | 'pending' | 'failed' | 'cancelled';

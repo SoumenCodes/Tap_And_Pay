@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import Svg, { Rect, Path, Circle, G, Text as SvgText } from 'react-native-svg';
-import { colors, radius, spacing, typography } from '../constants/theme';
+import { View, StyleSheet } from 'react-native';
+import Svg, { Rect, Path, Circle, G } from 'react-native-svg';
+import { spacing } from '../constants/theme';
 
 interface PaymentCardLogosProps {
   size?: 'sm' | 'md' | 'lg';

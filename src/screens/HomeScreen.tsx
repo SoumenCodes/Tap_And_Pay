@@ -11,7 +11,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { colors, radius } from '../constants/theme';
 import { AmountDisplay } from '../components/AmountDisplay';
 import { Keypad } from '../components/Keypad';
 import { MethodToggle } from '../components/MethodToggle';
@@ -106,7 +105,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           </View>
           <View style={styles.storeInfo}>
             <Text style={styles.storeName}>Demo Store</Text>
-            <Text style={styles.storeSub}>Soumen's Business</Text>
+            <Text style={styles.storeSub}>{"Soumen's Business"}</Text>
           </View>
           <Ionicons name="chevron-down" size={16} color="#64748B" />
         </TouchableOpacity>

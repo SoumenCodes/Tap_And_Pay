@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 
-import { colors, radius } from '../constants/theme';
+import { radius } from '../constants/theme';
 import { MethodToggle } from '../components/MethodToggle';
 import { calculateFee, formatAUD, type PaymentMethodType } from '../utils/feeCalculator';
 import type { RootStackParamList } from '../types';
@@ -106,13 +106,13 @@ export const FeeConfirmationScreen: React.FC<FeeConfirmationScreenProps> = ({
 
           {/* 1.7% Fee */}
           <View style={styles.row}>
-            <Text style={styles.rowLabel}>1.7% fee</Text>
+            <Text style={styles.rowLabel}>1.7% Stripe fees</Text>
             <Text style={styles.rowValue}>{formatAUD(feeBreakdown.percentageFee)}</Text>
           </View>
 
           {/* Fixed Fee */}
           <View style={styles.row}>
-            <Text style={styles.rowLabel}>Fixed fee</Text>
+            <Text style={styles.rowLabel}>Fixed Transation Charge</Text>
             <Text style={styles.rowValue}>{formatAUD(feeBreakdown.fixedFee)}</Text>
           </View>
 

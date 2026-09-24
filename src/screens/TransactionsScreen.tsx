@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, radius } from '../constants/theme';
+import { radius } from '../constants/theme';
 import { StatusBadge } from '../components/StatusBadge';
 import { formatAUD } from '../utils/feeCalculator';
 

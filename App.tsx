@@ -4,13 +4,28 @@ import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, NativeModules } from 'react-native';
 
 import { AppNavigator } from './src/navigation/AppNavigator';
+import { fetchConnectionToken } from './src/services/stripeApi';
+import { TerminalProvider } from './src/context/TerminalContext';
+
+// Dynamically load native StripeTerminalProvider only if native binary contains it
+const hasNativeStripeTerminal = Boolean(NativeModules?.StripeTerminalReactNative);
+
+let StripeTerminalProvider: React.ComponentType<any> | null = null;
+if (hasNativeStripeTerminal) {
+  try {
+    StripeTerminalProvider =
+      require('@stripe/stripe-terminal-react-native').StripeTerminalProvider;
+  } catch (err) {
+    console.warn('Could not load native StripeTerminalProvider:', err);
+  }
+}
 
 export default function App() {
-  return (
-    <SafeAreaProvider>
+  const content = (
+    <TerminalProvider>
       <GestureHandlerRootView style={styles.root}>
         <StatusBar style="dark" />
         <NavigationContainer
@@ -35,6 +50,21 @@ export default function App() {
           <AppNavigator />
         </NavigationContainer>
       </GestureHandlerRootView>
+    </TerminalProvider>
+  );
+
+  return (
+    <SafeAreaProvider>
+      {StripeTerminalProvider ? (
+        <StripeTerminalProvider
+          tokenProvider={fetchConnectionToken}
+          logLevel="verbose"
+        >
+          {content}
+        </StripeTerminalProvider>
+      ) : (
+        content
+      )}
     </SafeAreaProvider>
   );
 }

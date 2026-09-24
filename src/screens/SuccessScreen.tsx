@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 
-import { colors, radius } from '../constants/theme';
+import { radius } from '../constants/theme';
 import { AmountDisplay } from '../components/AmountDisplay';
 import type { RootStackParamList } from '../types';
 
@@ -30,7 +30,7 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({ navigation, route 
   const topPadding = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 28) : 24) + 24;
   const { amount, currency, transaction } = route.params;
 
-  const scaleCheck = useRef(new Animated.Value(0)).current;
+  const [scaleCheck] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     Animated.spring(scaleCheck, {
@@ -74,7 +74,16 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({ navigation, route 
           <AmountDisplay amount={amount} currency={currency} size="lg" color="#0F172A" />
         </View>
 
-        <Text style={styles.dateText}>21 Sep 2026, 09:41 AM</Text>
+        <Text style={styles.dateText}>
+          {new Date(transaction.timestamp).toLocaleDateString('en-AU', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true,
+          })}
+        </Text>
       </View>
 
       {/* ── Payment Details Card ── */}
@@ -102,7 +111,9 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({ navigation, route 
           <Ionicons name="receipt-outline" size={18} color="#64748B" />
           <View style={styles.paymentIdCol}>
             <Text style={styles.paymentIdLabel}>Payment ID</Text>
-            <Text style={styles.paymentIdValue}>pi_3N5x...8F2d</Text>
+            <Text style={styles.paymentIdValue} numberOfLines={1} ellipsizeMode="middle">
+              {transaction.paymentId}
+            </Text>
           </View>
           <TouchableOpacity activeOpacity={0.6}>
             <Ionicons name="copy-outline" size={16} color="#64748B" />

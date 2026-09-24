@@ -306,6 +306,8 @@ const NativeTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ child
         discoveryMethod: 'tapToPay',
         reader: readerToConnect,
         locationId,
+        merchantDisplayName: 'South Eastern Taxi Brokers',
+        tosAcceptancePermitted: true,
         autoReconnectOnUnexpectedDisconnect: true,
       });
 

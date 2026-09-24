@@ -45,6 +45,8 @@
       [
         "@stripe/stripe-terminal-react-native",
         {
+          "tapToPayCheck": true,
+          "appDelegate": true,
           "bluetoothBackgroundMode": true,
           "locationWhenInUsePermission": "Location access is required to accept contactless payments with Stripe Terminal.",
           "bluetoothPeripheralPermission": "Bluetooth access is required to connect to card readers."

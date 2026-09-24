@@ -90,7 +90,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ navigation }) => {
       >
         {/* Official Taxi Logo */}
         <Image
-          source={require('../../assets/taxi-logo.webp')}
+          source={require('../../assets/taxi-logo.png')}
           style={styles.logo}
           resizeMode="contain"
         />

@@ -63,7 +63,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/taxi-logo.webp",
+          "image": "./assets/taxi-logo.png",
           "resizeMode": "contain",
           "backgroundColor": "#FFFFFF"
         }

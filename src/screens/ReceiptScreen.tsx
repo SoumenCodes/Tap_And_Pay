@@ -25,16 +25,35 @@ interface ReceiptScreenProps {
   route: ReceiptRouteProp;
 }
 
-// ─── Small Visa Badge ───
-const VisaBadge: React.FC = () => (
-  <View style={visaStyles.badge}>
-    <Text style={visaStyles.text}>VISA</Text>
-  </View>
-);
+// ─── Dynamic Card Brand Badge ───
+const BrandBadge: React.FC<{ brand?: string }> = ({ brand }) => {
+  const b = (brand || '').toLowerCase();
+  let bg = '#1A1F71';
+  let label = 'VISA';
 
-const visaStyles = StyleSheet.create({
+  if (b.includes('master')) {
+    bg = '#EB001B';
+    label = 'MC';
+  } else if (b.includes('amex')) {
+    bg = '#006FCF';
+    label = 'AMEX';
+  } else if (b.includes('eftpos')) {
+    bg = '#00843D';
+    label = 'EFTPOS';
+  } else if (!b.includes('visa')) {
+    bg = '#475569';
+    label = (brand || 'CARD').toUpperCase();
+  }
+
+  return (
+    <View style={[brandStyles.badge, { backgroundColor: bg }]}>
+      <Text style={brandStyles.text}>{label}</Text>
+    </View>
+  );
+};
+
+const brandStyles = StyleSheet.create({
   badge: {
-    backgroundColor: '#1A1F71',
     borderRadius: 3,
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -65,7 +84,7 @@ export const ReceiptScreen: React.FC<ReceiptScreenProps> = ({ navigation, route 
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `Receipt from ${transaction.storeName}\nTotal Paid: $${transaction.amount.toFixed(2)}\nMethod: ${transaction.paymentMethod}\nStatus: Paid\nDate: ${formattedDate}\nPayment ID: ${transaction.paymentId}\nPowered by Stripe`,
+        message: `Receipt from ${transaction.storeName || 'South Eastern Taxi Brokers'}\nTotal Paid: $${transaction.amount.toFixed(2)}\nMethod: ${transaction.paymentMethod}\nStatus: Paid\nDate: ${formattedDate}\nTransaction ID: ${transaction.paymentId}\nPowered by Stripe`,
       });
     } catch {
       // ignore
@@ -111,11 +130,11 @@ export const ReceiptScreen: React.FC<ReceiptScreenProps> = ({ navigation, route 
           {/* Store Info */}
           <View style={styles.storeRow}>
             <View style={styles.storeIconWrap}>
-              <Ionicons name="storefront-outline" size={20} color="#2563EB" />
+              <Ionicons name="car-outline" size={20} color="#2563EB" />
             </View>
             <View>
-              <Text style={styles.storeName}>Demo Store</Text>
-              <Text style={styles.storeSub}>{"Soumen's Business"}</Text>
+              <Text style={styles.storeName}>{transaction.storeName || 'South Eastern Taxi Brokers'}</Text>
+              <Text style={styles.storeSub}>Official Contactless Payment</Text>
             </View>
           </View>
 
@@ -149,7 +168,7 @@ export const ReceiptScreen: React.FC<ReceiptScreenProps> = ({ navigation, route 
                 <Text style={styles.fieldValue}>
                   {transaction.paymentMethod} ({transaction.cardBrand} •••• {transaction.cardLast4})
                 </Text>
-                <VisaBadge />
+                <BrandBadge brand={transaction.cardBrand} />
               </View>
             </View>
 
@@ -172,12 +191,12 @@ export const ReceiptScreen: React.FC<ReceiptScreenProps> = ({ navigation, route 
               </View>
             )}
 
-            {/* Payment ID */}
+            {/* Transaction ID */}
             <View style={styles.detailBlock}>
-              <Text style={styles.fieldLabel}>Payment ID</Text>
+              <Text style={styles.fieldLabel}>Transaction ID</Text>
               <View style={styles.rowBetween}>
-                <Text style={styles.fieldValue}>{transaction.paymentId}</Text>
-                <TouchableOpacity activeOpacity={0.6}>
+                <Text style={styles.fieldValue} selectable>{transaction.paymentId}</Text>
+                <TouchableOpacity activeOpacity={0.6} onPress={handleShare}>
                   <Ionicons name="copy-outline" size={16} color="#64748B" />
                 </TouchableOpacity>
               </View>

@@ -33,8 +33,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   // Selected payment method toggle (Tap vs Card)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('tap');
 
-  // Left-to-right string input (default '100' for $100.00 example)
-  const [rawInput, setRawInput] = useState<string>('100');
+  // Left-to-right string input (default '0')
+  const [rawInput, setRawInput] = useState<string>('0');
 
   const numericAmount = parseFloat(rawInput) || 0;
   const isValid = numericAmount > 0;

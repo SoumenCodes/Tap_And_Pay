@@ -101,23 +101,20 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({ navigation, route 
         {/* Row 2: Store info */}
         <View style={styles.row}>
           <Ionicons name="storefront-outline" size={18} color="#64748B" />
-          <Text style={styles.rowText}>Demo Store</Text>
+          <Text style={styles.rowText}>{transaction.storeName || 'South Eastern Taxi Brokers'}</Text>
         </View>
 
         <View style={styles.divider} />
 
-        {/* Row 3: Payment ID */}
+        {/* Row 3: Transaction ID */}
         <View style={styles.row}>
           <Ionicons name="receipt-outline" size={18} color="#64748B" />
           <View style={styles.paymentIdCol}>
-            <Text style={styles.paymentIdLabel}>Payment ID</Text>
-            <Text style={styles.paymentIdValue} numberOfLines={1} ellipsizeMode="middle">
+            <Text style={styles.paymentIdLabel}>Transaction ID</Text>
+            <Text style={styles.paymentIdValue} numberOfLines={1} ellipsizeMode="middle" selectable>
               {transaction.paymentId}
             </Text>
           </View>
-          <TouchableOpacity activeOpacity={0.6}>
-            <Ionicons name="copy-outline" size={16} color="#64748B" />
-          </TouchableOpacity>
         </View>
       </View>
 

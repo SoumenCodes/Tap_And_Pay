@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,81 +13,55 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { radius } from '../constants/theme';
 import { StatusBadge } from '../components/StatusBadge';
 import { formatAUD } from '../utils/feeCalculator';
+import { getTransactions, subscribeTransactions } from '../services/transactionStore';
+import type { Transaction } from '../types';
 
-const MOCK_TRANSACTIONS = [
-  {
-    id: '1',
-    amount: 101.80,
-    currency: '$' as const,
-    method: 'Tap to Pay',
-    status: 'success' as const,
-    cardBrand: 'Visa',
-    cardLast4: '4242',
-    storeName: 'Demo Store',
-    timestamp: '21 Sep 2026, 09:41 AM',
-    paymentId: 'pi_3N5x...8F2d',
-  },
-  {
-    id: '2',
-    amount: 35.00,
-    currency: '$' as const,
-    method: 'Card',
-    status: 'success' as const,
-    cardBrand: 'Mastercard',
-    cardLast4: '5353',
-    storeName: 'Demo Store',
-    timestamp: '21 Sep 2026, 08:15 AM',
-    paymentId: 'pi_4K7y...9G3e',
-  },
-  {
-    id: '3',
-    amount: 12.50,
-    currency: '$' as const,
-    method: 'Tap to Pay',
-    status: 'failed' as const,
-    cardBrand: 'Visa',
-    cardLast4: '1111',
-    storeName: 'Demo Store',
-    timestamp: '20 Sep 2026, 05:22 PM',
-    paymentId: 'pi_5L8z...1H4f',
-  },
-  {
-    id: '4',
-    amount: 102.00,
-    currency: '$' as const,
-    method: 'Card',
-    status: 'success' as const,
-    cardBrand: 'Amex',
-    cardLast4: '0005',
-    storeName: 'Demo Store',
-    timestamp: '19 Sep 2026, 02:10 PM',
-    paymentId: 'pi_6M9a...2I5g',
-  },
-];
+const TransactionItem: React.FC<{ item: Transaction }> = ({ item }) => {
+  const formattedTime = new Date(item.timestamp).toLocaleDateString('en-AU', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
 
-const TransactionItem: React.FC<{ item: typeof MOCK_TRANSACTIONS[0] }> = ({ item }) => (
-  <TouchableOpacity style={itemStyles.row} activeOpacity={0.7}>
-    <View style={[itemStyles.iconWrap, { backgroundColor: item.status === 'success' ? '#DCFCE7' : '#FEE2E2' }]}>
-      <Ionicons
-        name={item.status === 'success' ? 'card-outline' : 'close-circle-outline'}
-        size={18}
-        color={item.status === 'success' ? '#16A34A' : '#EF4444'}
-      />
-    </View>
-    <View style={itemStyles.info}>
-      <Text style={itemStyles.cardText}>
-        {item.method} • {item.cardBrand} •••• {item.cardLast4}
-      </Text>
-      <Text style={itemStyles.time}>{item.timestamp}</Text>
-    </View>
-    <View style={itemStyles.right}>
-      <Text style={[itemStyles.amount, { color: item.status === 'success' ? '#0F172A' : '#EF4444' }]}>
-        {formatAUD(item.amount)}
-      </Text>
-      <StatusBadge status={item.status === 'success' ? 'paid' : 'failed'} />
-    </View>
-  </TouchableOpacity>
-);
+  return (
+    <TouchableOpacity style={itemStyles.row} activeOpacity={0.7}>
+      <View
+        style={[
+          itemStyles.iconWrap,
+          { backgroundColor: item.status === 'success' ? '#DCFCE7' : '#FEE2E2' },
+        ]}
+      >
+        <Ionicons
+          name={item.status === 'success' ? 'card-outline' : 'close-circle-outline'}
+          size={18}
+          color={item.status === 'success' ? '#16A34A' : '#EF4444'}
+        />
+      </View>
+      <View style={itemStyles.info}>
+        <Text style={itemStyles.cardText}>
+          {item.paymentMethod} • {item.cardBrand} •••• {item.cardLast4}
+        </Text>
+        <Text style={itemStyles.time}>{formattedTime}</Text>
+        <Text style={itemStyles.txnId} numberOfLines={1} ellipsizeMode="middle">
+          {item.paymentId}
+        </Text>
+      </View>
+      <View style={itemStyles.right}>
+        <Text
+          style={[
+            itemStyles.amount,
+            { color: item.status === 'success' ? '#0F172A' : '#EF4444' },
+          ]}
+        >
+          {formatAUD(item.amount)}
+        </Text>
+        <StatusBadge status={item.status === 'success' ? 'paid' : 'failed'} />
+      </View>
+    </TouchableOpacity>
+  );
+};
 
 const itemStyles = StyleSheet.create({
   row: {
@@ -107,29 +81,41 @@ const itemStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   info: { flex: 1 },
-  cardText: { fontSize: 13, fontWeight: '500', color: '#0F172A' },
-  time: { fontSize: 12, color: '#94A3B8', marginTop: 2 },
+  cardText: { fontSize: 13, fontWeight: '600', color: '#0F172A' },
+  time: { fontSize: 11, color: '#64748B', marginTop: 2 },
+  txnId: { fontSize: 10, color: '#94A3B8', marginTop: 1, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' },
   right: { alignItems: 'flex-end', gap: 4 },
   amount: { fontSize: 14, fontWeight: '700' },
 });
 
 export const TransactionsScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
-  const topPadding = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 28) : 24) + 16;
+  const topPadding =
+    Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight || 28 : 24) + 16;
 
-  const totalSuccess = MOCK_TRANSACTIONS
+  const [transactions, setTransactions] = useState<Transaction[]>(getTransactions());
+
+  useEffect(() => {
+    // Keep transactions updated when new payments succeed
+    const unsubscribe = subscribeTransactions(() => {
+      setTransactions(getTransactions());
+    });
+    return unsubscribe;
+  }, []);
+
+  const totalSuccess = transactions
     .filter((t) => t.status === 'success')
     .reduce((sum, t) => sum + t.amount, 0);
 
+  const successCount = transactions.filter((t) => t.status === 'success').length;
+  const failedCount = transactions.filter((t) => t.status === 'failed').length;
+
   return (
-    <View style={[styles.root, { paddingTop: topPadding }]}>
+    <View style={[styles.root, { paddingTop: topPadding, paddingBottom: Math.max(insets.bottom, 16) }]}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       <View style={styles.header}>
         <Text style={styles.title}>Transactions</Text>
-        <TouchableOpacity style={styles.filterBtn} activeOpacity={0.6}>
-          <Ionicons name="options-outline" size={18} color="#64748B" />
-        </TouchableOpacity>
       </View>
 
       {/* Summary Card */}
@@ -140,11 +126,11 @@ export const TransactionsScreen: React.FC = () => {
         </View>
         <View style={styles.statsRow}>
           <View style={styles.stat}>
-            <Text style={[styles.statNum, { color: '#FFFFFF' }]}>3</Text>
+            <Text style={[styles.statNum, { color: '#FFFFFF' }]}>{successCount}</Text>
             <Text style={styles.statLabel}>Success</Text>
           </View>
           <View style={[styles.stat, styles.statBorder]}>
-            <Text style={[styles.statNum, { color: '#FCA5A5' }]}>1</Text>
+            <Text style={[styles.statNum, { color: '#FCA5A5' }]}>{failedCount}</Text>
             <Text style={styles.statLabel}>Failed</Text>
           </View>
         </View>
@@ -152,14 +138,24 @@ export const TransactionsScreen: React.FC = () => {
 
       <Text style={styles.sectionLabel}>Recent Payments</Text>
 
-      <View style={styles.listCard}>
-        <FlatList
-          data={MOCK_TRANSACTIONS}
-          keyExtractor={(i) => i.id}
-          renderItem={({ item }) => <TransactionItem item={item} />}
-          scrollEnabled={false}
-        />
-      </View>
+      {transactions.length === 0 ? (
+        <View style={styles.emptyCard}>
+          <Ionicons name="receipt-outline" size={44} color="#94A3B8" />
+          <Text style={styles.emptyTitle}>No Transactions Yet</Text>
+          <Text style={styles.emptySub}>
+            Live payments processed via Tap to Pay or Card will appear here with verified Stripe transaction IDs.
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.listCard}>
+          <FlatList
+            data={transactions}
+            keyExtractor={(i) => i.id}
+            renderItem={({ item }) => <TransactionItem item={item} />}
+            showsVerticalScrollIndicator={false}
+          />
+        </View>
+      )}
     </View>
   );
 };
@@ -181,16 +177,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0F172A',
     letterSpacing: -0.4,
-  },
-  filterBtn: {
-    width: 36,
-    height: 36,
-    backgroundColor: '#F8FAFC',
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   summaryCard: {
     backgroundColor: '#2563EB',
@@ -243,11 +229,36 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   listCard: {
+    flex: 1,
     backgroundColor: '#FFFFFF',
     borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     overflow: 'hidden',
+  },
+  emptyCard: {
+    flex: 1,
+    maxHeight: 280,
+    backgroundColor: '#F8FAFC',
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    gap: 8,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  emptySub: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });
 

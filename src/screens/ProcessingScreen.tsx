@@ -17,6 +17,7 @@ import { RouteProp } from '@react-navigation/native';
 
 import { useTerminal } from '../context/TerminalContext';
 import { radius } from '../constants/theme';
+import { addTransaction } from '../services/transactionStore';
 import type { RootStackParamList, Transaction } from '../types';
 
 type ProcessingNavProp = NativeStackNavigationProp<RootStackParamList, 'Processing'>;
@@ -165,12 +166,16 @@ export const ProcessingScreen: React.FC<ProcessingScreenProps> = ({ navigation, 
           charge?.paymentMethodDetails?.cardPresentDetails ||
           charge?.paymentMethodDetails?.cardDetails;
 
-        const rawBrand = cardDetails?.brand || 'Visa';
+        const passedCard = route.params.cardDetails;
+        const rawBrand = cardDetails?.brand || passedCard?.brand || 'Card';
         const brand = rawBrand.charAt(0).toUpperCase() + rawBrand.slice(1);
-        const last4 = cardDetails?.last4 || '4242';
+        const last4 = cardDetails?.last4 || passedCard?.last4 || '••••';
+
+        // Real Stripe Transaction ID (charge.id like ch_... or paymentIntent.id like pi_...)
+        const realTxnId = charge?.id || pi.id || 'pi_terminal_' + Date.now();
 
         const transaction: Transaction = {
-          id: pi.id || 'tx_' + Math.random().toString(36).substring(2, 9),
+          id: realTxnId,
           amount,
           originalAmount: feeBreakdown?.originalAmount,
           fee: feeBreakdown?.totalFee,
@@ -182,10 +187,13 @@ export const ProcessingScreen: React.FC<ProcessingScreenProps> = ({ navigation, 
           paymentMethodType: paymentMethod,
           cardLast4: last4,
           cardBrand: brand,
-          paymentId: pi.id,
-          storeName: 'Demo Store',
+          paymentId: realTxnId,
+          storeName: 'South Eastern Taxi Brokers',
           timestamp: new Date(),
         };
+
+        // Record in transaction store
+        addTransaction(transaction);
 
         setTimeout(() => {
           if (!isCancelled) {

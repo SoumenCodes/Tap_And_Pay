@@ -50,6 +50,10 @@ export type RootStackParamList = {
     feeBreakdown?: FeeBreakdown;
     currency: Currency;
     paymentMethod: PaymentMethodType;
+    cardDetails?: {
+      last4: string;
+      brand: string;
+    };
   };
   Success: {
     amount: number;

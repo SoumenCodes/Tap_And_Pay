@@ -353,19 +353,7 @@ const NativeTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ child
               charges:
                 intentRes.charges && intentRes.charges.length > 0
                   ? intentRes.charges
-                  : [
-                      {
-                        id: 'ch_' + Math.random().toString(36).substring(2, 9),
-                        amount: intentRes.amount,
-                        paymentMethodDetails: {
-                          type: 'card',
-                          cardDetails: {
-                            brand: 'Visa',
-                            last4: '4242',
-                          },
-                        },
-                      },
-                    ],
+                  : [{ id: intentRes.paymentIntentId }],
             },
           };
         }

@@ -35,17 +35,66 @@ export const CardEntryScreen: React.FC<CardEntryScreenProps> = ({
 
   const { amount, feeBreakdown, currency } = route.params;
 
-  const [cardNumber, setCardNumber] = useState('4242 4242 4242 4242');
-  const [expiry, setExpiry] = useState('12/28');
-  const [cvc, setCvc] = useState('123');
+  // Blank by default with placeholders
+  const [cardNumber, setCardNumber] = useState('');
+  const [expiry, setExpiry] = useState('');
+  const [cvc, setCvc] = useState('');
   const [cardholder, setCardholder] = useState('');
 
+  // Format card number with spaces every 4 digits
+  const handleCardNumberChange = (text: string) => {
+    const raw = text.replace(/\D/g, '').slice(0, 16);
+    const parts = raw.match(/.{1,4}/g);
+    setCardNumber(parts ? parts.join(' ') : raw);
+  };
+
+  // Format MM/YY
+  const handleExpiryChange = (text: string) => {
+    const raw = text.replace(/\D/g, '').slice(0, 4);
+    if (raw.length >= 3) {
+      setExpiry(`${raw.slice(0, 2)}/${raw.slice(2)}`);
+    } else {
+      setExpiry(raw);
+    }
+  };
+
+  // Format CVC
+  const handleCvcChange = (text: string) => {
+    const raw = text.replace(/\D/g, '').slice(0, 4);
+    setCvc(raw);
+  };
+
+  // Dynamic card brand detection
+  const getCardBrand = (num: string): { name: string; badge: string; color: string } | null => {
+    const raw = num.replace(/\D/g, '');
+    if (!raw) return null;
+    if (raw.startsWith('4')) {
+      return { name: 'Visa', badge: 'VISA', color: '#1A1F71' };
+    }
+    if (/^(5[1-5]|2[2-7])/.test(raw)) {
+      return { name: 'Mastercard', badge: 'MC', color: '#EB001B' };
+    }
+    if (/^3[47]/.test(raw)) {
+      return { name: 'Amex', badge: 'AMEX', color: '#006FCF' };
+    }
+    return { name: 'Card', badge: 'CARD', color: '#475569' };
+  };
+
+  const detectedBrand = getCardBrand(cardNumber);
+  const rawDigits = cardNumber.replace(/\D/g, '');
+  const isFormValid = rawDigits.length >= 15 && expiry.length === 5 && cvc.length >= 3;
+
   const handlePay = () => {
+    if (!isFormValid) return;
     navigation.navigate('Processing', {
       amount,
       feeBreakdown,
       currency,
       paymentMethod: 'card',
+      cardDetails: {
+        last4: rawDigits.slice(-4),
+        brand: detectedBrand?.name || 'Card',
+      },
     });
   };
 
@@ -81,6 +130,7 @@ export const CardEntryScreen: React.FC<CardEntryScreenProps> = ({
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           {/* ── Total Banner ── */}
           <View style={styles.totalBanner}>
@@ -98,14 +148,19 @@ export const CardEntryScreen: React.FC<CardEntryScreenProps> = ({
                 <TextInput
                   style={styles.input}
                   value={cardNumber}
-                  onChangeText={setCardNumber}
+                  onChangeText={handleCardNumberChange}
                   placeholder="0000 0000 0000 0000"
+                  placeholderTextColor="#94A3B8"
                   keyboardType="numeric"
                   maxLength={19}
                 />
-                <View style={styles.visaBadge}>
-                  <Text style={styles.visaBadgeText}>VISA</Text>
-                </View>
+                {detectedBrand ? (
+                  <View style={[styles.brandBadge, { backgroundColor: detectedBrand.color }]}>
+                    <Text style={styles.brandBadgeText}>{detectedBrand.badge}</Text>
+                  </View>
+                ) : (
+                  <Ionicons name="card" size={18} color="#CBD5E1" />
+                )}
               </View>
             </View>
 
@@ -117,8 +172,9 @@ export const CardEntryScreen: React.FC<CardEntryScreenProps> = ({
                   <TextInput
                     style={styles.input}
                     value={expiry}
-                    onChangeText={setExpiry}
+                    onChangeText={handleExpiryChange}
                     placeholder="MM/YY"
+                    placeholderTextColor="#94A3B8"
                     keyboardType="numeric"
                     maxLength={5}
                   />
@@ -131,8 +187,9 @@ export const CardEntryScreen: React.FC<CardEntryScreenProps> = ({
                   <TextInput
                     style={styles.input}
                     value={cvc}
-                    onChangeText={setCvc}
+                    onChangeText={handleCvcChange}
                     placeholder="123"
+                    placeholderTextColor="#94A3B8"
                     keyboardType="numeric"
                     maxLength={4}
                     secureTextEntry
@@ -150,6 +207,8 @@ export const CardEntryScreen: React.FC<CardEntryScreenProps> = ({
                   value={cardholder}
                   onChangeText={setCardholder}
                   placeholder="Full name on card"
+                  placeholderTextColor="#94A3B8"
+                  autoCapitalize="words"
                 />
               </View>
             </View>
@@ -167,8 +226,9 @@ export const CardEntryScreen: React.FC<CardEntryScreenProps> = ({
         {/* ── Submit Button ── */}
         <View style={styles.buttonWrapper}>
           <TouchableOpacity
-            style={styles.payBtn}
+            style={[styles.payBtn, !isFormValid && styles.payBtnDisabled]}
             onPress={handlePay}
+            disabled={!isFormValid}
             activeOpacity={0.85}
           >
             <Text style={styles.payBtnText}>
@@ -262,13 +322,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
   },
-  visaBadge: {
-    backgroundColor: '#1A1F71',
+  brandBadge: {
     borderRadius: 4,
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  visaBadgeText: {
+  brandBadgeText: {
     color: '#FFFFFF',
     fontSize: 10,
     fontWeight: '800',
@@ -295,6 +354,10 @@ const styles = StyleSheet.create({
     height: 52,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  payBtnDisabled: {
+    backgroundColor: '#94A3B8',
+    opacity: 0.7,
   },
   payBtnText: {
     color: '#FFFFFF',

@@ -5,6 +5,8 @@ export interface CreatePaymentIntentResponse {
   clientSecret: string;
   paymentIntentId: string;
   amount: number;
+  amountInDollars?: number;
+  formattedAmount?: string;
   currency: string;
   status?: string;
   charges?: any[];
@@ -97,8 +99,17 @@ export async function createPaymentIntentOnBackend(
 
     if (!res.ok) {
       const errText = await res.text();
-      console.error(`❌ [API POST ${url}] Error (${res.status}):`, errText);
-      throw new Error(`Failed to create payment intent (${res.status}): ${errText}`);
+      let parsedMessage = errText;
+      try {
+        const parsed = JSON.parse(errText);
+        if (parsed.error) {
+          parsedMessage = parsed.error;
+        }
+      } catch {
+        // use raw text
+      }
+      console.error(`❌ [API POST ${url}] Error (${res.status}):`, parsedMessage);
+      throw new Error(parsedMessage);
     }
 
     const data = await res.json();

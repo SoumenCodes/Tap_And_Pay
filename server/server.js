@@ -124,23 +124,27 @@ app.post('/create_payment_intent', async (req, res) => {
     const normalizedCurrency = currency.toLowerCase().replace(/[^a-z]/g, '') || 'aud';
 
     if (paymentMethodType === 'card') {
-      let paymentMethodId = 'pm_card_visa';
       const cardInput = req.body.card;
-      if (cardInput && cardInput.number) {
-        try {
-          const pm = await stripe.paymentMethods.create({
-            type: 'card',
-            card: {
-              number: cardInput.number.replace(/\s/g, ''),
-              exp_month: parseInt(cardInput.expMonth, 10),
-              exp_year: parseInt(cardInput.expYear, 10),
-              cvc: cardInput.cvc,
-            },
-          });
-          paymentMethodId = pm.id;
-        } catch (pmErr) {
-          console.warn('Could not create paymentMethod from card, fallback to test card:', pmErr.message);
-        }
+      if (!cardInput || !cardInput.number) {
+        return res.status(400).json({ error: 'Card number is required for manual card entry.' });
+      }
+
+      let paymentMethod;
+      try {
+        paymentMethod = await stripe.paymentMethods.create({
+          type: 'card',
+          card: {
+            number: cardInput.number.replace(/\s/g, ''),
+            exp_month: parseInt(cardInput.expMonth, 10),
+            exp_year: parseInt(cardInput.expYear, 10),
+            cvc: String(cardInput.cvc || '').trim(),
+          },
+        });
+      } catch (pmErr) {
+        console.error('❌ Failed to create Stripe PaymentMethod:', pmErr.message);
+        return res.status(400).json({
+          error: `Stripe card validation error: ${pmErr.message}`,
+        });
       }
 
       let paymentIntent;
@@ -148,28 +152,36 @@ app.post('/create_payment_intent', async (req, res) => {
         paymentIntent = await stripe.paymentIntents.create({
           amount: amountInCents,
           currency: normalizedCurrency,
-          payment_method: paymentMethodId,
+          payment_method: paymentMethod.id,
           confirm: true,
           return_url: 'https://example.com/return',
           description: 'TapToPay - Manual Card Entry',
         });
       } catch (confirmErr) {
-        try {
-          paymentIntent = await stripe.paymentIntents.create({
-            amount: amountInCents,
-            currency: normalizedCurrency,
-            payment_method_types: ['card'],
-            description: 'TapToPay - Manual Card Entry',
-          });
-        } catch (fallbackErr) {
-          return res.status(400).json({ error: confirmErr.message || fallbackErr.message });
+        console.error('❌ Failed to confirm Stripe charge:', confirmErr.message);
+        return res.status(400).json({
+          error: `Stripe charge declined or failed: ${confirmErr.message}`,
+        });
+      }
+
+      if (paymentIntent.status !== 'succeeded') {
+        let msg = `Payment incomplete (Status: "${paymentIntent.status}"). The card was not billed.`;
+        if (paymentIntent.status === 'requires_action') {
+          msg = `Bank 3D-Secure authentication (OTP) is required by your card issuer. Direct API charges without web OTP redirect cannot be authorized. Please test with Contactless Tap to Pay on the Android Preview APK.`;
         }
+        return res.status(400).json({
+          error: msg,
+          paymentIntentId: paymentIntent.id,
+          status: paymentIntent.status,
+        });
       }
 
       return res.json({
         clientSecret: paymentIntent.client_secret,
         paymentIntentId: paymentIntent.id,
-        amount: paymentIntent.amount,
+        amount: paymentIntent.amount, // Stripe integer cents (e.g. 132 cents)
+        amountInDollars: Number((paymentIntent.amount / 100).toFixed(2)), // Decimal dollars (e.g. 1.32)
+        formattedAmount: `$${(paymentIntent.amount / 100).toFixed(2)} ${paymentIntent.currency.toUpperCase()}`,
         currency: paymentIntent.currency,
         status: paymentIntent.status,
         charges: paymentIntent.charges?.data || [],
@@ -204,6 +216,8 @@ app.post('/create_payment_intent', async (req, res) => {
       clientSecret: paymentIntent.client_secret,
       paymentIntentId: paymentIntent.id,
       amount: paymentIntent.amount,
+      amountInDollars: Number((paymentIntent.amount / 100).toFixed(2)),
+      formattedAmount: `$${(paymentIntent.amount / 100).toFixed(2)} ${paymentIntent.currency.toUpperCase()}`,
       currency: paymentIntent.currency,
       status: paymentIntent.status,
     });

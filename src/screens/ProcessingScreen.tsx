@@ -155,7 +155,12 @@ export const ProcessingScreen: React.FC<ProcessingScreenProps> = ({ navigation, 
       setHasError(false);
       setErrorText(null);
 
-      const result = await runSimulatedPayment(amount, paymentMethod, feeBreakdown);
+      const result = await runSimulatedPayment(
+        amount,
+        paymentMethod,
+        feeBreakdown,
+        route.params.cardInput
+      );
 
       if (isCancelled) return;
 
@@ -189,7 +194,7 @@ export const ProcessingScreen: React.FC<ProcessingScreenProps> = ({ navigation, 
           cardBrand: brand,
           paymentId: realTxnId,
           storeName: 'South Eastern Taxi Brokers',
-          timestamp: new Date(),
+          timestamp: new Date().toISOString(),
         };
 
         // Record in transaction store

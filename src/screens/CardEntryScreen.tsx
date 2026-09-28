@@ -86,6 +86,7 @@ export const CardEntryScreen: React.FC<CardEntryScreenProps> = ({
 
   const handlePay = () => {
     if (!isFormValid) return;
+    const [expMonth, expYear] = expiry.split('/');
     navigation.navigate('Processing', {
       amount,
       feeBreakdown,
@@ -94,6 +95,12 @@ export const CardEntryScreen: React.FC<CardEntryScreenProps> = ({
       cardDetails: {
         last4: rawDigits.slice(-4),
         brand: detectedBrand?.name || 'Card',
+      },
+      cardInput: {
+        number: rawDigits,
+        expMonth: expMonth || '',
+        expYear: expYear ? (expYear.length === 2 ? `20${expYear}` : expYear) : '',
+        cvc,
       },
     });
   };

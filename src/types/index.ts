@@ -18,7 +18,7 @@ export interface Transaction {
   cardBrand: string;
   paymentId: string;
   storeName: string;
-  timestamp: Date;
+  timestamp: string; // ISO string for serializability in React Navigation
 }
 
 export interface Store {
@@ -53,6 +53,12 @@ export type RootStackParamList = {
     cardDetails?: {
       last4: string;
       brand: string;
+    };
+    cardInput?: {
+      number: string;
+      expMonth: string;
+      expYear: string;
+      cvc: string;
     };
   };
   Success: {

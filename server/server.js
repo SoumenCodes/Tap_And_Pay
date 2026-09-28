@@ -69,6 +69,8 @@ app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
     stripeConfigured: Boolean(stripeSecretKey && !stripeSecretKey.includes('placeholder')),
+    livemode: Boolean(stripeSecretKey && stripeSecretKey.startsWith('sk_live_')),
+    mode: stripeSecretKey?.startsWith('sk_live_') ? 'live' : 'test',
     timestamp: new Date().toISOString(),
   });
 });
@@ -122,23 +124,46 @@ app.post('/create_payment_intent', async (req, res) => {
     const normalizedCurrency = currency.toLowerCase().replace(/[^a-z]/g, '') || 'aud';
 
     if (paymentMethodType === 'card') {
+      let paymentMethodId = 'pm_card_visa';
+      const cardInput = req.body.card;
+      if (cardInput && cardInput.number) {
+        try {
+          const pm = await stripe.paymentMethods.create({
+            type: 'card',
+            card: {
+              number: cardInput.number.replace(/\s/g, ''),
+              exp_month: parseInt(cardInput.expMonth, 10),
+              exp_year: parseInt(cardInput.expYear, 10),
+              cvc: cardInput.cvc,
+            },
+          });
+          paymentMethodId = pm.id;
+        } catch (pmErr) {
+          console.warn('Could not create paymentMethod from card, fallback to test card:', pmErr.message);
+        }
+      }
+
       let paymentIntent;
       try {
         paymentIntent = await stripe.paymentIntents.create({
           amount: amountInCents,
           currency: normalizedCurrency,
-          payment_method: 'pm_card_visa',
+          payment_method: paymentMethodId,
           confirm: true,
           return_url: 'https://example.com/return',
-          description: 'TapToPay Demo - Manual Card Entry (Test Mode)',
+          description: 'TapToPay - Manual Card Entry',
         });
-      } catch {
-        paymentIntent = await stripe.paymentIntents.create({
-          amount: amountInCents,
-          currency: normalizedCurrency,
-          payment_method_types: ['card'],
-          description: 'TapToPay Demo - Manual Card Entry (Test Mode)',
-        });
+      } catch (confirmErr) {
+        try {
+          paymentIntent = await stripe.paymentIntents.create({
+            amount: amountInCents,
+            currency: normalizedCurrency,
+            payment_method_types: ['card'],
+            description: 'TapToPay - Manual Card Entry',
+          });
+        } catch (fallbackErr) {
+          return res.status(400).json({ error: confirmErr.message || fallbackErr.message });
+        }
       }
 
       return res.json({

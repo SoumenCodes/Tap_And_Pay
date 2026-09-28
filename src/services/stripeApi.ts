@@ -71,10 +71,19 @@ export async function fetchTerminalConfig(): Promise<{ locationId: string; strip
 export async function createPaymentIntentOnBackend(
   amount: number,
   currency: string = 'aud',
-  paymentMethodType: PaymentMethodType = 'tap'
+  paymentMethodType: PaymentMethodType = 'tap',
+  card?: { number: string; expMonth: string; expYear: string; cvc: string }
 ): Promise<CreatePaymentIntentResponse> {
   const url = `${config.backendUrl}/create_payment_intent`;
   try {
+    const maskedBody = {
+      amount,
+      currency,
+      paymentMethodType,
+      card: card ? { ...card, number: `•••• ${card.number.slice(-4)}`, cvc: '•••' } : undefined,
+    };
+    console.log(`📡 [API POST ${url}] Request:`, JSON.stringify(maskedBody, null, 2));
+
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -82,15 +91,18 @@ export async function createPaymentIntentOnBackend(
         amount,
         currency,
         paymentMethodType,
+        card,
       }),
     });
 
     if (!res.ok) {
       const errText = await res.text();
+      console.error(`❌ [API POST ${url}] Error (${res.status}):`, errText);
       throw new Error(`Failed to create payment intent (${res.status}): ${errText}`);
     }
 
     const data = await res.json();
+    console.log(`✅ [API POST ${url}] Response from backend:`, JSON.stringify(data, null, 2));
     return data;
   } catch (err: any) {
     console.error('Error creating payment intent on backend:', err);

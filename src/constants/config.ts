@@ -5,7 +5,7 @@ const defaultBackendUrl = 'https://tap-and-pay.onrender.com';
 export const config = {
   backendUrl: (process.env.EXPO_PUBLIC_BACKEND_URL || defaultBackendUrl).replace(/\/+$/, ''),
   locationId: process.env.EXPO_PUBLIC_STRIPE_LOCATION_ID || '',
-  simulatedReader: process.env.EXPO_PUBLIC_SIMULATED_READER !== 'false',
+  simulatedReader: process.env.EXPO_PUBLIC_SIMULATED_READER === 'true',
 };
 
 export default config;

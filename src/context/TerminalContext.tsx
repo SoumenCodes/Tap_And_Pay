@@ -20,7 +20,8 @@ interface TerminalContextValue {
   runSimulatedPayment: (
     amount: number,
     paymentMethod: PaymentMethodType,
-    feeBreakdown?: FeeBreakdown
+    feeBreakdown?: FeeBreakdown,
+    cardInput?: { number: string; expMonth: string; expYear: string; cvc: string }
   ) => Promise<{ success: boolean; paymentIntent?: any; error?: string }>;
   clearError: () => void;
 }
@@ -60,7 +61,8 @@ const SimulatedTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     async (
       amount: number,
       paymentMethod: PaymentMethodType,
-      feeBreakdown?: FeeBreakdown
+      feeBreakdown?: FeeBreakdown,
+      cardInput?: { number: string; expMonth: string; expYear: string; cvc: string }
     ): Promise<{ success: boolean; paymentIntent?: any; error?: string }> => {
       try {
         setIsProcessing(true);
@@ -68,7 +70,15 @@ const SimulatedTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
         if (paymentMethod === 'card') {
           setStatusMessage('Authorizing card transaction with Stripe...');
-          const intentRes = await createPaymentIntentOnBackend(amount, 'aud', 'card');
+          const intentRes = await createPaymentIntentOnBackend(amount, 'aud', 'card', cardInput);
+          console.log('💳 [STRIPE CARD API RESPONSE]:', JSON.stringify(intentRes, null, 2));
+
+          if (intentRes.status !== 'succeeded') {
+            throw new Error(
+              `Stripe did not confirm the charge (Status: "${intentRes.status}"). The card was NOT billed. Please verify card details and ensure your backend on Render is updated.`
+            );
+          }
+
           setStatusMessage('Payment Successful');
           setIsProcessing(false);
           return {
@@ -77,63 +87,16 @@ const SimulatedTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ ch
               id: intentRes.paymentIntentId,
               amount: intentRes.amount,
               currency: intentRes.currency,
-              status: intentRes.status || 'succeeded',
-              charges:
-                intentRes.charges && intentRes.charges.length > 0
-                  ? intentRes.charges
-                  : [
-                      {
-                        id: 'ch_' + Math.random().toString(36).substring(2, 9),
-                        amount: intentRes.amount,
-                        paymentMethodDetails: {
-                          type: 'card',
-                          cardDetails: { brand: 'Visa', last4: '4242' },
-                        },
-                      },
-                    ],
+              status: intentRes.status,
+              charges: intentRes.charges?.length ? intentRes.charges : [{ id: intentRes.paymentIntentId }],
             },
           };
         }
 
-        // Tap to Pay Flow (in Expo Go)
-        setStatusMessage('Connecting to simulated reader...');
-        await new Promise((r) => setTimeout(r, 500));
-
-        setStatusMessage('Creating PaymentIntent on backend...');
-        const intentRes = await createPaymentIntentOnBackend(amount, 'aud', 'tap');
-        console.log('📋 Created PaymentIntent on backend:', intentRes.paymentIntentId);
-
-        setStatusMessage('Simulating contactless tap...');
-        await new Promise((r) => setTimeout(r, 1200));
-
-        setStatusMessage('Confirming payment with Stripe...');
-        await new Promise((r) => setTimeout(r, 800));
-
-        setStatusMessage('Payment Successful');
-        setIsProcessing(false);
-
-        return {
-          success: true,
-          paymentIntent: {
-            id: intentRes.paymentIntentId,
-            amount: intentRes.amount,
-            currency: intentRes.currency,
-            status: 'succeeded',
-            charges: [
-              {
-                id: 'ch_' + Math.random().toString(36).substring(2, 9),
-                amount: intentRes.amount,
-                paymentMethodDetails: {
-                  type: 'card_present',
-                  cardPresentDetails: {
-                    brand: 'Visa',
-                    last4: '4242',
-                  },
-                },
-              },
-            ],
-          },
-        };
+        // Tap to Pay Flow: if native module is not present (e.g. running inside Expo Go)
+        throw new Error(
+          'Physical card tap requires the standalone APK build on an Android phone with NFC enabled. Physical cards cannot be read inside Expo Go.'
+        );
       } catch (err: any) {
         console.error('Payment processing failed:', err);
         const msg = err.message || 'Payment failed';
@@ -332,7 +295,8 @@ const NativeTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ child
     async (
       amount: number,
       paymentMethod: PaymentMethodType,
-      feeBreakdown?: FeeBreakdown
+      feeBreakdown?: FeeBreakdown,
+      cardInput?: { number: string; expMonth: string; expYear: string; cvc: string }
     ): Promise<{ success: boolean; paymentIntent?: any; error?: string }> => {
       try {
         setIsProcessing(true);
@@ -340,7 +304,15 @@ const NativeTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         if (paymentMethod === 'card') {
           setStatusMessage('Authorizing card transaction with Stripe...');
-          const intentRes = await createPaymentIntentOnBackend(amount, 'aud', 'card');
+          const intentRes = await createPaymentIntentOnBackend(amount, 'aud', 'card', cardInput);
+          console.log('💳 [STRIPE CARD API RESPONSE]:', JSON.stringify(intentRes, null, 2));
+
+          if (intentRes.status !== 'succeeded') {
+            throw new Error(
+              `Stripe did not confirm the charge (Status: "${intentRes.status}"). The card was NOT billed. Please verify card details and ensure your backend on Render is updated.`
+            );
+          }
+
           setStatusMessage('Payment Successful');
           setIsProcessing(false);
           return {
@@ -349,7 +321,7 @@ const NativeTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ child
               id: intentRes.paymentIntentId,
               amount: intentRes.amount,
               currency: intentRes.currency,
-              status: intentRes.status || 'succeeded',
+              status: intentRes.status,
               charges:
                 intentRes.charges && intentRes.charges.length > 0
                   ? intentRes.charges
@@ -403,6 +375,12 @@ const NativeTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         if (confirmError || !confirmedIntent) {
           throw new Error(confirmError?.message || 'Payment confirmation failed');
+        }
+
+        console.log('💳 [STRIPE TAP TO PAY CONFIRMED INTENT]:', JSON.stringify(confirmedIntent, null, 2));
+
+        if (confirmedIntent.status !== 'succeeded') {
+          throw new Error(`Payment not completed. Stripe status: ${confirmedIntent.status}`);
         }
 
         setStatusMessage('Payment Successful');

@@ -2,7 +2,7 @@
 // If running on an emulator or using adb reverse, http://127.0.0.1:3001 is also accessible.
 const defaultBackendUrl = 'https://tap-and-pay.onrender.com';
 const defaultPublishableKey =
-  'pk_live_51PqQ1zLhXHmPsJKRm2kDpkzUJjNlZ6SZMtie7wWWNVTWptwjlo5e8sJONlisoxTacTtF8EAXW9Q77hWDWjxw2h3d788pePvvz4e';
+  'pk_live_51PqQ1zLhXHmPsJKRm2kDpkzUJjNlZ05ZMtie7wMMVTWptWjlo5e8sJONlisoxTacTtF0EAxM9Q77hWDMjxW2h3d700pePvvr4e';
 
 export const config = {
   backendUrl: (process.env.EXPO_PUBLIC_BACKEND_URL || defaultBackendUrl).replace(/\/+$/, ''),

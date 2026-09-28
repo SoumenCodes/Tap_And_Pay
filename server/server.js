@@ -165,9 +165,11 @@ app.post('/create_payment_intent', async (req, res) => {
           description: 'TapToPay - Manual Card Entry',
         });
       } catch (confirmErr) {
-        console.error('❌ Failed to confirm Stripe charge:', confirmErr.message);
+        console.error('❌ Failed to confirm Stripe charge:', confirmErr.message, 'Decline code:', confirmErr.decline_code);
+        const declineReason = confirmErr.decline_code ? ` (Bank Decline Code: "${confirmErr.decline_code}")` : '';
         return res.status(400).json({
-          error: `Stripe charge declined or failed: ${confirmErr.message}`,
+          error: `${confirmErr.message}${declineReason}. Check if international payments are enabled on this card.`,
+          decline_code: confirmErr.decline_code,
         });
       }
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -83,9 +83,18 @@ export const CardEntryScreen: React.FC<CardEntryScreenProps> = ({
   const detectedBrand = getCardBrand(cardNumber);
   const rawDigits = cardNumber.replace(/\D/g, '');
   const isFormValid = rawDigits.length >= 15 && expiry.length === 5 && cvc.length >= 3;
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      setIsSubmitting(false);
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   const handlePay = () => {
-    if (!isFormValid) return;
+    if (!isFormValid || isSubmitting) return;
+    setIsSubmitting(true);
     const [expMonth, expYear] = expiry.split('/');
     navigation.navigate('Processing', {
       amount,
@@ -233,13 +242,13 @@ export const CardEntryScreen: React.FC<CardEntryScreenProps> = ({
         {/* ── Submit Button ── */}
         <View style={styles.buttonWrapper}>
           <TouchableOpacity
-            style={[styles.payBtn, !isFormValid && styles.payBtnDisabled]}
+            style={[styles.payBtn, (!isFormValid || isSubmitting) && styles.payBtnDisabled]}
             onPress={handlePay}
-            disabled={!isFormValid}
+            disabled={!isFormValid || isSubmitting}
             activeOpacity={0.85}
           >
             <Text style={styles.payBtnText}>
-              Pay {formatAUD(amount)}
+              {isSubmitting ? 'Processing...' : `Pay ${formatAUD(amount)}`}
             </Text>
           </TouchableOpacity>
         </View>

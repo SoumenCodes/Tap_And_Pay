@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -147,9 +147,12 @@ export const ProcessingScreen: React.FC<ProcessingScreenProps> = ({ navigation, 
   const [hasError, setHasError] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const hasRunRef = useRef(false);
 
   useEffect(() => {
     let isCancelled = false;
+    if (hasRunRef.current) return;
+    hasRunRef.current = true;
 
     async function process() {
       setHasError(false);
@@ -220,9 +223,10 @@ export const ProcessingScreen: React.FC<ProcessingScreenProps> = ({ navigation, 
     return () => {
       isCancelled = true;
     };
-  }, [navigation, amount, currency, paymentMethod, feeBreakdown, runSimulatedPayment, retryCount, errorMessage]);
+  }, [retryCount]);
 
   const handleRetry = () => {
+    hasRunRef.current = false;
     setRetryCount((c) => c + 1);
   };
 

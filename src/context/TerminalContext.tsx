@@ -44,32 +44,37 @@ async function handleCardPaymentWith3DS(
   // If 3D Secure / Bank OTP authentication is required
   if (intentRes.requiresAction && intentRes.redirectUrl) {
     console.log('🔐 [3DS] Opening in-app browser for bank OTP authorization:', intentRes.redirectUrl);
-    setStatusMessage('Bank authentication required. Opening authorization...');
+    setStatusMessage('Waiting for Bank OTP verification...');
 
-    const returnUrl = intentRes.returnUrl || `${config.backendUrl}/return`;
+    // Open in-app browser tab for bank verification
     try {
-      await WebBrowser.openAuthSessionAsync(intentRes.redirectUrl, returnUrl);
-    } catch (browserErr) {
-      console.warn('⚠️ WebBrowser openAuthSessionAsync warning:', browserErr);
-      try {
-        await WebBrowser.openBrowserAsync(intentRes.redirectUrl);
-      } catch (openErr) {
-        console.error('❌ Could not open in-app browser for 3DS:', openErr);
-      }
+      await WebBrowser.openBrowserAsync(intentRes.redirectUrl, {
+        showTitle: true,
+        enableBarCollapsing: true,
+      });
+    } catch (openErr) {
+      console.error('❌ Could not open in-app browser for 3DS:', openErr);
     }
 
-    setStatusMessage('Verifying authentication with Stripe...');
+    setStatusMessage('Please enter your SMS OTP code in the browser...');
     let attempts = 0;
+    const maxAttempts = 150; // 150 * 2s = 300 seconds (5 minutes timeout)
     let confirmedPi: any = null;
+    let failedReason: string | null = null;
 
-    // Poll status up to 6 times (1.2s intervals)
-    while (attempts < 6) {
-      await new Promise((r) => setTimeout(r, 1200));
+    while (attempts < maxAttempts) {
+      await new Promise((r) => setTimeout(r, 2000));
       try {
         const check = await retrievePaymentIntentStatus(intentRes.paymentIntentId);
-        console.log(`🔍 [3DS Check ${attempts + 1}]: Status = ${check.status}`);
+        console.log(`🔍 [3DS Check ${attempts + 1}/${maxAttempts}]: Status = ${check.status}`);
+
         if (check.status === 'succeeded') {
           confirmedPi = check;
+          break;
+        }
+
+        if (check.status === 'requires_payment_method') {
+          failedReason = 'Bank 3D-Secure authentication was declined or cancelled. The card was not billed.';
           break;
         }
       } catch (err) {
@@ -78,9 +83,18 @@ async function handleCardPaymentWith3DS(
       attempts++;
     }
 
+    // Dismiss the browser tab
+    try {
+      await WebBrowser.dismissBrowser();
+    } catch {}
+
+    if (failedReason) {
+      throw new Error(failedReason);
+    }
+
     if (!confirmedPi || confirmedPi.status !== 'succeeded') {
       throw new Error(
-        'Bank 3D-Secure authentication was not completed or was cancelled. The card was NOT billed.'
+        'Bank 3D-Secure authentication timed out after 5 minutes. If you did not receive the OTP, please retry.'
       );
     }
 

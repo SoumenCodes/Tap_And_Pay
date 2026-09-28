@@ -75,12 +75,13 @@ app.get('/health', (req, res) => {
   });
 });
 
-// 2. Terminal Config (retrieves default location ID)
+// 2. Terminal Config (retrieves default location ID and publishable key)
 app.get('/terminal_config', async (req, res) => {
   try {
     const locationId = await getOrCreateLocation();
     res.json({
       locationId: locationId || 'loc_simulated',
+      publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || '',
       stripeConfigured: Boolean(stripeSecretKey && !stripeSecretKey.includes('placeholder')),
     });
   } catch (err) {
@@ -124,37 +125,43 @@ app.post('/create_payment_intent', async (req, res) => {
     const normalizedCurrency = currency.toLowerCase().replace(/[^a-z]/g, '') || 'aud';
 
     if (paymentMethodType === 'card') {
-      const cardInput = req.body.card;
-      if (!cardInput || !cardInput.number) {
-        return res.status(400).json({ error: 'Card number is required for manual card entry.' });
-      }
+      let paymentMethodId = req.body.paymentMethodId;
 
-      let paymentMethod;
-      try {
-        paymentMethod = await stripe.paymentMethods.create({
-          type: 'card',
-          card: {
-            number: cardInput.number.replace(/\s/g, ''),
-            exp_month: parseInt(cardInput.expMonth, 10),
-            exp_year: parseInt(cardInput.expYear, 10),
-            cvc: String(cardInput.cvc || '').trim(),
-          },
-        });
-      } catch (pmErr) {
-        console.error('❌ Failed to create Stripe PaymentMethod:', pmErr.message);
-        return res.status(400).json({
-          error: `Stripe card validation error: ${pmErr.message}`,
-        });
+      // If client didn't tokenize, try creating from raw cardInput
+      if (!paymentMethodId) {
+        const cardInput = req.body.card;
+        if (!cardInput || !cardInput.number) {
+          return res.status(400).json({ error: 'Payment method or card details are required.' });
+        }
+
+        try {
+          const pm = await stripe.paymentMethods.create({
+            type: 'card',
+            card: {
+              number: cardInput.number.replace(/\s/g, ''),
+              exp_month: parseInt(cardInput.expMonth, 10),
+              exp_year: parseInt(cardInput.expYear, 10),
+              cvc: String(cardInput.cvc || '').trim(),
+            },
+          });
+          paymentMethodId = pm.id;
+        } catch (pmErr) {
+          console.error('❌ Failed to create Stripe PaymentMethod on backend:', pmErr.message);
+          return res.status(400).json({
+            error: `Stripe card validation error: ${pmErr.message}`,
+          });
+        }
       }
 
       let paymentIntent;
+      const returnUrl = process.env.RETURN_URL || 'https://tap-and-pay.onrender.com/return';
       try {
         paymentIntent = await stripe.paymentIntents.create({
           amount: amountInCents,
           currency: normalizedCurrency,
-          payment_method: paymentMethod.id,
+          payment_method: paymentMethodId,
           confirm: true,
-          return_url: 'https://example.com/return',
+          return_url: returnUrl,
           description: 'TapToPay - Manual Card Entry',
         });
       } catch (confirmErr) {
@@ -164,13 +171,27 @@ app.post('/create_payment_intent', async (req, res) => {
         });
       }
 
+      // Check if 3D Secure (Bank OTP) is required
+      if (paymentIntent.status === 'requires_action') {
+        const redirectUrl = paymentIntent.next_action?.redirect_to_url?.url;
+        console.log(`🔐 3D Secure verification required for PaymentIntent ${paymentIntent.id}. Redirect URL:`, redirectUrl);
+        return res.json({
+          requiresAction: true,
+          clientSecret: paymentIntent.client_secret,
+          paymentIntentId: paymentIntent.id,
+          amount: paymentIntent.amount,
+          amountInDollars: Number((paymentIntent.amount / 100).toFixed(2)),
+          formattedAmount: `$${(paymentIntent.amount / 100).toFixed(2)} ${paymentIntent.currency.toUpperCase()}`,
+          currency: paymentIntent.currency,
+          status: paymentIntent.status,
+          redirectUrl,
+          returnUrl,
+        });
+      }
+
       if (paymentIntent.status !== 'succeeded') {
-        let msg = `Payment incomplete (Status: "${paymentIntent.status}"). The card was not billed.`;
-        if (paymentIntent.status === 'requires_action') {
-          msg = `Bank 3D-Secure authentication (OTP) is required by your card issuer. Direct API charges without web OTP redirect cannot be authorized. Please test with Contactless Tap to Pay on the Android Preview APK.`;
-        }
         return res.status(400).json({
-          error: msg,
+          error: `Payment incomplete (Status: "${paymentIntent.status}"). The card was not billed.`,
           paymentIntentId: paymentIntent.id,
           status: paymentIntent.status,
         });
@@ -227,10 +248,59 @@ app.post('/create_payment_intent', async (req, res) => {
   }
 });
 
+// 5. Payment Intent Status Check (used to verify status after 3D Secure OTP completion)
+app.get('/payment_intent/:id', async (req, res) => {
+  try {
+    const pi = await stripe.paymentIntents.retrieve(req.params.id);
+    res.json({
+      id: pi.id,
+      status: pi.status,
+      amount: pi.amount,
+      amountInDollars: Number((pi.amount / 100).toFixed(2)),
+      formattedAmount: `$${(pi.amount / 100).toFixed(2)} ${pi.currency.toUpperCase()}`,
+      currency: pi.currency,
+      charges: pi.charges?.data || [],
+    });
+  } catch (err) {
+    console.error(`Error retrieving payment intent ${req.params.id}:`, err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 6. Return page for 3D Secure In-App Browser completion
+app.get('/return', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="utf-8">
+        <title>Authentication Complete</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #0F172A; color: white; text-align: center; }
+          .card { padding: 36px 28px; background: #1E293B; border-radius: 16px; border: 1px solid #334155; max-width: 85%; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+          .icon { font-size: 52px; margin-bottom: 16px; color: #10B981; }
+          h2 { margin: 0 0 10px; color: #F8FAFC; font-size: 22px; }
+          p { color: #94A3B8; margin: 0; font-size: 14px; line-height: 1.5; }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <div class="icon">✓</div>
+          <h2>Authentication Complete</h2>
+          <p>Your bank verification has been submitted.<br>You may now close this window to return to TapToPay.</p>
+        </div>
+      </body>
+    </html>
+  `);
+});
+
 app.listen(port, () => {
   console.log(`🚀 Stripe Terminal backend server running on http://localhost:${port}`);
   console.log(`- GET  /health`);
   console.log(`- GET  /terminal_config`);
   console.log(`- POST /connection_token`);
   console.log(`- POST /create_payment_intent`);
+  console.log(`- GET  /payment_intent/:id`);
+  console.log(`- GET  /return`);
 });

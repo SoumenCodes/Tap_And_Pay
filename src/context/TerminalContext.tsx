@@ -2,10 +2,14 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { NativeModules, Platform } from 'react-native';
 import type { Reader } from '@stripe/stripe-terminal-react-native';
 import { config } from '../constants/config';
+import * as WebBrowser from 'expo-web-browser';
 import {
   createPaymentIntentOnBackend,
   getCachedLocationId,
   fetchTerminalConfig,
+  retrievePaymentIntentStatus,
+  tokenizeCardWithStripe,
+  type CreatePaymentIntentResponse,
 } from '../services/stripeApi';
 import type { PaymentMethodType, FeeBreakdown } from '../utils/feeCalculator';
 
@@ -29,6 +33,81 @@ interface TerminalContextValue {
 const TerminalContext = createContext<TerminalContextValue | null>(null);
 
 const hasNativeTerminal = Boolean(NativeModules?.StripeTerminalReactNative);
+
+/**
+ * Shared helper to process card payments, handling 3D Secure (OTP / SMS) via in-app browser
+ */
+async function handleCardPaymentWith3DS(
+  intentRes: CreatePaymentIntentResponse,
+  setStatusMessage: (msg: string) => void
+): Promise<any> {
+  // If 3D Secure / Bank OTP authentication is required
+  if (intentRes.requiresAction && intentRes.redirectUrl) {
+    console.log('🔐 [3DS] Opening in-app browser for bank OTP authorization:', intentRes.redirectUrl);
+    setStatusMessage('Bank authentication required. Opening authorization...');
+
+    const returnUrl = intentRes.returnUrl || `${config.backendUrl}/return`;
+    try {
+      await WebBrowser.openAuthSessionAsync(intentRes.redirectUrl, returnUrl);
+    } catch (browserErr) {
+      console.warn('⚠️ WebBrowser openAuthSessionAsync warning:', browserErr);
+      try {
+        await WebBrowser.openBrowserAsync(intentRes.redirectUrl);
+      } catch (openErr) {
+        console.error('❌ Could not open in-app browser for 3DS:', openErr);
+      }
+    }
+
+    setStatusMessage('Verifying authentication with Stripe...');
+    let attempts = 0;
+    let confirmedPi: any = null;
+
+    // Poll status up to 6 times (1.2s intervals)
+    while (attempts < 6) {
+      await new Promise((r) => setTimeout(r, 1200));
+      try {
+        const check = await retrievePaymentIntentStatus(intentRes.paymentIntentId);
+        console.log(`🔍 [3DS Check ${attempts + 1}]: Status = ${check.status}`);
+        if (check.status === 'succeeded') {
+          confirmedPi = check;
+          break;
+        }
+      } catch (err) {
+        console.warn('⚠️ Error checking PaymentIntent status:', err);
+      }
+      attempts++;
+    }
+
+    if (!confirmedPi || confirmedPi.status !== 'succeeded') {
+      throw new Error(
+        'Bank 3D-Secure authentication was not completed or was cancelled. The card was NOT billed.'
+      );
+    }
+
+    return {
+      id: confirmedPi.id,
+      amount: confirmedPi.amount,
+      currency: confirmedPi.currency,
+      status: confirmedPi.status,
+      charges: confirmedPi.charges?.length ? confirmedPi.charges : [{ id: confirmedPi.id }],
+    };
+  }
+
+  // Direct charge without 3D Secure
+  if (intentRes.status !== 'succeeded') {
+    throw new Error(
+      `Stripe did not confirm the charge (Status: "${intentRes.status}"). The card was NOT billed. Please verify card details and ensure your backend on Render is updated.`
+    );
+  }
+
+  return {
+    id: intentRes.paymentIntentId,
+    amount: intentRes.amount,
+    currency: intentRes.currency,
+    status: intentRes.status,
+    charges: intentRes.charges?.length ? intentRes.charges : [{ id: intentRes.paymentIntentId }],
+  };
+}
 
 // ─── 1. Simulated Provider (Safe for Expo Go without native binary) ───
 const SimulatedTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -69,26 +148,42 @@ const SimulatedTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setErrorMessage(null);
 
         if (paymentMethod === 'card') {
+          let paymentMethodId: string | undefined;
+          let cardBrand = 'Card';
+          let cardLast4 = '••••';
+
+          if (cardInput?.number) {
+            setStatusMessage('Securing card with Stripe...');
+            try {
+              const pmResult = await tokenizeCardWithStripe(cardInput);
+              paymentMethodId = pmResult.id;
+              cardBrand = pmResult.brand;
+              cardLast4 = pmResult.last4;
+            } catch (tokErr: any) {
+              console.warn('⚠️ Client-side tokenization failed, attempting backend fallback:', tokErr.message);
+            }
+          }
+
           setStatusMessage('Authorizing card transaction with Stripe...');
-          const intentRes = await createPaymentIntentOnBackend(amount, 'aud', 'card', cardInput);
+          const intentRes = await createPaymentIntentOnBackend(
+            amount,
+            'aud',
+            'card',
+            cardInput,
+            paymentMethodId
+          );
           console.log('💳 [STRIPE CARD API RESPONSE]:', JSON.stringify(intentRes, null, 2));
 
-          if (intentRes.status !== 'succeeded') {
-            throw new Error(
-              `Stripe did not confirm the charge (Status: "${intentRes.status}"). The card was NOT billed. Please verify card details and ensure your backend on Render is updated.`
-            );
-          }
+          const confirmedPaymentIntent = await handleCardPaymentWith3DS(intentRes, setStatusMessage);
 
           setStatusMessage('Payment Successful');
           setIsProcessing(false);
           return {
             success: true,
             paymentIntent: {
-              id: intentRes.paymentIntentId,
-              amount: intentRes.amount,
-              currency: intentRes.currency,
-              status: intentRes.status,
-              charges: intentRes.charges?.length ? intentRes.charges : [{ id: intentRes.paymentIntentId }],
+              ...confirmedPaymentIntent,
+              cardBrand: confirmedPaymentIntent.cardBrand || cardBrand,
+              cardLast4: confirmedPaymentIntent.cardLast4 || cardLast4,
             },
           };
         }
@@ -303,29 +398,42 @@ const NativeTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setErrorMessage(null);
 
         if (paymentMethod === 'card') {
+          let paymentMethodId: string | undefined;
+          let cardBrand = 'Card';
+          let cardLast4 = '••••';
+
+          if (cardInput?.number) {
+            setStatusMessage('Securing card with Stripe...');
+            try {
+              const pmResult = await tokenizeCardWithStripe(cardInput);
+              paymentMethodId = pmResult.id;
+              cardBrand = pmResult.brand;
+              cardLast4 = pmResult.last4;
+            } catch (tokErr: any) {
+              console.warn('⚠️ Client-side tokenization failed, attempting backend fallback:', tokErr.message);
+            }
+          }
+
           setStatusMessage('Authorizing card transaction with Stripe...');
-          const intentRes = await createPaymentIntentOnBackend(amount, 'aud', 'card', cardInput);
+          const intentRes = await createPaymentIntentOnBackend(
+            amount,
+            'aud',
+            'card',
+            cardInput,
+            paymentMethodId
+          );
           console.log('💳 [STRIPE CARD API RESPONSE]:', JSON.stringify(intentRes, null, 2));
 
-          if (intentRes.status !== 'succeeded') {
-            throw new Error(
-              `Stripe did not confirm the charge (Status: "${intentRes.status}"). The card was NOT billed. Please verify card details and ensure your backend on Render is updated.`
-            );
-          }
+          const confirmedPaymentIntent = await handleCardPaymentWith3DS(intentRes, setStatusMessage);
 
           setStatusMessage('Payment Successful');
           setIsProcessing(false);
           return {
             success: true,
             paymentIntent: {
-              id: intentRes.paymentIntentId,
-              amount: intentRes.amount,
-              currency: intentRes.currency,
-              status: intentRes.status,
-              charges:
-                intentRes.charges && intentRes.charges.length > 0
-                  ? intentRes.charges
-                  : [{ id: intentRes.paymentIntentId }],
+              ...confirmedPaymentIntent,
+              cardBrand: confirmedPaymentIntent.cardBrand || cardBrand,
+              cardLast4: confirmedPaymentIntent.cardLast4 || cardLast4,
             },
           };
         }

@@ -11,11 +11,13 @@ import {
   Platform,
   TouchableWithoutFeedback,
   Keyboard,
+  ScrollView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons, Feather } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
+import { colors } from '../constants/colors';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -25,10 +27,8 @@ export default function LoginScreen() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [activeTab, setActiveTab] = useState<'home' | 'transactions' | 'profile'>('home');
 
   const handleLogin = () => {
-    // When home dashboard is ready, navigate there
     console.log('Logging in with:', username);
   };
 
@@ -41,13 +41,17 @@ export default function LoginScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.keyboardContainer}
         >
-          <View
-            style={[
-              styles.content,
+          <ScrollView
+            contentContainerStyle={[
+              styles.scrollContent,
               {
-                paddingTop: Math.max(insets.top, 24) + 20,
+                paddingTop: Math.max(insets.top, 24) + 24,
+                paddingBottom: Math.max(insets.bottom, 24) + 24,
               },
             ]}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            bounces={false}
           >
             {/* Top Brand Logo */}
             <View style={styles.logoWrap}>
@@ -68,17 +72,24 @@ export default function LoginScreen() {
 
             {/* Card Container with subtle warm gold border/shadow */}
             <View style={styles.cardOuter}>
-              {/* Subtle top amber glow edge */}
-              <LinearGradient
-                colors={[
-                  'rgba(251, 191, 36, 0.45)',
-                  'rgba(245, 158, 11, 0.1)',
-                  'transparent',
-                ]}
-                start={{ x: 0.5, y: 0 }}
-                end={{ x: 0.5, y: 1 }}
-                style={styles.cardTopGlow}
-              />
+              {/* Top Accent Stripe Line (Thin & transparent at edges, thicker & vibrant gold at center) */}
+              <View style={styles.topStripeWrapper}>
+                <LinearGradient
+                  colors={[
+                    'rgba(251, 191, 36, 0)',
+                    'rgba(251, 191, 36, 0.4)',
+                    '#FBBF24',
+                    '#F59E0B',
+                    '#FBBF24',
+                    'rgba(251, 191, 36, 0.4)',
+                    'rgba(251, 191, 36, 0)',
+                  ]}
+                  locations={[0, 0.2, 0.4, 0.5, 0.6, 0.8, 1]}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                  style={styles.topStripeLine}
+                />
+              </View>
 
               <View style={styles.cardInner}>
                 {/* Username Field */}
@@ -145,103 +156,19 @@ export default function LoginScreen() {
                   style={styles.loginBtnOuter}
                 >
                   <LinearGradient
-                    colors={['#18181B', '#09090B', '#000000']}
+                    colors={[colors.black.charcoal, colors.black.dark, colors.black.pure]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={styles.loginBtnGradient}
                   >
                     <Text style={styles.loginBtnText}>Login</Text>
-                    <Feather name="arrow-right" size={18} color="#FFFFFF" />
+                    <Feather name="arrow-right" size={18} color={colors.text.inverse} />
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
             </View>
-          </View>
+          </ScrollView>
         </KeyboardAvoidingView>
-
-        {/* Bottom Navigation Mockup (Home, Transactions, Profile) */}
-        <View
-          style={[
-            styles.bottomNav,
-            {
-              paddingBottom: Math.max(insets.bottom, 14),
-            },
-          ]}
-        >
-          {/* Home Tab (Active in Figma design) */}
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => setActiveTab('home')}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name="home"
-              size={20}
-              color={activeTab === 'home' ? '#B8860B' : '#94A3B8'}
-            />
-            <Text
-              style={[
-                styles.navLabel,
-                activeTab === 'home' ? styles.navLabelActive : styles.navLabelInactive,
-              ]}
-            >
-              Home
-            </Text>
-            {activeTab === 'home' && <View style={styles.activeTabIndicator} />}
-          </TouchableOpacity>
-
-          {/* Transactions Tab */}
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => setActiveTab('transactions')}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name="clipboard-outline"
-              size={20}
-              color={activeTab === 'transactions' ? '#B8860B' : '#94A3B8'}
-            />
-            <Text
-              style={[
-                styles.navLabel,
-                activeTab === 'transactions'
-                  ? styles.navLabelActive
-                  : styles.navLabelInactive,
-              ]}
-            >
-              Transactions
-            </Text>
-            {activeTab === 'transactions' && (
-              <View style={styles.activeTabIndicator} />
-            )}
-          </TouchableOpacity>
-
-          {/* Profile Tab */}
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => setActiveTab('profile')}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name="person-outline"
-              size={20}
-              color={activeTab === 'profile' ? '#B8860B' : '#94A3B8'}
-            />
-            <Text
-              style={[
-                styles.navLabel,
-                activeTab === 'profile'
-                  ? styles.navLabelActive
-                  : styles.navLabelInactive,
-              ]}
-            >
-              Profile
-            </Text>
-            {activeTab === 'profile' && (
-              <View style={styles.activeTabIndicator} />
-            )}
-          </TouchableOpacity>
-        </View>
       </View>
     </TouchableWithoutFeedback>
   );
@@ -250,15 +177,15 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'space-between',
+    backgroundColor: colors.background.primary,
   },
   keyboardContainer: {
     flex: 1,
   },
-  content: {
-    flex: 1,
+  scrollContent: {
+    flexGrow: 1,
     alignItems: 'center',
+    justifyContent: 'flex-start',
     paddingHorizontal: 24,
   },
   logoWrap: {
@@ -279,23 +206,23 @@ const styles = StyleSheet.create({
   headingTitle: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.text.primary,
     marginBottom: 6,
     letterSpacing: -0.3,
   },
   headingSubtitle: {
     fontSize: 15,
-    color: '#475569',
+    color: colors.text.secondary,
     fontWeight: '400',
     textAlign: 'center',
   },
   cardOuter: {
     width: Math.min(SCREEN_WIDTH - 48, 350),
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background.card,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(226, 232, 240, 0.9)',
-    shadowColor: '#C59B27',
+    borderColor: colors.border.card,
+    shadowColor: colors.brand.goldMuted,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
     shadowRadius: 18,
@@ -303,12 +230,25 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
-  cardTopGlow: {
+  topStripeWrapper: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 50,
+    height: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  topStripeLine: {
+    width: '100%',
+    height: 3,
+    borderRadius: 2,
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.6,
+    shadowRadius: 4,
+    elevation: 3,
   },
   cardInner: {
     padding: 24,
@@ -320,15 +260,15 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.text.primary,
     letterSpacing: 0.3,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.background.input,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border.default,
     borderRadius: 12,
     paddingHorizontal: 14,
     height: 48,
@@ -339,7 +279,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
-    color: '#0F172A',
+    color: colors.text.primary,
     paddingVertical: 0,
   },
   passwordInput: {
@@ -357,14 +297,14 @@ const styles = StyleSheet.create({
   forgotText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#0284C7',
+    color: colors.text.link,
   },
   loginBtnOuter: {
     borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#18181B',
-    shadowColor: '#000',
+    borderColor: colors.black.charcoal,
+    shadowColor: colors.black.pure,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
     shadowRadius: 5,
@@ -378,41 +318,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   loginBtnText: {
-    color: '#FFFFFF',
+    color: colors.text.inverse,
     fontSize: 15,
     fontWeight: '600',
-  },
-  bottomNav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-    paddingTop: 12,
-  },
-  navItem: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 80,
-    gap: 4,
-  },
-  navLabel: {
-    fontSize: 11,
-  },
-  navLabelActive: {
-    color: '#775A00',
-    fontWeight: '600',
-  },
-  navLabelInactive: {
-    color: '#94A3B8',
-    fontWeight: '400',
-  },
-  activeTabIndicator: {
-    width: 20,
-    height: 2.5,
-    backgroundColor: '#D4AF37',
-    borderRadius: 999,
-    marginTop: 2,
   },
 });

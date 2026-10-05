@@ -1,15 +1,39 @@
 import React from 'react';
-import { useLocalSearchParams } from 'expo-router';
-import OtherBusinessDashboard from '../../components/dashboard/OtherBusinessDashboard';
-import TaxiDashboard from '../../components/dashboard/TaxiDashboard';
+import { useAuth } from '../../context/AuthContext';
+import TaxiOwnerDashboard from '../../components/taxi/owner/TaxiOwnerDashboard';
+import TaxiBusinessDashboard from '../../components/taxi/business/TaxiBusinessDashboard';
+import OtherBusinessDashboard from '../../components/other-business/OtherBusinessDashboard';
 
 export default function DashboardScreen() {
-  const { business } = useLocalSearchParams<{ business?: string }>();
+  const { user } = useAuth();
 
-  // If logged in as taxi, render TaxiDashboard; default to Other Business (Crown Cuts)
-  if (business === 'taxi') {
-    return <TaxiDashboard />;
+  if (user.loginType === 'taxi_owner') {
+    return (
+      <TaxiOwnerDashboard
+        userName={user.name}
+        taxiNumber={user.taxiNumber}
+        sessionStartTime={user.sessionStartTime}
+      />
+    );
   }
 
-  return <OtherBusinessDashboard />;
+  if (user.loginType === 'taxi_business') {
+    return (
+      <TaxiBusinessDashboard
+        businessName={user.businessName}
+        userName={user.name}
+        taxiNumber={user.taxiNumber}
+        sessionStartTime={user.sessionStartTime}
+      />
+    );
+  }
+
+  return (
+    <OtherBusinessDashboard
+      businessName={user.businessName}
+      businessAddress={user.businessAddress}
+      userName={user.name}
+      sessionStartTime={user.sessionStartTime}
+    />
+  );
 }

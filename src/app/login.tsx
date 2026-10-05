@@ -19,19 +19,42 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { colors } from '../constants/colors';
+import { useAuth, LoginType, MOCK_ACCOUNTS } from '../context/AuthContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { login, quickLogin } = useAuth();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const handleLogin = () => {
-    router.replace('/(tabs)');
+    // If empty, default to Other Business for smooth design review
+    if (!username.trim() && !password.trim()) {
+      quickLogin('other_business');
+      router.replace('/(tabs)');
+      return;
+    }
+
+    const result = login(username, password);
+    if (result.success) {
+      setErrorMessage('');
+      router.replace('/(tabs)');
+    } else {
+      setErrorMessage(result.error || 'Invalid credentials');
+    }
+  };
+
+  const handleFillCredentials = (type: LoginType) => {
+    const acc = MOCK_ACCOUNTS[type];
+    setUsername(acc.username);
+    setPassword(acc.passwords[0]);
+    setErrorMessage('');
   };
 
   return (
@@ -47,8 +70,8 @@ export default function LoginScreen() {
             contentContainerStyle={[
               styles.scrollContent,
               {
-                paddingTop: Math.max(insets.top, 24) + 24,
-                paddingBottom: Math.max(insets.bottom, 24) + 24,
+                paddingTop: Math.max(insets.top, 24) + 16,
+                paddingBottom: Math.max(insets.bottom, 24) + 20,
               },
             ]}
             keyboardShouldPersistTaps="handled"
@@ -74,7 +97,7 @@ export default function LoginScreen() {
 
             {/* Card Container with subtle warm gold border/shadow */}
             <View style={styles.cardOuter}>
-              {/* Top Accent Stripe Line (Thin & transparent at edges, thicker & vibrant gold at center) */}
+              {/* Top Accent Stripe Line */}
               <View style={styles.topStripeWrapper}>
                 <LinearGradient
                   colors={[
@@ -94,6 +117,14 @@ export default function LoginScreen() {
               </View>
 
               <View style={styles.cardInner}>
+                {/* Error Banner */}
+                {errorMessage ? (
+                  <View style={styles.errorBanner}>
+                    <Feather name="alert-circle" size={15} color="#DC2626" />
+                    <Text style={styles.errorText}>{errorMessage}</Text>
+                  </View>
+                ) : null}
+
                 {/* Username Field */}
                 <View style={styles.fieldGroup}>
                   <Text style={styles.fieldLabel}>User Name</Text>
@@ -103,7 +134,10 @@ export default function LoginScreen() {
                       placeholder="Type User Name"
                       placeholderTextColor="#94A3B8"
                       value={username}
-                      onChangeText={setUsername}
+                      onChangeText={(val) => {
+                        setUsername(val);
+                        if (errorMessage) setErrorMessage('');
+                      }}
                       autoCapitalize="none"
                       autoCorrect={false}
                     />
@@ -125,7 +159,10 @@ export default function LoginScreen() {
                       placeholder="******"
                       placeholderTextColor="#94A3B8"
                       value={password}
-                      onChangeText={setPassword}
+                      onChangeText={(val) => {
+                        setPassword(val);
+                        if (errorMessage) setErrorMessage('');
+                      }}
                       secureTextEntry={!showPassword}
                     />
                     <TouchableOpacity
@@ -169,6 +206,36 @@ export default function LoginScreen() {
                 </TouchableOpacity>
               </View>
             </View>
+
+            {/* Quick Test Accounts Section */}
+            <View style={styles.testSectionWrap}>
+              <Text style={styles.testSectionTitle}>Quick Test Credentials</Text>
+              <View style={styles.testButtonsRow}>
+                <TouchableOpacity
+                  style={styles.testChip}
+                  activeOpacity={0.75}
+                  onPress={() => handleFillCredentials('taxi_owner')}
+                >
+                  <Text style={styles.testChipText}>🚕 Taxi Owner</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.testChip}
+                  activeOpacity={0.75}
+                  onPress={() => handleFillCredentials('taxi_business')}
+                >
+                  <Text style={styles.testChipText}>🚖 Taxi Business</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.testChip}
+                  activeOpacity={0.75}
+                  onPress={() => handleFillCredentials('other_business')}
+                >
+                  <Text style={styles.testChipText}>💈 Other Business</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </ScrollView>
         </KeyboardAvoidingView>
       </View>
@@ -192,10 +259,10 @@ const styles = StyleSheet.create({
   },
   logoWrap: {
     width: 140,
-    height: 80,
+    height: 75,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   logoImage: {
     width: '100%',
@@ -203,17 +270,17 @@ const styles = StyleSheet.create({
   },
   heroTextWrap: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   headingTitle: {
     fontSize: 28,
     fontWeight: '700',
     color: colors.text.primary,
-    marginBottom: 6,
+    marginBottom: 4,
     letterSpacing: -0.3,
   },
   headingSubtitle: {
-    fontSize: 15,
+    fontSize: 14,
     color: colors.text.secondary,
     fontWeight: '400',
     textAlign: 'center',
@@ -255,6 +322,23 @@ const styles = StyleSheet.create({
   cardInner: {
     padding: 24,
     gap: 16,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#DC2626',
+    fontWeight: '500',
   },
   fieldGroup: {
     gap: 6,
@@ -323,5 +407,42 @@ const styles = StyleSheet.create({
     color: colors.text.inverse,
     fontSize: 15,
     fontWeight: '600',
+  },
+  testSectionWrap: {
+    marginTop: 20,
+    width: Math.min(SCREEN_WIDTH - 48, 350),
+    alignItems: 'center',
+    gap: 10,
+  },
+  testSectionTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  testButtonsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  testChip: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  testChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1E293B',
   },
 });

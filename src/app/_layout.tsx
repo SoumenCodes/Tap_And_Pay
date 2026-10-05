@@ -8,6 +8,8 @@ import { StyleSheet, NativeModules } from 'react-native';
 import { fetchConnectionToken } from '../services/stripeApi';
 import { TerminalProvider } from '../context/TerminalContext';
 
+import { AuthProvider } from '../context/AuthContext';
+
 const hasNativeStripeTerminal = Boolean(NativeModules?.StripeTerminalReactNative);
 
 let StripeTerminalProvider: React.ComponentType<any> | null = null;
@@ -22,22 +24,24 @@ if (hasNativeStripeTerminal) {
 
 export default function RootLayout() {
   const content = (
-    <TerminalProvider>
-      <GestureHandlerRootView style={styles.root}>
-        <StatusBar style="dark" />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            animation: 'fade',
-            contentStyle: { backgroundColor: '#FFFFFF' },
-          }}
-        >
-          <Stack.Screen name="index" />
-          <Stack.Screen name="login" />
-          <Stack.Screen name="(tabs)" />
-        </Stack>
-      </GestureHandlerRootView>
-    </TerminalProvider>
+    <AuthProvider>
+      <TerminalProvider>
+        <GestureHandlerRootView style={styles.root}>
+          <StatusBar style="dark" />
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              animation: 'fade',
+              contentStyle: { backgroundColor: '#FFFFFF' },
+            }}
+          >
+            <Stack.Screen name="index" />
+            <Stack.Screen name="login" />
+            <Stack.Screen name="(tabs)" />
+          </Stack>
+        </GestureHandlerRootView>
+      </TerminalProvider>
+    </AuthProvider>
   );
 
   return (

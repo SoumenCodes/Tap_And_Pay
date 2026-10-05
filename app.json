@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "TapToPay",
-    "slug": "TapToPay",
+    "name": "SE Pay",
+    "slug": "se-pay",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -63,12 +63,13 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/taxi-logo.png",
+          "image": "./assets/se_pay_logo.png",
           "resizeMode": "contain",
           "backgroundColor": "#FFFFFF"
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-router"
     ],
     "web": {
       "favicon": "./assets/favicon.png"

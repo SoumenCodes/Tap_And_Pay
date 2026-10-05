@@ -12,6 +12,7 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        tabBarHideOnKeyboard: true,
         tabBarStyle: {
           backgroundColor: colors.tab.background,
           borderTopColor: colors.tab.border,
@@ -80,6 +81,12 @@ export default function TabLayout() {
               {focused && <View style={styles.activeIndicator} />}
             </View>
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="tap-to-pay"
+        options={{
+          href: null,
         }}
       />
     </Tabs>

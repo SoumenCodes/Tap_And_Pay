@@ -38,6 +38,7 @@ export default function RootLayout() {
             <Stack.Screen name="index" />
             <Stack.Screen name="login" />
             <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="tap-to-pay" options={{ animation: 'slide_from_right' }} />
           </Stack>
         </GestureHandlerRootView>
       </TerminalProvider>

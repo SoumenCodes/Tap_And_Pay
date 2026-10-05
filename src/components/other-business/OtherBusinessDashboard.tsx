@@ -34,7 +34,7 @@ export default function OtherBusinessDashboard({
   const [isOnline, setIsOnline] = useState(true);
 
   const handleCreateSale = () => {
-    console.log('Navigate to Create Sale');
+    router.push('/(tabs)/tap-to-pay');
   };
 
   const handleToggleSession = () => {

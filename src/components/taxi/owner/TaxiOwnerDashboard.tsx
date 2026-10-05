@@ -32,7 +32,7 @@ export default function TaxiOwnerDashboard({
   const [isOnline, setIsOnline] = useState(false);
 
   const handleStartTaxiFare = () => {
-    console.log('Navigate to Taxi Fare');
+    router.push('/(tabs)/tap-to-pay');
   };
 
   const handleToggleShift = () => {

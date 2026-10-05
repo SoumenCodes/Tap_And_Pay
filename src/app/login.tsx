@@ -17,19 +17,21 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { colors } from '../constants/colors';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = () => {
-    console.log('Logging in with:', username);
+    router.replace('/(tabs)');
   };
 
   return (

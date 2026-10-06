@@ -95,6 +95,12 @@ export default function TabLayout() {
           href: null,
         }}
       />
+      <Tabs.Screen
+        name="tap-ready"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

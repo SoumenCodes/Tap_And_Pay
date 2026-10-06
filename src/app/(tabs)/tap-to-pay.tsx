@@ -89,6 +89,11 @@ export default function TapToPayEnterAmountScreen() {
         pathname: '/(tabs)/card-entry',
         params: { amount: amountStr },
       });
+    } else if (selectedMethod === 'tap') {
+      router.push({
+        pathname: '/(tabs)/tap-ready',
+        params: { amount: amountStr },
+      });
     } else {
       console.log('Continue with amount:', {
         amount: num,

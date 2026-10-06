@@ -40,6 +40,7 @@ export default function RootLayout() {
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="tap-to-pay" options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="card-entry" options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="tap-ready" options={{ animation: 'slide_from_right' }} />
           </Stack>
         </GestureHandlerRootView>
       </TerminalProvider>

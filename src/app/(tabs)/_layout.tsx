@@ -89,6 +89,12 @@ export default function TabLayout() {
           href: null,
         }}
       />
+      <Tabs.Screen
+        name="card-entry"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

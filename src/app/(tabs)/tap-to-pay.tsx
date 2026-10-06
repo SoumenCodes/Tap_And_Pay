@@ -84,11 +84,18 @@ export default function TapToPayEnterAmountScreen() {
 
   const handleContinue = () => {
     const num = parseFloat(amountStr) || 0;
-    console.log('Continue with amount:', {
-      amount: num,
-      method: selectedMethod,
-      business: user.businessName,
-    });
+    if (selectedMethod === 'card') {
+      router.push({
+        pathname: '/(tabs)/card-entry',
+        params: { amount: amountStr },
+      });
+    } else {
+      console.log('Continue with amount:', {
+        amount: num,
+        method: selectedMethod,
+        business: user.businessName,
+      });
+    }
   };
 
   const handleCancel = () => {

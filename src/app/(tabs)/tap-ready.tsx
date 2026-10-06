@@ -233,8 +233,18 @@ export default function TapReadyScreen() {
           Ask your customer to tap their card,{'\n'}phone or watch.
         </Text>
 
-        {/* Tap Illustration */}
-        <TapIllustration />
+        {/* Tap Illustration (Tappable to simulate tap read) */}
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => {
+            router.push({
+              pathname: '/(tabs)/processing',
+              params: { amount: rawAmount, method: 'tap' },
+            });
+          }}
+        >
+          <TapIllustration />
+        </TouchableOpacity>
       </View>
 
       {/* ── Cancel Button ── */}

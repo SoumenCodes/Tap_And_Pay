@@ -101,7 +101,7 @@ export default function CardEntryScreen() {
     setIsConfirmModalVisible(true);
   };
 
-  // Confirm and Charge (Placeholder for direct Stripe payment)
+  // Confirm and Charge -> Routes to Processing Screen
   const handleProceedCharge = () => {
     if (!isAuthorized) return;
     setIsProcessing(true);
@@ -109,8 +109,11 @@ export default function CardEntryScreen() {
     setTimeout(() => {
       setIsProcessing(false);
       setIsConfirmModalVisible(false);
-      router.push('/(tabs)');
-    }, 600);
+      router.push({
+        pathname: '/(tabs)/processing',
+        params: { amount: rawAmount, method: 'card' },
+      });
+    }, 400);
   };
 
   return (

@@ -49,13 +49,18 @@ export default function ProcessingScreen() {
     hasFinishedRef.current = true;
 
     const timer = setTimeout(() => {
-      // Transition to screen 13 (Payment Successful) or back to tabs for now
-      console.log('Payment processed for amount:', params.amount);
-      router.push('/(tabs)');
-    }, 3500);
+      // Transition to screen 13 (Payment Successful)
+      router.replace({
+        pathname: '/(tabs)/payment-success',
+        params: {
+          amount: params.amount || '1250',
+          method: params.method || 'tap',
+        },
+      });
+    }, 3000);
 
     return () => clearTimeout(timer);
-  }, [router, params.amount]);
+  }, [router, params.amount, params.method]);
 
   return (
     <View

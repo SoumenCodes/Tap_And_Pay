@@ -42,6 +42,8 @@ export default function RootLayout() {
             <Stack.Screen name="card-entry" options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="tap-ready" options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="processing" options={{ animation: 'fade' }} />
+            <Stack.Screen name="payment-success" options={{ animation: 'fade' }} />
+            <Stack.Screen name="receipt-details" options={{ animation: 'slide_from_right' }} />
           </Stack>
         </GestureHandlerRootView>
       </TerminalProvider>

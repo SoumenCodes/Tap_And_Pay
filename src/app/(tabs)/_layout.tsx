@@ -108,6 +108,20 @@ export default function TabLayout() {
           tabBarStyle: { display: 'none' },
         }}
       />
+      <Tabs.Screen
+        name="payment-success"
+        options={{
+          href: null,
+          tabBarStyle: { display: 'none' },
+        }}
+      />
+      <Tabs.Screen
+        name="receipt-details"
+        options={{
+          href: null,
+          tabBarStyle: { display: 'none' },
+        }}
+      />
     </Tabs>
   );
 }

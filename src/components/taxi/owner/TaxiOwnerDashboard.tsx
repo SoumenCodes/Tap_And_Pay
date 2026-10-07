@@ -10,7 +10,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { colors } from '../../../constants/colors';
 
@@ -52,16 +52,7 @@ export default function TaxiOwnerDashboard({
           },
         ]}
       >
-        <TouchableOpacity
-          onPress={() => router.back()}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          style={styles.backButton}
-        >
-          <Ionicons name="chevron-back" size={24} color={colors.text.primary} />
-        </TouchableOpacity>
-
         <Text style={styles.headerTitle}>SE PAY DASHBOARD</Text>
-        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView
@@ -337,7 +328,7 @@ const styles = StyleSheet.create({
   headerBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     paddingHorizontal: 20,
     paddingBottom: 12,
     backgroundColor: '#FFFFFF',

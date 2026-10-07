@@ -54,7 +54,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="transactions"
         options={{
-          title: 'Transactions',
+          title: 'History',
           tabBarIcon: ({ focused }) => (
             <View style={styles.iconContainer}>
               <Ionicons
@@ -120,6 +120,12 @@ export default function TabLayout() {
         options={{
           href: null,
           tabBarStyle: { display: 'none' },
+        }}
+      />
+      <Tabs.Screen
+        name="shift-details"
+        options={{
+          href: null,
         }}
       />
     </Tabs>

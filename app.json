@@ -2,6 +2,7 @@
   "expo": {
     "name": "SE Pay",
     "slug": "se-pay",
+    "scheme": "sepay",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",

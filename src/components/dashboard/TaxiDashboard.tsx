@@ -8,14 +8,12 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../constants/colors';
+import HeaderBar from '../common/HeaderBar';
 
 export default function TaxiDashboard() {
-  const insets = useSafeAreaInsets();
-
   // Shift & Online state (defaults to Offline & Start Shift)
   const [isOnline, setIsOnline] = useState(false);
 
@@ -32,16 +30,7 @@ export default function TaxiDashboard() {
       <StatusBar style="dark" />
 
       {/* Header Bar */}
-      <View
-        style={[
-          styles.headerBar,
-          {
-            paddingTop: Math.max(insets.top, 24) + 8,
-          },
-        ]}
-      >
-        <Text style={styles.headerTitle}>SE PAY DASHBOARD</Text>
-      </View>
+      <HeaderBar title="SE PAY DASHBOARD" />
 
       <ScrollView
         contentContainerStyle={[
@@ -311,27 +300,6 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-  },
-  headerBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-    backgroundColor: '#FFFFFF',
-  },
-  backButton: {
-    padding: 4,
-    marginLeft: -4,
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#0F172A',
-    letterSpacing: 0.5,
-  },
-  headerSpacer: {
-    width: 28,
   },
   scrollContent: {
     paddingHorizontal: 20,

@@ -11,11 +11,11 @@ import {
   Share,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
+import HeaderBar from '../common/HeaderBar';
 import {
   MOCK_BUSINESS_TRANSACTIONS,
   MOCK_BUSINESS_STATS,
@@ -33,7 +33,6 @@ export default function OtherBusinessTransactionsScreen({
   businessName = 'Crown Cuts',
   userName = 'Soumen',
 }: OtherBusinessTransactionsScreenProps) {
-  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<TxnFilterType>('all');
   const [dateRangeText, setDateRangeText] = useState('20–26 Oct 2026');
@@ -186,8 +185,11 @@ export default function OtherBusinessTransactionsScreen({
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.root}>
       <StatusBar style="dark" />
+
+      {/* Common Header Bar */}
+      <HeaderBar title="Transactions History" />
 
       <ScrollView
         style={styles.scrollView}
@@ -463,12 +465,13 @@ export default function OtherBusinessTransactionsScreen({
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
   },
   scrollView: {
     flex: 1,
+    backgroundColor: '#F8FAFC',
   },
   scrollContent: {
     paddingHorizontal: 16,

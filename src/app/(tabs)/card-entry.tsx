@@ -13,12 +13,11 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+import HeaderBar from '../../components/common/HeaderBar';
 
 export default function CardEntryScreen() {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
   const params = useLocalSearchParams<{ amount?: string }>();
@@ -121,30 +120,12 @@ export default function CardEntryScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={{ flex: 1, backgroundColor: '#FFFFFF' }}
     >
-      <View
-        style={[
-          styles.root,
-          {
-            paddingTop: Math.max(insets.top, Platform.OS === 'android' ? 20 : 16) + 8,
-          },
-        ]}
-      >
-        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-        {/* ── Top Header ── */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={() => router.back()}
-            activeOpacity={0.6}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <Ionicons name="chevron-back" size={24} color="#0F172A" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Enter Card Details</Text>
-          <View style={{ width: 32 }} />
-        </View>
+      {/* ── Top Header ── */}
+      <HeaderBar title="Enter Card Details" showBack />
 
+      <View style={styles.root}>
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
@@ -370,21 +351,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 8,
-  },
-  backBtn: {
-    padding: 6,
-    marginLeft: -6,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0F172A',
   },
   scrollContent: {
     paddingTop: 8,

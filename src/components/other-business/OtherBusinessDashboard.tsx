@@ -8,10 +8,10 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import HeaderBar from '../common/HeaderBar';
 
 interface OtherBusinessDashboardProps {
   businessName?: string;
@@ -26,7 +26,6 @@ export default function OtherBusinessDashboard({
   userName = 'Soumen',
   sessionStartTime = '7:30 AM',
 }: OtherBusinessDashboardProps) {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
 
   // Session & Online state (defaults to Online as shown in Figma 76:12635)
@@ -45,16 +44,7 @@ export default function OtherBusinessDashboard({
       <StatusBar style="dark" />
 
       {/* Header Bar */}
-      <View
-        style={[
-          styles.headerBar,
-          {
-            paddingTop: Math.max(insets.top, 24) + 8,
-          },
-        ]}
-      >
-        <Text style={styles.headerTitle}>SE PAY DASHBOARD</Text>
-      </View>
+      <HeaderBar title="SE PAY DASHBOARD" />
 
       <ScrollView
         contentContainerStyle={[
@@ -290,27 +280,6 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-  },
-  headerBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-    backgroundColor: '#FFFFFF',
-  },
-  backButton: {
-    padding: 4,
-    marginLeft: -4,
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#0F172A',
-    letterSpacing: 0.5,
-  },
-  headerSpacer: {
-    width: 28,
   },
   scrollContent: {
     paddingHorizontal: 20,

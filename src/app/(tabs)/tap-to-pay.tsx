@@ -10,10 +10,10 @@ import {
   Vibration,
 } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Svg, Path, Circle } from 'react-native-svg';
 import { useAuth } from '../../context/AuthContext';
+import HeaderBar from '../../components/common/HeaderBar';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -27,7 +27,6 @@ const KEYPAD_ROWS = [
 ];
 
 export default function TapToPayEnterAmountScreen() {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
 
@@ -157,37 +156,21 @@ export default function TapToPayEnterAmountScreen() {
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {/* ── 1. Header Bar with Back Arrow, Title, Subtitle & Settings Circle ── */}
-      <View
-        style={[
-          styles.headerSection,
-          {
-            paddingTop: Math.max(insets.top, 20) + 6,
-          },
-        ]}
-      >
-        <TouchableOpacity
-          onPress={() => router.back()}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          style={styles.backButton}
-        >
-          <Ionicons name="chevron-back" size={24} color="#0F172A" />
-        </TouchableOpacity>
-
-        <View style={styles.headerTitleWrap}>
-          <Text style={styles.headerTitle}>{headerInfo.title}</Text>
-          <Text style={styles.headerSubtitle}>{headerInfo.subtitle}</Text>
-        </View>
-
-        {/* Right Settings Circle */}
-        <TouchableOpacity
-          activeOpacity={0.7}
-          style={styles.settingsCircle}
-          onPress={() => console.log('Settings clicked')}
-        >
-          <Ionicons name="settings-sharp" size={18} color="#64748B" />
-        </TouchableOpacity>
-      </View>
+      {/* ── 1. Common Header Bar ── */}
+      <HeaderBar
+        title={headerInfo.title}
+        subtitle={headerInfo.subtitle}
+        showBack
+        rightAction={
+          <TouchableOpacity
+            activeOpacity={0.7}
+            style={styles.settingsCircle}
+            onPress={() => console.log('Settings clicked')}
+          >
+            <Ionicons name="settings-sharp" size={18} color="#64748B" />
+          </TouchableOpacity>
+        }
+      />
 
       <View style={styles.contentWrap}>
         {/* ── 2. Three-Method Toggle Capsule: [ •))) Tap & Go | 💳 Card | 💵 Cash ] ── */}
@@ -377,33 +360,6 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-  },
-  headerSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 6,
-    backgroundColor: '#FFFFFF',
-  },
-  backButton: {
-    padding: 6,
-    marginLeft: -6,
-  },
-  headerTitleWrap: {
-    alignItems: 'center',
-    gap: 3,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#0F172A',
-    letterSpacing: -0.3,
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#0050B6',
   },
   settingsCircle: {
     width: 38,

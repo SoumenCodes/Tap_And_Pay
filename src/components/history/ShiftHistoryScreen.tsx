@@ -8,10 +8,10 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { MOCK_SHIFTS, MOCK_SHIFT_STATS } from '../../data/mockShifts';
 import { ShiftRecord } from '../../types/shift';
+import HeaderBar from '../common/HeaderBar';
 
 interface ShiftHistoryScreenProps {
   onSelectShift: (shift: ShiftRecord) => void;
@@ -24,7 +24,6 @@ export default function ShiftHistoryScreen({
   onSelectShift,
   taxiNumber = 'M6061',
 }: ShiftHistoryScreenProps) {
-  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<ShiftFilterType>('all');
   const [dateRangeText, setDateRangeText] = useState('20–26 Oct 2026');
@@ -50,17 +49,19 @@ export default function ShiftHistoryScreen({
   }, [filterType, searchQuery]);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.root}>
       <StatusBar style="dark" />
 
-      {/* Header Bar */}
-      <View style={styles.headerBar}>
-        <Text style={styles.headerTitle}>Shift History</Text>
-        <View style={styles.taxiNumberRow}>
-          <Text style={styles.taxiNumberLabel}>Taxi No.: </Text>
-          <Text style={styles.taxiNumberValue}>{taxiNumber}</Text>
-        </View>
-      </View>
+      {/* Common Header Bar */}
+      <HeaderBar
+        title="Shift History"
+        subtitle={
+          <View style={styles.taxiNumberRow}>
+            <Text style={styles.taxiNumberLabel}>Taxi No.: </Text>
+            <Text style={styles.taxiNumberValue}>{taxiNumber}</Text>
+          </View>
+        }
+      />
 
       <ScrollView
         style={styles.scrollView}
@@ -384,29 +385,14 @@ export default function ShiftHistoryScreen({
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
-  },
-  headerBar: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 14,
     backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#0F172A',
-    letterSpacing: -0.3,
   },
   taxiNumberRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: 3,
   },
   taxiNumberLabel: {
     fontSize: 13,

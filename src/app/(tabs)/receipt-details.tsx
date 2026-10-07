@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   StatusBar,
-  Platform,
   ScrollView,
   Image,
   Share,
@@ -14,15 +13,15 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useAuth } from '../../context/AuthContext';
+import HeaderBar from '../../components/common/HeaderBar';
 
 export default function ReceiptDetailsScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
   const { user } = useAuth();
   const params = useLocalSearchParams<{
     amount?: string;
@@ -315,44 +314,39 @@ export default function ReceiptDetailsScreen() {
   };
 
   return (
-    <View
-      style={[
-        styles.root,
-        {
-          paddingTop: Math.max(insets.top, Platform.OS === 'android' ? 20 : 16) + 8,
-          paddingBottom: Math.max(insets.bottom, 16),
-        },
-      ]}
-    >
+    <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* ── Top Header ── */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.headerBtn}
-          onPress={() => router.back()}
-          activeOpacity={0.6}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <Ionicons name="chevron-back" size={24} color="#0F172A" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Receipt</Text>
-        <TouchableOpacity
-          style={styles.headerBtn}
-          onPress={handleShare}
-          activeOpacity={0.6}
-          disabled={isSharing}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          {isSharing ? (
-            <ActivityIndicator size="small" color="#0F172A" />
-          ) : (
-            <Ionicons name="share-outline" size={22} color="#0F172A" />
-          )}
-        </TouchableOpacity>
-      </View>
+      <HeaderBar
+        title="Receipt"
+        showBack
+        rightAction={
+          <TouchableOpacity
+            style={styles.headerBtn}
+            onPress={handleShare}
+            activeOpacity={0.6}
+            disabled={isSharing}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            {isSharing ? (
+              <ActivityIndicator size="small" color="#0F172A" />
+            ) : (
+              <Ionicons name="share-outline" size={22} color="#0F172A" />
+            )}
+          </TouchableOpacity>
+        }
+      />
 
-      <ScrollView
+      <View
+        style={[
+          styles.root,
+          {
+            paddingBottom: Math.max(insets.bottom, 16),
+          },
+        ]}
+      >
+        <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
@@ -475,6 +469,7 @@ export default function ReceiptDetailsScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      </View>
     </View>
   );
 }
@@ -485,19 +480,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 20,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 10,
-  },
   headerBtn: {
     padding: 6,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0F172A',
   },
   scrollContent: {
     paddingTop: 8,

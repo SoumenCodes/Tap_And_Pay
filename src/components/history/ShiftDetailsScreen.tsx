@@ -17,6 +17,7 @@ import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
+import HeaderBar from '../common/HeaderBar';
 import { ShiftRecord, ShiftTransaction } from '../../types/shift';
 
 interface ShiftDetailsScreenProps {
@@ -318,25 +319,15 @@ export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreen
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.root}>
       <StatusBar style="dark" />
 
-      {/* Header Bar */}
-      <View style={styles.headerBar}>
-        <TouchableOpacity
-          onPress={onBack}
-          style={styles.backButton}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <Ionicons name="chevron-back" size={24} color="#0F172A" />
-        </TouchableOpacity>
-
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {shift.id}
-        </Text>
-
-        <View style={styles.headerSpacer} />
-      </View>
+      {/* Common Header Bar */}
+      <HeaderBar
+        title={shift.id}
+        showBack
+        onBack={onBack}
+      />
 
       <ScrollView
         style={styles.scrollView}
@@ -674,38 +665,13 @@ export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreen
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
-  },
-  headerBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 12,
     backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  backButton: {
-    padding: 4,
-    width: 40,
-    alignItems: 'flex-start',
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#0F172A',
-    textAlign: 'center',
-    flex: 1,
-  },
-  headerSpacer: {
-    width: 40,
   },
   scrollView: {
     flex: 1,
+    backgroundColor: '#F8FAFC',
   },
   scrollContent: {
     paddingHorizontal: 16,

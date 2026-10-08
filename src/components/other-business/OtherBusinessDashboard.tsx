@@ -62,6 +62,24 @@ export default function OtherBusinessDashboard({
             style={styles.bannerImage}
             resizeMode="cover"
           />
+
+          {/* Compact translucent dark text badge at bottom-left */}
+          <View style={styles.bannerBadge}>
+            <Text style={styles.bannerTitle} numberOfLines={1}>
+              {businessName}
+            </Text>
+            <View style={styles.bannerAddressRow}>
+              <Ionicons
+                name="location-sharp"
+                size={11}
+                color="#CBD5E1"
+                style={styles.bannerLocationIcon}
+              />
+              <Text style={styles.bannerAddressText} numberOfLines={1}>
+                {businessAddress}
+              </Text>
+            </View>
+          </View>
         </View>
 
         {/* 2. Welcome User Card */}
@@ -290,11 +308,44 @@ const styles = StyleSheet.create({
     height: 148,
     borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: '#0F172A',
+    backgroundColor: '#F1F5F9',
+    position: 'relative',
   },
   bannerImage: {
     width: '100%',
     height: '100%',
+  },
+  bannerBadge: {
+    position: 'absolute',
+    bottom: 12,
+    left: 14,
+    maxWidth: '85%',
+    backgroundColor: 'rgba(15, 23, 42, 0.72)',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    gap: 2,
+  },
+  bannerTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
+  },
+  bannerAddressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  bannerLocationIcon: {
+    marginRight: 3,
+  },
+  bannerAddressText: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#E2E8F0',
+    letterSpacing: 0.1,
   },
   welcomeCardOuter: {
     backgroundColor: '#FFFFFF',

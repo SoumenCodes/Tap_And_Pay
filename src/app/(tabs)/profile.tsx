@@ -1,51 +1,38 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../../context/AuthContext';
-import OtherBusinessProfileScreen from '../../components/other-business/OtherBusinessProfileScreen';
-import HeaderBar from '../../components/common/HeaderBar';
+import {
+  TaxiOwnerProfileScreen,
+  TaxiBusinessProfileScreen,
+  TaxiDriverProfileScreen,
+} from '../../components/taxi';
+import {
+  OtherBusinessProfileScreen,
+  OtherBusinessEmployeeProfileScreen,
+} from '../../components/other-business';
 
 export default function ProfileTabScreen() {
   const { user } = useAuth();
 
-  // If user is Other Business (Crown Cuts), render Screen 24 Profile Screen
-  if (user.loginType === 'other_business') {
-    return <OtherBusinessProfileScreen />;
+  // Role 1: Taxi Owner
+  if (user.loginType === 'taxi_owner') {
+    return <TaxiOwnerProfileScreen />;
   }
 
-  // Taxi Driver / Owner Profile placeholder
-  return (
-    <View style={styles.container}>
-      <StatusBar style="dark" />
-      <HeaderBar title="Profile" />
-      <View style={styles.content}>
-        <Text style={styles.title}>{user.name || 'Taxi Profile'}</Text>
-        <Text style={styles.subtitle}>Taxi Number: {user.taxiNumber || 'M6061'}</Text>
-      </View>
-    </View>
-  );
-}
+  // Role 2: Taxi Business (Fleet Admin)
+  if (user.loginType === 'taxi_business') {
+    return <TaxiBusinessProfileScreen />;
+  }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  content: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-    backgroundColor: '#F8FAFC',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#0F172A',
-    marginBottom: 6,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#64748B',
-  },
-});
+  // Role 3: Taxi Business Driver
+  if (user.loginType === 'taxi_business_driver') {
+    return <TaxiDriverProfileScreen />;
+  }
+
+  // Role 5: Other Business Employee
+  if (user.loginType === 'other_business_employee') {
+    return <OtherBusinessEmployeeProfileScreen />;
+  }
+
+  // Role 4: Other Business Merchant Owner (Crown Cuts)
+  return <OtherBusinessProfileScreen />;
+}

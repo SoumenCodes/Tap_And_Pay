@@ -19,7 +19,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { colors } from '../constants/colors';
-import { useAuth, LoginType, MOCK_ACCOUNTS } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -48,13 +48,6 @@ export default function LoginScreen() {
     } else {
       setErrorMessage(result.error || 'Invalid credentials');
     }
-  };
-
-  const handleFillCredentials = (type: LoginType) => {
-    const acc = MOCK_ACCOUNTS[type];
-    setUsername(acc.username);
-    setPassword(acc.passwords[0]);
-    setErrorMessage('');
   };
 
   return (
@@ -207,14 +200,17 @@ export default function LoginScreen() {
               </View>
             </View>
 
-            {/* Quick Test Accounts Section */}
+            {/* Quick Test Accounts Section for 5 User Types */}
             <View style={styles.testSectionWrap}>
-              <Text style={styles.testSectionTitle}>Quick Test Credentials</Text>
+              <Text style={styles.testSectionTitle}>Quick Role Switch (1-Tap Login)</Text>
               <View style={styles.testButtonsRow}>
                 <TouchableOpacity
                   style={styles.testChip}
                   activeOpacity={0.75}
-                  onPress={() => handleFillCredentials('taxi_owner')}
+                  onPress={() => {
+                    quickLogin('taxi_owner');
+                    router.replace('/(tabs)');
+                  }}
                 >
                   <Text style={styles.testChipText}>🚕 Taxi Owner</Text>
                 </TouchableOpacity>
@@ -222,17 +218,45 @@ export default function LoginScreen() {
                 <TouchableOpacity
                   style={styles.testChip}
                   activeOpacity={0.75}
-                  onPress={() => handleFillCredentials('taxi_business')}
+                  onPress={() => {
+                    quickLogin('taxi_business');
+                    router.replace('/(tabs)');
+                  }}
                 >
-                  <Text style={styles.testChipText}>🚖 Taxi Business</Text>
+                  <Text style={styles.testChipText}>🏢 Taxi Business</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={styles.testChip}
                   activeOpacity={0.75}
-                  onPress={() => handleFillCredentials('other_business')}
+                  onPress={() => {
+                    quickLogin('taxi_business_driver');
+                    router.replace('/(tabs)');
+                  }}
+                >
+                  <Text style={styles.testChipText}>🚖 Taxi Driver</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.testChip}
+                  activeOpacity={0.75}
+                  onPress={() => {
+                    quickLogin('other_business');
+                    router.replace('/(tabs)');
+                  }}
                 >
                   <Text style={styles.testChipText}>💈 Other Business</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.testChip}
+                  activeOpacity={0.75}
+                  onPress={() => {
+                    quickLogin('other_business_employee');
+                    router.replace('/(tabs)');
+                  }}
+                >
+                  <Text style={styles.testChipText}>✂️ Other Employee</Text>
                 </TouchableOpacity>
               </View>
             </View>

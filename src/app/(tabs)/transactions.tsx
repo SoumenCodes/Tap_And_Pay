@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import ShiftHistoryScreen from '../../components/history/ShiftHistoryScreen';
 import ShiftDetailsScreen from '../../components/history/ShiftDetailsScreen';
-import OtherBusinessTransactionsScreen from '../../components/other-business/OtherBusinessTransactionsScreen';
+import { OtherBusinessTransactionsScreen } from '../../components/other-business';
 import { MOCK_SHIFTS } from '../../data/mockShifts';
 import { ShiftRecord } from '../../types/shift';
 
@@ -32,8 +32,8 @@ export default function TransactionsTabScreen() {
     return () => backHandler.remove();
   }, [selectedShift, router]);
 
-  // If user is Other Business (e.g. Crown Cuts merchant), render Screen 23 Transactions History
-  if (user.loginType === 'other_business') {
+  // If user is Other Business (owner or employee), render Screen 23 Transactions History
+  if (user.loginType === 'other_business' || user.loginType === 'other_business_employee') {
     return (
       <OtherBusinessTransactionsScreen
         businessName={user.businessName}

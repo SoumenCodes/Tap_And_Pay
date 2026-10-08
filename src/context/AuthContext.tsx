@@ -1,6 +1,11 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
-export type LoginType = 'taxi_owner' | 'taxi_business' | 'other_business';
+export type LoginType =
+  | 'taxi_owner'
+  | 'taxi_business'
+  | 'taxi_business_driver'
+  | 'other_business'
+  | 'other_business_employee';
 
 export interface UserProfile {
   id: string;
@@ -14,7 +19,10 @@ export interface UserProfile {
   sessionStartTime: string;
 }
 
-export const MOCK_ACCOUNTS: Record<LoginType, { username: string; passwords: string[]; user: UserProfile }> = {
+export const MOCK_ACCOUNTS: Record<
+  LoginType,
+  { username: string; passwords: string[]; user: UserProfile }
+> = {
   taxi_owner: {
     username: 'taxi_owner',
     passwords: ['owner123', '123456'],
@@ -31,12 +39,26 @@ export const MOCK_ACCOUNTS: Record<LoginType, { username: string; passwords: str
   },
   taxi_business: {
     username: 'taxi_business',
-    passwords: ['taxi123', '123456'],
+    passwords: ['fleet123', '123456'],
     user: {
       id: 'usr_taxi_biz_02',
       username: 'taxi_business',
-      name: 'Lovedeep Khangura',
+      name: 'Lovedeep Khangura (Fleet Admin)',
       loginType: 'taxi_business',
+      roleLabel: 'Taxi Fleet Business',
+      businessName: 'Elite Taxi Fleet',
+      taxiNumber: 'Fleet #402',
+      sessionStartTime: '7:30 AM',
+    },
+  },
+  taxi_business_driver: {
+    username: 'taxi_driver',
+    passwords: ['driver123', '123456'],
+    user: {
+      id: 'usr_taxi_driver_03',
+      username: 'taxi_driver',
+      name: 'Gurpreet Singh',
+      loginType: 'taxi_business_driver',
       roleLabel: 'Taxi Business Driver',
       businessName: 'Elite Taxi Fleet',
       taxiNumber: 'M6061',
@@ -47,11 +69,25 @@ export const MOCK_ACCOUNTS: Record<LoginType, { username: string; passwords: str
     username: 'other_business',
     passwords: ['business123', '123456'],
     user: {
-      id: 'usr_other_biz_03',
+      id: 'usr_other_biz_04',
       username: 'other_business',
       name: 'Soumen',
       loginType: 'other_business',
       roleLabel: 'Merchant Owner',
+      businessName: 'Crown Cuts',
+      businessAddress: 'Suite 4, 120 Collins Street, Melbourne VIC',
+      sessionStartTime: '7:30 AM',
+    },
+  },
+  other_business_employee: {
+    username: 'other_employee',
+    passwords: ['staff123', '123456'],
+    user: {
+      id: 'usr_other_emp_05',
+      username: 'other_employee',
+      name: 'Liam Hemsworth',
+      loginType: 'other_business_employee',
+      roleLabel: 'Business Employee',
       businessName: 'Crown Cuts',
       businessAddress: 'Suite 4, 120 Collins Street, Melbourne VIC',
       sessionStartTime: '7:30 AM',
@@ -69,14 +105,17 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // Default to other_business or taxi_business as needed
+  // Default to other_business for testing
   const [user, setUser] = useState<UserProfile>(MOCK_ACCOUNTS.other_business.user);
 
-  const login = (inputUsername: string, inputPassword: string): { success: boolean; error?: string } => {
+  const login = (
+    inputUsername: string,
+    inputPassword: string
+  ): { success: boolean; error?: string } => {
     const trimmedUser = inputUsername.trim().toLowerCase();
     const trimmedPass = inputPassword.trim();
 
-    // Check Taxi Owner
+    // 1. Taxi Owner
     if (
       trimmedUser === 'taxi_owner' ||
       trimmedUser === 'owner' ||
@@ -89,21 +128,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: false, error: 'Invalid password. Use "owner123" or "123456".' };
     }
 
-    // Check Taxi Business
+    // 2. Taxi Business
     if (
       trimmedUser === 'taxi_business' ||
-      trimmedUser === 'taxi' ||
-      trimmedUser === 'driver' ||
-      trimmedUser === 'driver@taxi.com'
+      trimmedUser === 'fleet' ||
+      trimmedUser === 'operator' ||
+      trimmedUser === 'fleet@taxi.com'
     ) {
       if (MOCK_ACCOUNTS.taxi_business.passwords.includes(trimmedPass)) {
         setUser(MOCK_ACCOUNTS.taxi_business.user);
         return { success: true };
       }
-      return { success: false, error: 'Invalid password. Use "taxi123" or "123456".' };
+      return { success: false, error: 'Invalid password. Use "fleet123" or "123456".' };
     }
 
-    // Check Other Business
+    // 3. Taxi Business Driver
+    if (
+      trimmedUser === 'taxi_driver' ||
+      trimmedUser === 'driver' ||
+      trimmedUser === 'taxi_business_driver' ||
+      trimmedUser === 'driver@taxi.com'
+    ) {
+      if (MOCK_ACCOUNTS.taxi_business_driver.passwords.includes(trimmedPass)) {
+        setUser(MOCK_ACCOUNTS.taxi_business_driver.user);
+        return { success: true };
+      }
+      return { success: false, error: 'Invalid password. Use "driver123" or "123456".' };
+    }
+
+    // 4. Other Business (Owner)
     if (
       trimmedUser === 'other_business' ||
       trimmedUser === 'business' ||
@@ -117,9 +170,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: false, error: 'Invalid password. Use "business123" or "123456".' };
     }
 
+    // 5. Other Business Employee
+    if (
+      trimmedUser === 'other_employee' ||
+      trimmedUser === 'employee' ||
+      trimmedUser === 'staff' ||
+      trimmedUser === 'liam' ||
+      trimmedUser === 'staff@business.com'
+    ) {
+      if (MOCK_ACCOUNTS.other_business_employee.passwords.includes(trimmedPass)) {
+        setUser(MOCK_ACCOUNTS.other_business_employee.user);
+        return { success: true };
+      }
+      return { success: false, error: 'Invalid password. Use "staff123" or "123456".' };
+    }
+
     return {
       success: false,
-      error: 'User not recognized. Choose: taxi_owner, taxi_business, or other_business.',
+      error:
+        'User not recognized. Choose: taxi_owner, taxi_business, taxi_driver, other_business, or other_employee.',
     };
   };
 

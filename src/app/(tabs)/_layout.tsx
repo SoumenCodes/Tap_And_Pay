@@ -9,7 +9,10 @@ import { useAuth } from '../../context/AuthContext';
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const historyTabTitle = user?.loginType === 'other_business' ? 'Transactions' : 'History';
+  const historyTabTitle =
+    user?.loginType === 'other_business' || user?.loginType === 'other_business_employee'
+      ? 'Transactions'
+      : 'History';
 
   return (
     <Tabs

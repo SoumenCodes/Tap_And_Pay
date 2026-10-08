@@ -60,19 +60,23 @@ export default function OtherBusinessDashboard({
             resizeMode="cover"
           />
 
-          {/* Compact translucent dark text badge at bottom-left */}
-          <View style={styles.bannerBadge}>
-            <Text style={styles.bannerTitle} numberOfLines={1}>
-              {businessName}
-            </Text>
-            <View style={styles.bannerAddressRow}>
-              <Ionicons
-                name="location-sharp"
-                size={11}
-                color="#CBD5E1"
-                style={styles.bannerLocationIcon}
+          {/* Bottom-left row: Avatar + Translucent Text Badge */}
+          <View style={styles.bannerBottomRow}>
+            {/* Avatar Logo Box */}
+            <View style={styles.avatarBox}>
+              <Image
+                source={require('../../../assets/crown_cuts_badge_hd.png')}
+                style={styles.avatarBadgeImage}
+                resizeMode="contain"
               />
-              <Text style={styles.bannerAddressText} numberOfLines={1}>
+            </View>
+
+            {/* Translucent Text Badge */}
+            <View style={styles.bannerTextBadge}>
+              <Text style={styles.bannerTitle} numberOfLines={1}>
+                {businessName}
+              </Text>
+              <Text style={styles.bannerSubtitle} numberOfLines={1}>
                 {businessAddress}
               </Text>
             </View>
@@ -302,43 +306,68 @@ const styles = StyleSheet.create({
   },
   bannerContainer: {
     width: '100%',
-    height: 148,
+    height: 154,
     borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#0F172A',
     position: 'relative',
   },
   bannerImage: {
     width: '100%',
     height: '100%',
   },
-  bannerBadge: {
+  bannerBottomRow: {
     position: 'absolute',
     bottom: 12,
     left: 14,
-    maxWidth: '85%',
-    backgroundColor: 'rgba(15, 23, 42, 0.72)',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    right: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatarBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#FFFDF0',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderColor: '#FEF08A',
+    padding: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  avatarBadgeImage: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarInitials: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#D97706',
+    letterSpacing: 0.5,
+  },
+  bannerTextBadge: {
+    flexShrink: 1,
+    marginLeft: 10,
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     gap: 2,
   },
   bannerTitle: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: 0.2,
   },
-  bannerAddressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  bannerLocationIcon: {
-    marginRight: 3,
-  },
-  bannerAddressText: {
+  bannerSubtitle: {
     fontSize: 11,
     fontWeight: '500',
     color: '#E2E8F0',

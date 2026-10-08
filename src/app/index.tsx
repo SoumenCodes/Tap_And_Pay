@@ -1,84 +1,134 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
-  Image,
   StyleSheet,
   Animated,
-  Dimensions,
+  TouchableOpacity,
+  Text,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
-import { colors } from '../constants/colors';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useEventListener } from 'expo';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import * as SplashScreen from 'expo-splash-screen';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+// Keep native splash screen until video is ready
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
-export default function SplashScreen() {
+const videoSource = require('../../assets/SE-pay-video.mp4');
+
+export default function VideoSplashScreen() {
   const router = useRouter();
-  const [fadeAnim] = useState(() => new Animated.Value(0));
-  const [scaleAnim] = useState(() => new Animated.Value(0.95));
+  const insets = useSafeAreaInsets();
+  const hasNavigated = useRef(false);
+  const [fadeAnim] = useState(() => new Animated.Value(1));
 
-  useEffect(() => {
-    // Elegant entrance fade and gentle scale
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 900,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        tension: 50,
-        friction: 7,
-        useNativeDriver: true,
-      }),
-    ]).start();
+  // Initialize the hardware-accelerated video player with sound enabled
+  const player = useVideoPlayer(videoSource, (p) => {
+    p.loop = false;
+    p.muted = false;
+    p.volume = 1.0;
+    p.play();
+  });
 
-    const timer = setTimeout(() => {
+  const navigateNext = useCallback(() => {
+    if (hasNavigated.current) return;
+    hasNavigated.current = true;
+
+    // Smooth, professional cross-fade out before navigating
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 400,
+      useNativeDriver: true,
+    }).start(() => {
       router.replace('/login');
-    }, 2200);
+    });
+  }, [fadeAnim, router]);
 
-    return () => clearTimeout(timer);
-  }, [fadeAnim, scaleAnim, router]);
+  // Hide the native OS splash screen once the video player starts playing or is ready
+  useEventListener(player, 'statusChange', ({ status }) => {
+    if (status === 'readyToPlay') {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  });
+
+  useEventListener(player, 'playingChange', ({ isPlaying }) => {
+    if (isPlaying) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  });
+
+  // Navigate when video finishes playing
+  useEventListener(player, 'playToEnd', () => {
+    navigateNext();
+  });
+
+  // Safety fallback timeout in case of unexpected audio/video interruption
+  useEffect(() => {
+    const fallbackTimer = setTimeout(() => {
+      navigateNext();
+    }, 7000);
+
+    return () => clearTimeout(fallbackTimer);
+  }, [navigateNext]);
 
   return (
-    <View style={styles.container}>
+    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
       <StatusBar style="dark" />
 
-      {/* Centered Minimal SE PAY Logo */}
-      <Animated.View
-        style={[
-          styles.logoContainer,
-          {
-            opacity: fadeAnim,
-            transform: [{ scale: scaleAnim }],
-          },
-        ]}
-      >
-        <Image
-          source={require('../../assets/se_pay_logo.png')}
-          style={styles.logo}
-          resizeMode="contain"
+      {/* Full screen video container */}
+      <View style={styles.videoWrapper}>
+        <VideoView
+          player={player}
+          style={StyleSheet.absoluteFill}
+          contentFit="contain"
+          nativeControls={false}
+          showsTimecodes={false}
         />
-      </Animated.View>
-    </View>
+      </View>
+
+      {/* Subtle, elegant Skip button for quick entry */}
+      <View style={[styles.topBar, { top: Math.max(insets.top, 24) + 8 }]}>
+        <TouchableOpacity
+          style={styles.skipButton}
+          onPress={navigateNext}
+          activeOpacity={0.7}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Text style={styles.skipText}>Skip</Text>
+        </TouchableOpacity>
+      </View>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background.primary,
+    backgroundColor: '#FFFFFF',
+  },
+  videoWrapper: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoContainer: {
-    width: Math.min(SCREEN_WIDTH * 0.72, 280),
-    height: 140,
-    alignItems: 'center',
-    justifyContent: 'center',
+  topBar: {
+    position: 'absolute',
+    right: 20,
+    zIndex: 10,
   },
-  logo: {
-    width: '100%',
-    height: '100%',
+  skipButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: 'rgba(15, 23, 42, 0.06)',
+  },
+  skipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+    letterSpacing: 0.3,
   },
 });

@@ -70,7 +70,8 @@
         }
       ],
       "expo-web-browser",
-      "expo-router"
+      "expo-router",
+      "expo-video"
     ],
     "web": {
       "favicon": "./assets/favicon.png"

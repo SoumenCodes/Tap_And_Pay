@@ -51,11 +51,7 @@ export default function OtherBusinessProfileScreen() {
   };
 
   const handleManageEmployee = () => {
-    Alert.alert(
-      'Manage Employee',
-      'Staff Members (4 Active):\n• Soumen (Owner / Admin)\n• Alex Martin (Senior Barber)\n• Emma Watson (Barber)\n• Lucas Brown (Stylist)',
-      [{ text: 'Close' }]
-    );
+    router.push('/manage-employee');
   };
 
   const handleBankDetails = () => {

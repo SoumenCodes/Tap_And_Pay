@@ -12,18 +12,21 @@ import {
   Modal,
   ActivityIndicator,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useAuth } from '../../context/AuthContext';
 import HeaderBar from '../../components/common/HeaderBar';
 
 export default function CardEntryScreen() {
   const router = useRouter();
-  const { user } = useAuth();
-  const params = useLocalSearchParams<{ amount?: string }>();
+  const params = useLocalSearchParams<{
+    amount?: string;
+    showFraudWarning?: string;
+    pickup?: string;
+    dropoff?: string;
+  }>();
 
-  const rawAmount = params.amount || '1250';
-  const numericAmount = parseFloat(rawAmount) || 0;
+  const rawAmount = params.amount || '104.00';
+  const numericAmount = parseFloat(rawAmount) || 104;
 
   // Format parts for exact Figma match: $ [gold] 1250 [black] .00 [gray]
   const integerPart =
@@ -36,14 +39,16 @@ export default function CardEntryScreen() {
   });
   const decimalPart = (numericAmount.toFixed(2)).split('.')[1] || '00';
 
-  const [cardNumber, setCardNumber] = useState('');
-  const [expiry, setExpiry] = useState('');
-  const [cvc, setCvc] = useState('');
-  const [cardholder, setCardholder] = useState('');
+  const [cardNumber, setCardNumber] = useState('•••• •••• •••• 4242');
+  const [expiry, setExpiry] = useState('12/28');
+  const [cvc, setCvc] = useState('123');
+  const [cardholder, setCardholder] = useState('John Doe');
 
-  // Confirmation Modal state
-  const [isConfirmModalVisible, setIsConfirmModalVisible] = useState(false);
-  const [isAuthorized, setIsAuthorized] = useState(true);
+  // Fraud Warning Modal state (sole confirmation modal for card payment)
+  const [isFraudWarningVisible, setIsFraudWarningVisible] = useState(
+    params.showFraudWarning !== 'false'
+  );
+  const [isFraudRiskAccepted, setIsFraudRiskAccepted] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Format card number with spaces every 4 digits
@@ -85,32 +90,34 @@ export default function CardEntryScreen() {
   };
 
   const detectedBrand = getCardBrand(cardNumber);
-  const rawDigits = cardNumber.replace(/\D/g, '');
-  const last4 = rawDigits.length >= 4 ? rawDigits.slice(-4) : '4242';
 
-  // Open confirmation modal
+  // Open Fraud Warning modal
   const handleOpenConfirm = () => {
-    // If not filled, fill with mock values for smooth previewing matching Figma
     if (!cardNumber) {
       setCardNumber('•••• •••• •••• 4242');
       setExpiry('12/28');
       setCvc('123');
       setCardholder('John Doe');
     }
-    setIsConfirmModalVisible(true);
+    setIsFraudWarningVisible(true);
   };
 
   // Confirm and Charge -> Routes to Processing Screen
   const handleProceedCharge = () => {
-    if (!isAuthorized) return;
+    if (!isFraudRiskAccepted) return;
     setIsProcessing(true);
 
     setTimeout(() => {
       setIsProcessing(false);
-      setIsConfirmModalVisible(false);
+      setIsFraudWarningVisible(false);
       router.push({
         pathname: '/(tabs)/processing',
-        params: { amount: rawAmount, method: 'card' },
+        params: {
+          amount: rawAmount,
+          method: 'card',
+          pickup: params.pickup || 'Hospital',
+          dropoff: params.dropoff || 'Home',
+        },
       });
     }, 400);
   };
@@ -133,7 +140,7 @@ export default function CardEntryScreen() {
         >
           {/* ── Total to Charge Section (100% Figma Match) ── */}
           <View style={styles.totalChargeCard}>
-            <Text style={styles.totalChargeLabel}>Total to charge:</Text>
+            <Text style={styles.totalChargeLabel}>TOTAL AMOUNT (INC GST)</Text>
             <View style={styles.totalChargeAmountContainer}>
               <Text style={styles.totalChargeDollar}>$</Text>
               <Text style={styles.totalChargeInt}>{integerPart}</Text>
@@ -238,105 +245,96 @@ export default function CardEntryScreen() {
         </ScrollView>
       </View>
 
-      {/* ── 9 Card Details Confirmation Popup (100% Figma Match) ── */}
+
+
+      {/* ── FRAUD WARNING MODAL (100% MATCH WITH IMAGE 3) ── */}
       <Modal
-        visible={isConfirmModalVisible}
-        transparent={true}
+        visible={isFraudWarningVisible}
+        transparent
         animationType="slide"
-        onRequestClose={() => setIsConfirmModalVisible(false)}
+        onRequestClose={() => setIsFraudWarningVisible(false)}
       >
-        <View style={styles.modalBackdrop}>
+        <View style={styles.fraudModalBackdrop}>
           <TouchableOpacity
             style={styles.modalBackdropTouch}
             activeOpacity={1}
-            onPress={() => setIsConfirmModalVisible(false)}
+            onPress={() => setIsFraudWarningVisible(false)}
           />
 
-          <View style={styles.modalSheet}>
-            {/* Drag Handle Bar */}
+          <View style={styles.fraudModalSheet}>
+            {/* Top Drag Handle */}
             <View style={styles.dragHandle} />
 
-            {/* Security Shield Icon */}
-            <View style={styles.shieldContainer}>
-              <Ionicons name="shield-checkmark-outline" size={26} color="#2563EB" />
+            {/* Red Shield Alert Icon Box */}
+            <View style={styles.fraudShieldBox}>
+              <MaterialCommunityIcons name="shield-alert-outline" size={30} color="#DC2626" />
             </View>
 
-            {/* Header Titles */}
-            <Text style={styles.modalTitle}>Authorize Payment</Text>
-            <Text style={styles.modalSubtitle}>Please confirm the transaction details below</Text>
+            {/* Title: FRAUD WARNING */}
+            <Text style={styles.fraudModalTitle}>FRAUD WARNING</Text>
 
-            {/* Summary Details Card */}
-            <View style={styles.summaryCard}>
-              <Text style={styles.amountLabel}>AMOUNT TO CHARGE</Text>
-
-              <View style={styles.amountRow}>
-                <Text style={styles.modalDollar}>$</Text>
-                <Text style={styles.modalAmountInt}>{formattedWithComma}</Text>
-                <Text style={styles.modalAmountDec}>.{decimalPart} AUD</Text>
-              </View>
-
-              <View style={styles.divider} />
-
-              {/* Merchant Row */}
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Merchant</Text>
-                <Text style={styles.detailValue}>
-                  {user?.businessName || 'SE PAY Australia'}
-                </Text>
-              </View>
-
-              {/* Card Row */}
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Card</Text>
-                <View style={styles.cardValueContainer}>
-                  <View style={styles.visaBadge}>
-                    <Text style={styles.visaBadgeText}>{detectedBrand.badge}</Text>
-                  </View>
-                  <Text style={styles.cardMaskedText}>•••• {last4}</Text>
-                </View>
-              </View>
+            {/* Red Alert Banner Callout */}
+            <View style={styles.fraudAlertBanner}>
+              <Feather name="alert-triangle" size={18} color="#DC2626" style={{ marginRight: 10 }} />
+              <Text style={styles.fraudAlertBannerText}>
+                CARD PAYMENTS OVER PHONE OR VIA TEXT MESSAGE ARE PRONE TO FRAUD
+              </Text>
             </View>
 
-            {/* Checkbox authorization */}
+            {/* Information Box */}
+            <View style={styles.fraudInfoBox}>
+              <Text style={styles.fraudInfoText}>
+                You accept that if this transaction is disputed, it will be charged back as the full amount plus any fees.
+              </Text>
+              <View style={styles.fraudInfoDivider} />
+              <Text style={styles.fraudInfoText}>
+                Only take payments over phone from known customers to minimise loss.
+              </Text>
+            </View>
+
+            {/* Checkbox Authorization Row */}
             <TouchableOpacity
-              style={styles.checkboxContainer}
+              style={styles.fraudCheckboxRow}
               activeOpacity={0.7}
-              onPress={() => setIsAuthorized((prev) => !prev)}
+              onPress={() => setIsFraudRiskAccepted((prev) => !prev)}
             >
-              <View style={[styles.checkbox, isAuthorized && styles.checkboxActive]}>
-                {isAuthorized && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+              <View style={[styles.fraudCheckbox, isFraudRiskAccepted && styles.fraudCheckboxActive]}>
+                {isFraudRiskAccepted && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
               </View>
-              <Text style={styles.checkboxText}>
-                I confirm and authorize this card payment of{' '}
-                <Text style={styles.checkboxBold}>${formattedWithComma}.{decimalPart} AUD.</Text>
+              <Text style={styles.fraudCheckboxText}>
+                I understand the chargeback risk and authorize charging{' '}
+                <Text style={styles.fraudCheckboxBold}>${formattedWithComma}.{decimalPart} AUD</Text>.
               </Text>
             </TouchableOpacity>
 
-            {/* Action Buttons */}
-            <View style={styles.modalButtons}>
+            {/* Action Buttons: I Agree (Dark Blue) & Cancel Transaction */}
+            <View style={styles.fraudButtonsWrap}>
               <TouchableOpacity
-                style={[styles.proceedBtn, !isAuthorized && styles.proceedBtnDisabled]}
-                onPress={handleProceedCharge}
-                disabled={!isAuthorized || isProcessing}
+                style={[
+                  styles.fraudAgreeBtn,
+                  (!isFraudRiskAccepted || isProcessing) && styles.fraudAgreeBtnDisabled,
+                ]}
+                disabled={!isFraudRiskAccepted || isProcessing}
                 activeOpacity={0.85}
+                onPress={handleProceedCharge}
               >
                 {isProcessing ? (
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
-                  <Text style={styles.proceedBtnText}>
-                    Proceed & Charge{' '}
-                    <Text style={styles.proceedBtnAmount}>${integerPart}.{decimalPart}</Text>
-                  </Text>
+                  <>
+                    <View style={styles.fraudGoldDot} />
+                    <Text style={styles.fraudAgreeBtnText}>I Agree</Text>
+                  </>
                 )}
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.modalCancelBtn}
-                onPress={() => setIsConfirmModalVisible(false)}
+                style={styles.fraudCancelBtn}
                 activeOpacity={0.7}
                 disabled={isProcessing}
+                onPress={() => router.back()}
               >
-                <Text style={styles.modalCancelBtnText}>Cancel</Text>
+                <Text style={styles.fraudCancelBtnText}>Cancel Transaction</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -347,6 +345,152 @@ export default function CardEntryScreen() {
 }
 
 const styles = StyleSheet.create({
+  fraudModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'flex-end',
+  },
+  modalBackdropTouch: {
+    flex: 1,
+  },
+  fraudModalSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 28,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  fraudShieldBox: {
+    width: 54,
+    height: 54,
+    borderRadius: 16,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1.5,
+    borderColor: '#FCA5A5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginTop: 6,
+  },
+  fraudModalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginTop: 12,
+    marginBottom: 14,
+    letterSpacing: 0.5,
+  },
+  fraudAlertBanner: {
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1.2,
+    borderColor: '#EF4444',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  fraudAlertBannerText: {
+    color: '#7F1D1D',
+    fontSize: 11,
+    fontWeight: '700',
+    lineHeight: 16,
+    flex: 1,
+    letterSpacing: 0.2,
+  },
+  fraudInfoBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 12,
+  },
+  fraudInfoText: {
+    color: '#334155',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  fraudInfoDivider: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginVertical: 10,
+  },
+  fraudCheckboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  fraudCheckbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#94A3B8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  fraudCheckboxActive: {
+    backgroundColor: '#0A3977',
+    borderColor: '#0A3977',
+  },
+  fraudCheckboxText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#334155',
+    lineHeight: 17,
+  },
+  fraudCheckboxBold: {
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  fraudButtonsWrap: {
+    gap: 8,
+  },
+  fraudAgreeBtn: {
+    backgroundColor: '#0A3977',
+    borderRadius: 12,
+    height: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fraudAgreeBtnDisabled: {
+    opacity: 0.5,
+  },
+  fraudGoldDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#F59E0B',
+    marginRight: 8,
+  },
+  fraudAgreeBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  fraudCancelBtn: {
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    height: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  fraudCancelBtnText: {
+    color: '#0F172A',
+    fontSize: 14.5,
+    fontWeight: '600',
+  },
   root: {
     flex: 1,
     backgroundColor: '#FFFFFF',
@@ -482,215 +626,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
-
-  /* ── Modal Styles ── */
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
-    justifyContent: 'flex-end',
-  },
-  modalBackdropTouch: {
-    flex: 1,
-  },
-  modalSheet: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingHorizontal: 22,
-    paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 20,
-  },
   dragHandle: {
     width: 38,
     height: 4,
     borderRadius: 2,
     backgroundColor: '#CBD5E1',
     alignSelf: 'center',
-    marginBottom: 16,
-  },
-  shieldContainer: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#EFF6FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
     marginBottom: 12,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#0F172A',
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  modalSubtitle: {
-    fontSize: 13,
-    color: '#64748B',
-    textAlign: 'center',
-    marginBottom: 18,
-  },
-  summaryCard: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-    padding: 18,
-    alignItems: 'center',
-  },
-  amountLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#64748B',
-    letterSpacing: 0.8,
-    marginBottom: 8,
-  },
-  amountRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'center',
-  },
-  modalDollar: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#D97706',
-    marginRight: 2,
-  },
-  modalAmountInt: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  modalAmountDec: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#64748B',
-    marginLeft: 1,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#E2E8F0',
-    width: '100%',
-    marginVertical: 14,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    width: '100%',
-    paddingVertical: 4,
-  },
-  detailLabel: {
-    fontSize: 13,
-    color: '#64748B',
-    fontWeight: '500',
-  },
-  detailValue: {
-    fontSize: 14,
-    color: '#0F172A',
-    fontWeight: '700',
-  },
-  cardValueContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  visaBadge: {
-    backgroundColor: '#EFF6FF',
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    borderRadius: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  visaBadgeText: {
-    color: '#1D4ED8',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  cardMaskedText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 18,
-    marginBottom: 20,
-    gap: 10,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 5,
-    borderWidth: 1.5,
-    borderColor: '#CBD5E1',
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxActive: {
-    backgroundColor: '#0F172A',
-    borderColor: '#0F172A',
-  },
-  checkboxText: {
-    fontSize: 13,
-    color: '#334155',
-    fontWeight: '500',
-    flex: 1,
-    lineHeight: 18,
-  },
-  checkboxBold: {
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  modalButtons: {
-    gap: 10,
-  },
-  proceedBtn: {
-    backgroundColor: '#0F172A',
-    borderRadius: 14,
-    height: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  proceedBtnDisabled: {
-    backgroundColor: '#94A3B8',
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  proceedBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  proceedBtnAmount: {
-    color: '#FBBF24',
-    fontWeight: '800',
-  },
-  modalCancelBtn: {
-    backgroundColor: '#F1F5F9',
-    borderRadius: 14,
-    height: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalCancelBtnText: {
-    color: '#0F172A',
-    fontSize: 16,
-    fontWeight: '700',
   },
 });

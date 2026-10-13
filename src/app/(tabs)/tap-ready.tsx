@@ -177,9 +177,13 @@ const illStyles = StyleSheet.create({
 export default function TapReadyScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const params = useLocalSearchParams<{ amount?: string }>();
+  const params = useLocalSearchParams<{
+    amount?: string;
+    pickup?: string;
+    dropoff?: string;
+  }>();
 
-  const rawAmount = params.amount || '1250';
+  const rawAmount = params.amount || '104.00';
   const numericAmount = parseFloat(rawAmount) || 0;
 
   // Format with commas: 1250 -> 1,250
@@ -239,7 +243,12 @@ export default function TapReadyScreen() {
           onPress={() => {
             router.push({
               pathname: '/(tabs)/processing',
-              params: { amount: rawAmount, method: 'tap' },
+              params: {
+                amount: rawAmount,
+                method: 'tap',
+                pickup: params.pickup || 'Hospital',
+                dropoff: params.dropoff || 'Home',
+              },
             });
           }}
         >

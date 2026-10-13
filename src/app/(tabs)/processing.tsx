@@ -21,7 +21,12 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 export default function ProcessingScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const params = useLocalSearchParams<{ amount?: string; method?: string }>();
+  const params = useLocalSearchParams<{
+    amount?: string;
+    method?: string;
+    pickup?: string;
+    dropoff?: string;
+  }>();
 
   // Continuous smooth linear rotation of the gold arc
   const [rotateAnim] = useState(() => new Animated.Value(0));
@@ -53,14 +58,16 @@ export default function ProcessingScreen() {
       router.replace({
         pathname: '/(tabs)/payment-success',
         params: {
-          amount: params.amount || '1250',
+          amount: params.amount || '104.00',
           method: params.method || 'tap',
+          pickup: params.pickup || 'Hospital',
+          dropoff: params.dropoff || 'Home',
         },
       });
     }, 3000);
 
     return () => clearTimeout(timer);
-  }, [router, params.amount, params.method]);
+  }, [router, params.amount, params.method, params.pickup, params.dropoff]);
 
   return (
     <View

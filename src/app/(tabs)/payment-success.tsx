@@ -22,24 +22,28 @@ export default function PaymentSuccessScreen() {
     method?: string;
     paymentId?: string;
     cardLast4?: string;
+    pickup?: string;
+    dropoff?: string;
   }>();
 
-  const rawAmount = params.amount || '1250';
+  const rawAmount = params.amount || '104.00';
   const numericAmount = parseFloat(rawAmount) || 0;
   const isTap = params.method === 'tap' || !params.method;
   const cardLast4 = params.cardLast4 || '4242';
   const paymentId = params.paymentId || 'pi_3N5x...8F2d';
 
-  // Format amount with commas: 1250 -> 1,250
+  // Format amount with commas: 104.00 or 1,250
   const formattedAmount =
     numericAmount >= 1000
       ? numericAmount.toLocaleString('en-US', {
-          minimumFractionDigits: 0,
+          minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         })
-      : rawAmount;
+      : Number.isInteger(numericAmount)
+      ? `${numericAmount}.00`
+      : numericAmount.toFixed(2);
 
-  const businessName = user?.businessName || 'Crown Cuts';
+  const businessName = user?.businessName || 'Elite Taxi Service';
 
   const handleViewReceipt = () => {
     router.push({
@@ -49,6 +53,8 @@ export default function PaymentSuccessScreen() {
         method: isTap ? 'tap' : 'card',
         paymentId,
         cardLast4,
+        pickup: params.pickup || 'Hospital',
+        dropoff: params.dropoff || 'Home',
       },
     });
   };

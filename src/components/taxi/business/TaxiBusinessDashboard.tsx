@@ -213,35 +213,37 @@ export default function TaxiBusinessDashboard({
           </View>
         </View>
 
-        {/* 3. TAXI FARE Big Golden Card */}
-        <TouchableOpacity
-          activeOpacity={0.88}
-          onPress={handleStartTaxiFare}
-          style={styles.taxiFareCard}
-        >
-          <LinearGradient
-            colors={['#F59E0B', '#FBBF24', '#FCD34D']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.taxiFareGradient}
+        {/* 3. TAXI FARE Big Golden Card (Only visible when On Shift) */}
+        {isOnShift && (
+          <TouchableOpacity
+            activeOpacity={0.88}
+            onPress={handleStartTaxiFare}
+            style={styles.taxiFareCard}
           >
-            {/* Left Taxi Icon Box */}
-            <View style={styles.taxiIconWrap}>
-              <MaterialCommunityIcons name="taxi" size={28} color="#0F172A" />
-            </View>
+            <LinearGradient
+              colors={['#F59E0B', '#FBBF24', '#FCD34D']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.taxiFareGradient}
+            >
+              {/* Left Taxi Icon Box */}
+              <View style={styles.taxiIconWrap}>
+                <MaterialCommunityIcons name="taxi" size={28} color="#0F172A" />
+              </View>
 
-            {/* Text Information */}
-            <View style={styles.taxiFareTextWrap}>
-              <Text style={styles.taxiFareTitle}>TAXI FARE</Text>
-              <Text style={styles.taxiFareSubtitle}>Ready to charge passengers</Text>
-            </View>
+              {/* Text Information */}
+              <View style={styles.taxiFareTextWrap}>
+                <Text style={styles.taxiFareTitle}>TAXI FARE</Text>
+                <Text style={styles.taxiFareSubtitle}>Ready to charge passengers</Text>
+              </View>
 
-            {/* Right Circular Arrow */}
-            <View style={styles.fareArrowCircle}>
-              <Feather name="chevron-right" size={22} color="#0F172A" />
-            </View>
-          </LinearGradient>
-        </TouchableOpacity>
+              {/* Right Circular Arrow */}
+              <View style={styles.fareArrowCircle}>
+                <Feather name="chevron-right" size={22} color="#0F172A" />
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
 
         {/* 4. Revenue Card */}
         <View style={styles.revenueCard}>

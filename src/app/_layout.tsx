@@ -49,6 +49,9 @@ export default function RootLayout() {
               <Stack.Screen name="receipt-details" options={{ animation: 'slide_from_right' }} />
               <Stack.Screen name="shift-details" options={{ animation: 'slide_from_right' }} />
               <Stack.Screen name="manage-employee" options={{ animation: 'slide_from_right' }} />
+              <Stack.Screen name="manage-driver" options={{ animation: 'slide_from_right' }} />
+              <Stack.Screen name="driver-details" options={{ animation: 'slide_from_right' }} />
+              <Stack.Screen name="add-driver" options={{ animation: 'slide_from_right' }} />
               <Stack.Screen name="add-employee" options={{ animation: 'slide_from_right' }} />
             </Stack>
           </GestureHandlerRootView>

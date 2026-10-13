@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, Feather } from '@expo/vector-icons';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -182,7 +182,7 @@ export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreen
     }
   };
 
-  // Share Report (Generate PDF in scoped cache & share via native sheet like WhatsApp, Email, etc.)
+  // Share Report (Generate PDF in scoped cache & share via native sheet)
   const handleShareReport = async () => {
     try {
       setIsExporting(true);
@@ -221,14 +221,12 @@ export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreen
       }
     } catch (error) {
       console.error('Error sharing shift report:', error);
-      // Fallback to text share if native file sharing has restrictions
       try {
         await Share.share({
           title: `Shift Report - ${shift.id}`,
           message: `Shift Report for ${shift.driverName} (${shift.taxiNumber})\nShift ID: ${shift.id}\nDate: ${shift.dateText} (${shift.timeRange})\nTotal: $${shift.totalAmount.toFixed(2)} (${shift.tripsCount} trips)\nCard: $${shift.cardAmount.toFixed(2)} (${shift.cardCount} txns)\nTap & Go: $${shift.tapAndGoAmount.toFixed(2)} (${shift.tapAndGoCount} txns)`,
         });
-      } catch (fallbackError) {
-        console.error('Fallback share error:', fallbackError);
+      } catch {
         Alert.alert('Error', 'Unable to open share menu. Please try again.');
       }
     } finally {
@@ -261,7 +259,7 @@ export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreen
     }
   };
 
-  // Single trip share (Open WhatsApp, Email, etc. with PDF or text fallback)
+  // Single trip share
   const handleShareTrip = async (txn: ShiftTransaction) => {
     try {
       const html = `
@@ -312,8 +310,8 @@ export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreen
           title: `Receipt ${txn.id}`,
           message: `Taxi Trip Receipt (${shift.businessName})\nTXN: ${txn.id}\nFare: $${txn.amount.toFixed(2)}\nRoute: ${txn.pickup} to ${txn.dropoff}`,
         });
-      } catch (fallbackErr) {
-        console.error('Fallback trip share error:', fallbackErr);
+      } catch {
+        // ignore
       }
     }
   };
@@ -322,7 +320,7 @@ export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreen
     <View style={styles.root}>
       <StatusBar style="dark" />
 
-      {/* Common Header Bar */}
+      {/* Common Header Bar with Shift ID Title */}
       <HeaderBar
         title={shift.id}
         showBack
@@ -335,45 +333,26 @@ export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreen
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Top Shift Summary Card */}
+        {/* ── TOP SHIFT SUMMARY CARD (Matching Image 2) ── */}
         <View style={styles.topCard}>
-          {/* Row 1: Logo + Business Name + Shift ID */}
-          <View style={styles.topCardHeaderRow}>
-            <View style={styles.logoBadgeContainer}>
-              <Image
-                source={require('../../../assets/taxi-logo.png')}
-                style={styles.logoBadgeImage}
-                resizeMode="contain"
-              />
-            </View>
-
-            <View style={styles.businessInfoGroup}>
-              <Text style={styles.businessNameText}>{shift.businessName}</Text>
-              <Text style={styles.shiftCodeText}>SHIFT: {shift.id}</Text>
-            </View>
-          </View>
-
-          {/* Row 2: Driver & Taxi Number */}
-          <View style={styles.driverTaxiRow}>
-            <View style={styles.driverGroup}>
-              <MaterialCommunityIcons name="taxi" size={17} color="#2563EB" />
+          {/* Driver Photo, Name and Taxi / DC Numbers */}
+          <View style={styles.driverProfileRow}>
+            <Image
+              source={require('../../../assets/emp_avatar_1.png')}
+              style={styles.driverPhoto}
+            />
+            <View style={styles.driverInfoCol}>
               <Text style={styles.driverNameText}>{shift.driverName}</Text>
-            </View>
-
-            <View style={styles.taxiNumberGroup}>
-              <Text style={styles.taxiNumberLabel}>Taxi No.: </Text>
-              <Text style={styles.taxiNumberValue}>{shift.taxiNumber}</Text>
-            </View>
-          </View>
-
-          {/* Row 3: Shift Start Time & Paid Badge */}
-          <View style={styles.shiftTimeBadgeRow}>
-            <View style={styles.shiftTimeGroup}>
-              <Ionicons name="time-outline" size={15} color="#64748B" />
-              <Text style={styles.shiftTimeText}>
-                Shift Start: 7:30 AM  {shift.duration}
+              <Text style={styles.taxiDcMetaText}>
+                Taxi No.: <Text style={styles.taxiNumberHighlight}>{shift.taxiNumber}</Text>
+                {' '}| DC 93821048
               </Text>
             </View>
+          </View>
+
+          {/* Shift ID & Paid Badge */}
+          <View style={styles.shiftIdBadgeRow}>
+            <Text style={styles.shiftCodeText}>{shift.id}</Text>
 
             {shift.status === 'paid' ? (
               <View style={styles.paidBadge}>
@@ -389,9 +368,14 @@ export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreen
               </View>
             )}
           </View>
+
+          {/* Date, Time Range & Duration */}
+          <Text style={styles.shiftTimeRangeText}>
+            {shift.dateText} • {shift.timeRange} • {shift.duration}
+          </Text>
         </View>
 
-        {/* 3 Metric Stat Boxes */}
+        {/* ── 3 METRIC STAT BOXES ── */}
         <View style={styles.metricsCard}>
           {/* Column 1: TOTAL */}
           <View style={styles.metricColumn}>
@@ -400,9 +384,8 @@ export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreen
               <Text style={styles.metricColumnTitleTotal}>TOTAL</Text>
             </View>
             <View style={styles.metricAmountRow}>
-              <Text style={styles.metricAmountTotal}>
-                ${Math.floor(shift.totalAmount)}
-              </Text>
+              <Text style={styles.metricDollarTotal}>$</Text>
+              <Text style={styles.metricAmountTotal}>{Math.floor(shift.totalAmount)}</Text>
               <Text style={styles.metricAmountCents}>.00</Text>
             </View>
             <Text style={styles.metricSubtext}>{shift.tripsCount} Trips</Text>
@@ -417,9 +400,8 @@ export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreen
               <Text style={styles.metricColumnTitleCard}>CARD</Text>
             </View>
             <View style={styles.metricAmountRow}>
-              <Text style={styles.metricAmountCard}>
-                ${Math.floor(shift.cardAmount)}
-              </Text>
+              <Text style={styles.metricDollarCard}>$</Text>
+              <Text style={styles.metricAmountCard}>{Math.floor(shift.cardAmount)}</Text>
               <Text style={styles.metricAmountCents}>.00</Text>
             </View>
             <Text style={styles.metricSubtext}>{shift.cardCount} txns</Text>
@@ -430,22 +412,21 @@ export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreen
           {/* Column 3: TAP & GO */}
           <View style={styles.metricColumn}>
             <View style={styles.metricLabelRow}>
-              <MaterialCommunityIcons name="contactless-payment" size={14} color="#EA580C" />
+              <Ionicons name="flash-outline" size={13} color="#D97706" />
               <Text style={styles.metricColumnTitleTap}>TAP & GO</Text>
             </View>
             <View style={styles.metricAmountRow}>
-              <Text style={styles.metricAmountTap}>
-                ${Math.floor(shift.tapAndGoAmount)}
-              </Text>
+              <Text style={styles.metricDollarTap}>$</Text>
+              <Text style={styles.metricAmountTap}>{Math.floor(shift.tapAndGoAmount)}</Text>
               <Text style={styles.metricAmountCents}>.00</Text>
             </View>
             <Text style={styles.metricSubtext}>{shift.tapAndGoCount} txns</Text>
           </View>
         </View>
 
-        {/* Search Bar */}
+        {/* ── SEARCH BAR ── */}
         <View style={styles.searchBar}>
-          <Ionicons name="search-outline" size={17} color="#94A3B8" style={{ marginRight: 6 }} />
+          <Ionicons name="search-outline" size={17} color="#94A3B8" style={{ marginRight: 8 }} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search TXN ID, destination, fare..."
@@ -462,7 +443,7 @@ export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreen
           )}
         </View>
 
-        {/* Segmented Filter Pills */}
+        {/* ── SEGMENTED FILTER PILLS ── */}
         <View style={styles.segmentedControl}>
           <TouchableOpacity
             style={[
@@ -519,7 +500,7 @@ export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreen
           </TouchableOpacity>
         </View>
 
-        {/* Date Groups & Transactions */}
+        {/* ── DATE GROUPS & TRANSACTION CARDS ── */}
         {groupedTransactions.map((group) => (
           <View key={group.date} style={styles.dateGroupContainer}>
             {/* Date Group Header */}
@@ -542,7 +523,7 @@ export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreen
 
               return (
                 <View key={txn.id} style={styles.tripCard}>
-                  {/* Top Row: TXN ID + Time + Method Chip + Amount */}
+                  {/* Top Row: TXN ID + Time + Method Capsule + Amount */}
                   <View style={styles.tripTopRow}>
                     <View style={styles.tripIdTimeGroup}>
                       <Text style={styles.tripIdText}>{txn.id}</Text>
@@ -550,12 +531,12 @@ export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreen
 
                       {isCard ? (
                         <View style={styles.chipCard}>
-                          <Ionicons name="card-outline" size={12} color="#2563EB" />
+                          <Ionicons name="card-outline" size={11} color="#2563EB" style={{ marginRight: 3 }} />
                           <Text style={styles.chipCardText}>Card</Text>
                         </View>
                       ) : (
                         <View style={styles.chipTap}>
-                          <MaterialCommunityIcons name="flash" size={12} color="#D97706" />
+                          <Ionicons name="flash" size={11} color="#D97706" style={{ marginRight: 3 }} />
                           <Text style={styles.chipTapText}>Tap & Go</Text>
                         </View>
                       )}
@@ -572,23 +553,21 @@ export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreen
                     </View>
                   </View>
 
-                  {/* Journey Route (Pickup & Dropoff) */}
-                  <View style={styles.journeyContainer}>
-                    {/* Visual Route Indicator */}
-                    <View style={styles.routeIndicatorContainer}>
+                  {/* Route Box (Blue Pin -> Orange Pin with connecting line) */}
+                  <View style={styles.routeBox}>
+                    <View style={styles.routePinsCol}>
                       <View style={styles.bluePin} />
-                      <View style={styles.routeLine} />
+                      <View style={styles.verticalRouteLine} />
                       <View style={styles.orangePin} />
                     </View>
 
-                    {/* Addresses */}
-                    <View style={styles.routeAddresses}>
+                    <View style={styles.routeTextsCol}>
                       <Text style={styles.addressText}>{txn.pickup}</Text>
-                      <Text style={[styles.addressText, { marginTop: 12 }]}>{txn.dropoff}</Text>
+                      <Text style={[styles.addressText, { marginTop: 10 }]}>{txn.dropoff}</Text>
                     </View>
                   </View>
 
-                  {/* Card Footer: Status & Actions */}
+                  {/* Card Footer: Status & Action Buttons */}
                   <View style={styles.tripFooterRow}>
                     <View style={styles.verificationGroup}>
                       <Ionicons name="checkmark-circle-outline" size={15} color="#10B981" />
@@ -601,7 +580,7 @@ export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreen
                         onPress={() => handleReprintTrip(txn)}
                         activeOpacity={0.7}
                       >
-                        <Feather name="printer" size={12} color="#334155" />
+                        <Feather name="printer" size={11} color="#334155" style={{ marginRight: 4 }} />
                         <Text style={styles.tripActionText}>Reprint</Text>
                       </TouchableOpacity>
 
@@ -610,7 +589,7 @@ export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreen
                         onPress={() => handleShareTrip(txn)}
                         activeOpacity={0.7}
                       >
-                        <Feather name="share" size={12} color="#334155" />
+                        <Feather name="share-2" size={11} color="#334155" style={{ marginRight: 4 }} />
                         <Text style={styles.tripActionText}>Share</Text>
                       </TouchableOpacity>
                     </View>
@@ -629,37 +608,39 @@ export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreen
           </View>
         )}
 
-        <View style={{ height: 90 }} />
+        <View style={{ height: 16 }} />
+
+        {/* ── BOTTOM ACTION BUTTONS (Matching Image 2) ── */}
+        <View style={styles.bottomButtonsWrap}>
+          <TouchableOpacity
+            style={styles.reprintSlipButton}
+            onPress={handleReprintShiftSlip}
+            disabled={isExporting}
+            activeOpacity={0.88}
+          >
+            {isExporting ? (
+              <ActivityIndicator color="#0F172A" size="small" />
+            ) : (
+              <>
+                <Feather name="printer" size={16} color="#0F172A" style={{ marginRight: 6 }} />
+                <Text style={styles.reprintSlipText}>Reprint Shift Slip</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.shareReportButton}
+            onPress={handleShareReport}
+            disabled={isExporting}
+            activeOpacity={0.88}
+          >
+            <Feather name="share" size={16} color="#0A3977" style={{ marginRight: 6 }} />
+            <Text style={styles.shareReportText}>Share Report</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={{ height: Math.max(insets.bottom, 24) }} />
       </ScrollView>
-
-      {/* Floating Bottom Action Buttons */}
-      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-        <TouchableOpacity
-          style={styles.reprintSlipButton}
-          onPress={handleReprintShiftSlip}
-          disabled={isExporting}
-          activeOpacity={0.88}
-        >
-          {isExporting ? (
-            <ActivityIndicator color="#111827" size="small" />
-          ) : (
-            <>
-              <Feather name="printer" size={16} color="#111827" />
-              <Text style={styles.reprintSlipText}>Reprint Shift Slip</Text>
-            </>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.shareReportButton}
-          onPress={handleShareReport}
-          disabled={isExporting}
-          activeOpacity={0.88}
-        >
-          <Feather name="share-2" size={16} color="#2563EB" />
-          <Text style={styles.shareReportText}>Share Report</Text>
-        </TouchableOpacity>
-      </View>
     </View>
   );
 }
@@ -671,15 +652,17 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 16,
+    paddingTop: 8,
+    paddingBottom: 24,
   },
+
+  /* Top Summary Card */
   topCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFDF7',
     borderRadius: 18,
     borderWidth: 1.2,
     borderColor: '#FEF08A',
@@ -687,145 +670,110 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     shadowColor: '#F59E0B',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
     elevation: 2,
   },
-  topCardHeaderRow: {
+  driverProfileRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
   },
-  logoBadgeContainer: {
-    width: 42,
-    height: 42,
+  driverPhoto: {
+    width: 44,
+    height: 44,
     borderRadius: 10,
-    backgroundColor: '#FFFBEB',
-    borderWidth: 1,
-    borderColor: '#FEF08A',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-    overflow: 'hidden',
+    backgroundColor: '#F1F5F9',
+    marginRight: 12,
   },
-  logoBadgeImage: {
-    width: 32,
-    height: 32,
-  },
-  businessInfoGroup: {
+  driverInfoCol: {
     flex: 1,
   },
-  businessNameText: {
+  driverNameText: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#0F172A',
+    marginBottom: 2,
+  },
+  taxiDcMetaText: {
+    fontSize: 11.5,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  taxiNumberHighlight: {
+    color: '#D97706',
+    fontWeight: '700',
+  },
+  shiftIdBadgeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
   },
   shiftCodeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#64748B',
-    marginTop: 2,
-  },
-  driverTaxiRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  driverGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  driverNameText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: '#0F172A',
   },
-  taxiNumberGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  taxiNumberLabel: {
-    fontSize: 12,
+  shiftTimeRangeText: {
+    fontSize: 11.5,
     color: '#64748B',
-  },
-  taxiNumberValue: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#D97706',
-  },
-  shiftTimeBadgeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  shiftTimeGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  shiftTimeText: {
-    fontSize: 12,
-    color: '#64748B',
+    fontWeight: '600',
   },
   paidBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#ECFDF5',
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-    borderRadius: 20,
     paddingHorizontal: 8,
     paddingVertical: 3,
+    borderRadius: 12,
     gap: 4,
   },
   paidBadgeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#059669',
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#10B981',
   },
   paidBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
     color: '#059669',
+    fontSize: 10.5,
+    fontWeight: '800',
   },
   unpaidBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FEF3C7',
-    borderWidth: 1,
-    borderColor: '#FCD34D',
-    borderRadius: 20,
     paddingHorizontal: 8,
     paddingVertical: 3,
+    borderRadius: 12,
     gap: 4,
   },
   unpaidBadgeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#D97706',
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#F59E0B',
   },
   unpaidBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
     color: '#D97706',
+    fontSize: 10.5,
+    fontWeight: '800',
   },
+
+  /* Metrics Card (3 Columns) */
   metricsCard: {
+    flexDirection: 'row',
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    borderRadius: 16,
     paddingVertical: 12,
-    paddingHorizontal: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
+    paddingHorizontal: 8,
     marginBottom: 14,
-    shadowColor: '#000',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
+    shadowOpacity: 0.04,
     shadowRadius: 4,
     elevation: 1,
   },
@@ -835,8 +783,9 @@ const styles = StyleSheet.create({
   },
   columnDivider: {
     width: 1,
-    height: '70%',
-    backgroundColor: '#F1F5F9',
+    height: '75%',
+    backgroundColor: '#E2E8F0',
+    alignSelf: 'center',
   },
   metricLabelRow: {
     flexDirection: 'row',
@@ -845,55 +794,76 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   bulletTotal: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
     backgroundColor: '#D97706',
   },
   metricColumnTitleTotal: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 10.5,
+    fontWeight: '800',
     color: '#D97706',
+    letterSpacing: 0.5,
   },
   metricColumnTitleCard: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 10.5,
+    fontWeight: '800',
     color: '#2563EB',
+    letterSpacing: 0.5,
   },
   metricColumnTitleTap: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#EA580C',
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#D97706',
+    letterSpacing: 0.5,
   },
   metricAmountRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
+    marginBottom: 2,
+  },
+  metricDollarTotal: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#D97706',
+  },
+  metricDollarCard: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#2563EB',
+  },
+  metricDollarTap: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#D97706',
   },
   metricAmountTotal: {
     fontSize: 19,
     fontWeight: '800',
-    color: '#D97706',
+    color: '#0F172A',
   },
   metricAmountCard: {
     fontSize: 19,
     fontWeight: '800',
-    color: '#2563EB',
+    color: '#0F172A',
   },
   metricAmountTap: {
     fontSize: 19,
     fontWeight: '800',
-    color: '#EA580C',
+    color: '#0F172A',
   },
   metricAmountCents: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#64748B',
   },
   metricSubtext: {
     fontSize: 11,
     color: '#64748B',
-    marginTop: 2,
+    fontWeight: '600',
   },
+
+  /* Search Bar */
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -901,47 +871,45 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
     borderRadius: 12,
+    height: 44,
     paddingHorizontal: 12,
-    height: 42,
     marginBottom: 12,
   },
   searchInput: {
     flex: 1,
     fontSize: 13,
     color: '#0F172A',
-    paddingVertical: 0,
+    fontWeight: '500',
   },
+
+  /* Segmented Pills */
   segmentedControl: {
     flexDirection: 'row',
     backgroundColor: '#F1F5F9',
     borderRadius: 12,
     padding: 3,
     marginBottom: 16,
+    gap: 4,
   },
   segmentTab: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 7,
     alignItems: 'center',
-    justifyContent: 'center',
     borderRadius: 9,
   },
   segmentTabActive: {
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 2,
+    backgroundColor: '#2563EB',
   },
   segmentTabText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#64748B',
   },
   segmentTabTextActive: {
-    color: '#2563EB',
-    fontWeight: '700',
+    color: '#FFFFFF',
   },
+
+  /* Date Groups & Trip Cards */
   dateGroupContainer: {
     marginBottom: 16,
   },
@@ -955,15 +923,15 @@ const styles = StyleSheet.create({
   dateGroupTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#334155',
+    color: '#0F172A',
   },
   dateGroupTotalRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
   },
   dateGroupCurrency: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '800',
     color: '#D97706',
   },
   dateGroupTotalValue: {
@@ -972,21 +940,22 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
   dateGroupCents: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
     color: '#64748B',
   },
+
   tripCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    padding: 12,
+    padding: 14,
     marginBottom: 10,
-    shadowColor: '#000',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.02,
-    shadowRadius: 3,
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
     elevation: 1,
   },
   tripTopRow: {
@@ -1002,12 +971,13 @@ const styles = StyleSheet.create({
   },
   tripIdText: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#0F172A',
   },
   tripTimeText: {
-    fontSize: 12,
+    fontSize: 11.5,
     color: '#64748B',
+    fontWeight: '600',
   },
   chipCard: {
     flexDirection: 'row',
@@ -1015,14 +985,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#EFF6FF',
     borderWidth: 1,
     borderColor: '#DBEAFE',
-    borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    gap: 3,
+    borderRadius: 4,
   },
   chipCardText: {
-    fontSize: 10,
-    fontWeight: '600',
+    fontSize: 10.5,
+    fontWeight: '700',
     color: '#2563EB',
   },
   chipTap: {
@@ -1031,15 +1000,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEF3C7',
     borderWidth: 1,
     borderColor: '#FDE68A',
-    borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    gap: 2,
+    borderRadius: 4,
   },
   chipTapText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#D97706',
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#B45309',
   },
   tripAmountGroup: {
     flexDirection: 'row',
@@ -1047,77 +1015,82 @@ const styles = StyleSheet.create({
   },
   tripAmountCurrency: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#D97706',
   },
   tripAmountWhole: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '800',
     color: '#0F172A',
   },
   tripAmountCents: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#64748B',
   },
-  journeyContainer: {
+
+  /* Route Box */
+  routeBox: {
     flexDirection: 'row',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 10,
     marginBottom: 12,
   },
-  routeIndicatorContainer: {
-    width: 16,
+  routePinsCol: {
     alignItems: 'center',
-    paddingVertical: 4,
+    justifyContent: 'center',
+    width: 16,
     marginRight: 8,
+    paddingVertical: 2,
   },
   bluePin: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
     backgroundColor: '#2563EB',
   },
-  routeLine: {
+  verticalRouteLine: {
     width: 1.5,
-    height: 18,
+    height: 14,
     backgroundColor: '#CBD5E1',
     marginVertical: 2,
   },
   orangePin: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#EA580C',
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    backgroundColor: '#D97706',
   },
-  routeAddresses: {
+  routeTextsCol: {
     flex: 1,
     justifyContent: 'space-between',
   },
   addressText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#1E293B',
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#0F172A',
   },
+
+  /* Trip Footer */
   tripFooterRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#F8FAFC',
-    paddingTop: 8,
   },
   verificationGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 5,
     flex: 1,
   },
   verificationText: {
     fontSize: 11,
-    color: '#475569',
+    color: '#64748B',
+    fontWeight: '500',
   },
   tripActionButtonsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     gap: 6,
   },
   tripActionButton: {
@@ -1129,73 +1102,66 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    gap: 4,
   },
   tripActionText: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#334155',
   },
-  bottomBar: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-    gap: 12,
+
+  /* Empty state */
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 36,
+  },
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginTop: 8,
+  },
+  emptySubtitle: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+
+  /* Bottom Actions */
+  bottomButtonsWrap: {
+    gap: 10,
+    marginTop: 8,
   },
   reprintSlipButton: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F59E0B',
+    backgroundColor: '#FBBF24',
+    height: 52,
     borderRadius: 14,
-    height: 48,
-    gap: 8,
     shadowColor: '#F59E0B',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2,
-    shadowRadius: 4,
+    shadowRadius: 6,
     elevation: 3,
   },
   reprintSlipText: {
-    fontSize: 14,
+    color: '#0F172A',
+    fontSize: 15,
     fontWeight: '700',
-    color: '#111827',
   },
   shareReportButton: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    height: 52,
     borderRadius: 14,
-    height: 48,
-    gap: 8,
   },
   shareReportText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1E293B',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 36,
-  },
-  emptyTitle: {
+    color: '#0A3977',
     fontSize: 15,
     fontWeight: '700',
-    color: '#475569',
-    marginTop: 8,
-  },
-  emptySubtitle: {
-    fontSize: 12,
-    color: '#94A3B8',
-    marginTop: 4,
   },
 });

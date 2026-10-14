@@ -63,6 +63,7 @@ const INITIAL_EMPLOYEES: Employee[] = [
 interface EmployeeContextType {
   employees: Employee[];
   addEmployee: (employee: Omit<Employee, 'id' | 'name'>) => Employee;
+  updateEmployee: (id: string, employee: Partial<Omit<Employee, 'id'>>) => void;
   toggleEmployeeStatus: (id: string) => void;
   deleteEmployee: (id: string) => void;
 }
@@ -81,6 +82,22 @@ export function EmployeeProvider({ children }: { children: ReactNode }) {
     };
     setEmployees((prev) => [newEmp, ...prev]);
     return newEmp;
+  };
+
+  const updateEmployee = (id: string, data: Partial<Omit<Employee, 'id'>>) => {
+    setEmployees((prev) =>
+      prev.map((emp) => {
+        if (emp.id !== id) return emp;
+        const firstName = data.firstName !== undefined ? data.firstName : emp.firstName;
+        const lastName = data.lastName !== undefined ? data.lastName : emp.lastName;
+        const name = `${firstName.trim()} ${lastName.trim()}`.trim() || emp.name;
+        return {
+          ...emp,
+          ...data,
+          name,
+        };
+      })
+    );
   };
 
   const toggleEmployeeStatus = (id: string) => {
@@ -102,6 +119,7 @@ export function EmployeeProvider({ children }: { children: ReactNode }) {
       value={{
         employees,
         addEmployee,
+        updateEmployee,
         toggleEmployeeStatus,
         deleteEmployee,
       }}

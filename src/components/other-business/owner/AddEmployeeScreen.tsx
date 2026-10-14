@@ -13,25 +13,36 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons, Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import HeaderBar from '../../common/HeaderBar';
 import { useEmployees } from '../../../context/EmployeeContext';
 
 export default function AddEmployeeScreen() {
   const router = useRouter();
-  const { addEmployee } = useEmployees();
+  const params = useLocalSearchParams<{ employeeId?: string }>();
+  const { employees, addEmployee, updateEmployee } = useEmployees();
 
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [empId, setEmpId] = useState('');
-  const [isActive, setIsActive] = useState(true);
+  // Find existing employee if employeeId is passed
+  const existingEmployee = React.useMemo(() => {
+    if (params.employeeId) {
+      return employees.find((e) => e.id === params.employeeId) || null;
+    }
+    return null;
+  }, [params.employeeId, employees]);
+
+  const [firstName, setFirstName] = useState(existingEmployee?.firstName || 'Liam');
+  const [lastName, setLastName] = useState(existingEmployee?.lastName || 'Hemsworth');
+  const [phone, setPhone] = useState(existingEmployee?.phone || '0400 555 320');
+  const [email, setEmail] = useState(existingEmployee?.email || '');
+  const [empId, setEmpId] = useState(existingEmployee?.empId || '93822048');
+  const [isActive, setIsActive] = useState(
+    existingEmployee ? existingEmployee.status === 'active' : true
+  );
 
   const handleUploadPhoto = () => {
     Alert.alert(
       'Upload Employee Photo',
-      'Select a photo source for the new employee:',
+      'Select a photo source for the employee:',
       [
         { text: 'Camera', onPress: () => Alert.alert('Camera selected') },
         { text: 'Photo Gallery', onPress: () => Alert.alert('Gallery selected') },
@@ -50,26 +61,48 @@ export default function AddEmployeeScreen() {
       return;
     }
 
-    addEmployee({
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      phone: phone.trim(),
-      email: email.trim() || undefined,
-      empId: empId.trim() || `${Math.floor(10000000 + Math.random() * 90000000)}`,
-      status: isActive ? 'active' : 'inactive',
-      avatarLocal: require('../../../../assets/emp_avatar_2.png'),
-    });
+    if (existingEmployee) {
+      updateEmployee(existingEmployee.id, {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        phone: phone.trim(),
+        email: email.trim() || undefined,
+        empId: empId.trim() || existingEmployee.empId,
+        status: isActive ? 'active' : 'inactive',
+      });
 
-    Alert.alert(
-      'Employee Added',
-      `${firstName} ${lastName} has been added successfully to your staff records.`,
-      [
-        {
-          text: 'OK',
-          onPress: () => router.back(),
-        },
-      ]
-    );
+      Alert.alert(
+        'Employee Saved',
+        `${firstName} ${lastName}'s profile has been updated successfully.`,
+        [
+          {
+            text: 'OK',
+            onPress: () => router.back(),
+          },
+        ]
+      );
+    } else {
+      addEmployee({
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        phone: phone.trim(),
+        email: email.trim() || undefined,
+        empId: empId.trim() || `${Math.floor(10000000 + Math.random() * 90000000)}`,
+        status: isActive ? 'active' : 'inactive',
+        avatarLocal: require('../../../../assets/emp_avatar_2.png'),
+      });
+
+      Alert.alert(
+        'Employee Added',
+        `${firstName} ${lastName} has been added successfully to your staff records.`,
+        [
+          {
+            text: 'OK',
+            onPress: () => router.back(),
+          },
+        ]
+      );
+    }
   };
 
   const handleCancel = () => {

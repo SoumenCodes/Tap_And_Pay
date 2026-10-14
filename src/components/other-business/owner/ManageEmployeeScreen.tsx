@@ -117,7 +117,17 @@ export default function ManageEmployeeScreen() {
             const isActive = emp.status === 'active';
 
             return (
-              <View key={emp.id} style={styles.card}>
+              <TouchableOpacity
+                key={emp.id}
+                style={styles.card}
+                activeOpacity={0.8}
+                onPress={() =>
+                  router.push({
+                    pathname: '/add-employee',
+                    params: { employeeId: emp.id },
+                  })
+                }
+              >
                 {/* Avatar */}
                 <View style={styles.avatarWrap}>
                   {emp.avatarLocal ? (
@@ -161,13 +171,16 @@ export default function ManageEmployeeScreen() {
                 {/* Phone Call Action Button */}
                 <TouchableOpacity
                   style={styles.callButton}
-                  onPress={() => handleCall(emp)}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleCall(emp);
+                  }}
                   activeOpacity={0.7}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   <Ionicons name="call-outline" size={18} color="#2563EB" />
                 </TouchableOpacity>
-              </View>
+              </TouchableOpacity>
             );
           })}
 

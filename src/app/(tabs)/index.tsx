@@ -61,13 +61,14 @@ export default function DashboardScreen() {
     );
   }
 
-  // Role 4 (Default): Other Business Owner (Crown Cuts / Soumen)
+  // Role 4 (Default): Other Business Owner (Crown Cuts / Soumen Sen)
   return (
     <OtherBusinessDashboard
       businessName={user.businessName}
       businessAddress={user.businessAddress}
       userName={user.name}
       sessionStartTime={user.sessionStartTime}
+      empId={user.empId}
     />
   );
 }

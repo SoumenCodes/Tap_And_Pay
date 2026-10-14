@@ -6,10 +6,11 @@ import {
   ScrollView,
   Image,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import HeaderBar from '../../common/HeaderBar';
 
@@ -18,25 +19,122 @@ interface OtherBusinessDashboardProps {
   businessAddress?: string;
   userName?: string;
   sessionStartTime?: string;
+  empId?: string;
 }
+
+interface EmployeeShiftData {
+  id: string;
+  name: string;
+  empId: string;
+  avatar: any;
+  isOnline: boolean;
+  isOnShift: boolean;
+  activeShiftRev: string;
+  paidShiftsCount: number;
+  unpaidShiftsCount: number;
+  isCurrentUser?: boolean;
+}
+
+const MOCK_SALON_EMPLOYEES: EmployeeShiftData[] = [
+  {
+    id: 'emp_01',
+    name: 'Soumen Sen',
+    empId: '93821048',
+    avatar: require('../../../../assets/emp_avatar_1.png'),
+    isOnline: true,
+    isOnShift: true,
+    activeShiftRev: '108.00',
+    paidShiftsCount: 2,
+    unpaidShiftsCount: 0,
+    isCurrentUser: true,
+  },
+  {
+    id: 'emp_02',
+    name: 'Liam Hemsworth',
+    empId: '93822048',
+    avatar: require('../../../../assets/emp_avatar_2.png'),
+    isOnline: true,
+    isOnShift: true,
+    activeShiftRev: '127.00',
+    paidShiftsCount: 1,
+    unpaidShiftsCount: 1,
+  },
+  {
+    id: 'emp_04',
+    name: 'Jack Robinson',
+    empId: '93823048',
+    avatar: require('../../../../assets/emp_avatar_4.png'),
+    isOnline: true,
+    isOnShift: true,
+    activeShiftRev: '54.00',
+    paidShiftsCount: 1,
+    unpaidShiftsCount: 0,
+  },
+  {
+    id: 'emp_03',
+    name: 'Sarah Jenkins',
+    empId: '93824048',
+    avatar: require('../../../../assets/emp_avatar_3.png'),
+    isOnline: false,
+    isOnShift: false,
+    activeShiftRev: '0.00',
+    paidShiftsCount: 3,
+    unpaidShiftsCount: 0,
+  },
+];
+
+type EmployeeFilterMode = 'all' | 'on_shift' | 'off_shift';
 
 export default function OtherBusinessDashboard({
   businessName = 'Crown Cuts',
-  businessAddress = 'Suite 4, 120 Collins Street, Melbourne VIC',
-  userName = 'Soumen',
+  userName = 'Soumen Sen',
   sessionStartTime = '7:30 AM',
+  empId = '93821048',
 }: OtherBusinessDashboardProps) {
   const router = useRouter();
 
-  // Session & Online state (defaults to Online as shown in Figma 76:12635)
-  const [isOnline, setIsOnline] = useState(true);
+  const [isOnShift, setIsOnShift] = useState(true);
+  const [filterMode, setFilterMode] = useState<EmployeeFilterMode>('on_shift');
+
+  const onShiftCount = MOCK_SALON_EMPLOYEES.filter((e) => e.isOnShift).length;
+  const offShiftCount = MOCK_SALON_EMPLOYEES.filter((e) => !e.isOnShift).length;
+  const totalCount = MOCK_SALON_EMPLOYEES.length;
+
+  const filteredEmployees = MOCK_SALON_EMPLOYEES.filter((e) => {
+    if (filterMode === 'on_shift') return e.isOnShift;
+    if (filterMode === 'off_shift') return !e.isOnShift;
+    return true;
+  });
 
   const handleCreateSale = () => {
     router.push('/(tabs)/tap-to-pay');
   };
 
-  const handleToggleSession = () => {
-    setIsOnline((prev) => !prev);
+  const handleToggleShift = () => {
+    if (isOnShift) {
+      Alert.alert(
+        'End Shift',
+        'Are you sure you want to end your current active shift (26062021/93821048/537384)?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'End Shift',
+            style: 'destructive',
+            onPress: () => {
+              setIsOnShift(false);
+              Alert.alert('Shift Ended', 'Shift tally submitted to records.');
+            },
+          },
+        ]
+      );
+    } else {
+      setIsOnShift(true);
+      Alert.alert('Shift Started', 'Active on shift. Ready to accept sales.');
+    }
+  };
+
+  const handleNavigateToTransactions = () => {
+    router.push('/(tabs)/transactions');
   };
 
   return (
@@ -44,15 +142,13 @@ export default function OtherBusinessDashboard({
       <StatusBar style="dark" />
 
       {/* Header Bar */}
-      <HeaderBar title="SE PAY DASHBOARD" />
+      <HeaderBar
+        title="SE PAY DASHBOARD"
+
+      />
 
       <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          {
-            paddingBottom: 24,
-          },
-        ]}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {/* 1. Crown Cuts Barber Salon Hero Banner */}
@@ -80,7 +176,7 @@ export default function OtherBusinessDashboard({
                 {businessName}
               </Text>
               <Text style={styles.bannerSubtitle} numberOfLines={1}>
-                {businessAddress}
+                SHIFT: {isOnShift ? 'Active' : 'Start Shift Now!'}
               </Text>
             </View>
           </View>
@@ -108,37 +204,43 @@ export default function OtherBusinessDashboard({
             </Text>
 
             <View style={styles.welcomeMetaRow}>
-              <View style={styles.sessionStartWrap}>
-                <Feather name="clock" size={14} color="#64748B" />
-                <Text style={styles.sessionStartTime}>
-                  Session Start: {sessionStartTime}
-                </Text>
+              <Text style={styles.empIdMetaLabel}>
+                EMP ID: <Text style={styles.empIdHighlight}>{empId}</Text>
+              </Text>
+              <Text style={styles.metaDot}>•</Text>
+              <View style={styles.clockRow}>
+                <Feather name="clock" size={12} color="#64748B" style={styles.clockIcon} />
+                <Text style={styles.shiftStartText}>Shift Start: {sessionStartTime}</Text>
               </View>
+            </View>
+          </View>
 
-              {/* Online / Offline Status Pill Badge (Clickable toggle) */}
-              <TouchableOpacity
-                activeOpacity={0.75}
-                onPress={handleToggleSession}
+          {/* Bottom row: Active Shift ID + On Shift badge */}
+          <View style={styles.activeShiftRow}>
+            <Text style={styles.activeShiftLabel}>
+              ACTIVE SHIFT: <Text style={styles.activeShiftCode}>26062021/93821048/537384</Text>
+            </Text>
+
+            <View
+              style={[
+                styles.onShiftBadge,
+                !isOnShift && styles.offShiftBadge,
+              ]}
+            >
+              <View
                 style={[
-                  styles.statusBadge,
-                  isOnline ? styles.onlineBadge : styles.offlineBadge,
+                  styles.onShiftDot,
+                  !isOnShift && styles.offShiftDot,
+                ]}
+              />
+              <Text
+                style={[
+                  styles.onShiftText,
+                  !isOnShift && styles.offShiftText,
                 ]}
               >
-                <View
-                  style={[
-                    styles.statusDot,
-                    isOnline ? styles.onlineDot : styles.offlineDot,
-                  ]}
-                />
-                <Text
-                  style={[
-                    styles.statusText,
-                    isOnline ? styles.onlineText : styles.offlineText,
-                  ]}
-                >
-                  {isOnline ? 'ONLINE' : 'OFFLINE'}
-                </Text>
-              </TouchableOpacity>
+                {isOnShift ? 'ON SHIFT' : 'OFF SHIFT'}
+              </Text>
             </View>
           </View>
         </View>
@@ -157,7 +259,7 @@ export default function OtherBusinessDashboard({
           >
             {/* Left Scissors Icon Pill */}
             <View style={styles.scissorsIconWrap}>
-              <Ionicons name="cut" size={26} color="#0F172A" />
+              <Ionicons name="cut" size={24} color="#0F172A" />
             </View>
 
             {/* Text Information */}
@@ -168,18 +270,21 @@ export default function OtherBusinessDashboard({
 
             {/* Right Arrow Button */}
             <View style={styles.saleArrowWrap}>
-              <Feather name="chevron-right" size={22} color="#0F172A" />
+              <Feather name="chevron-right" size={20} color="#0F172A" />
             </View>
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* 4. Today's Revenue Card */}
+        {/* 4. Revenue Card: Last 7 days */}
         <View style={styles.revenueCardOuter}>
           <View style={styles.revenueCardHeader}>
-            <Text style={styles.revenueTitle}>Today&apos;s Revenue</Text>
+            <View style={styles.revenueTitleRow}>
+              <Text style={styles.revenueMainTitle}>Revenue </Text>
+              <Text style={styles.revenueSubTitle}>Last 7 days</Text>
+            </View>
             <View style={styles.txnsCountBadge}>
-              <Feather name="check-circle" size={14} color="#065F46" />
-              <Text style={styles.txnsCountText}>9 Txns</Text>
+              <Ionicons name="checkmark-circle-outline" size={15} color="#059669" />
+              <Text style={styles.txnsCountText}>14 Txns</Text>
             </View>
           </View>
 
@@ -205,14 +310,14 @@ export default function OtherBusinessDashboard({
             {/* Card Column */}
             <View style={styles.metricColumn}>
               <View style={styles.metricLabelRow}>
-                <Feather name="credit-card" size={12} color="#0284C7" />
+                <Ionicons name="card-outline" size={11} color="#2563EB" style={{ marginRight: 3 }} />
                 <Text style={styles.metricLabelCard}>CARD</Text>
               </View>
               <Text style={styles.metricValue}>
                 <Text style={styles.currencySymbolBlue}>$</Text>320
                 <Text style={styles.centsText}>.00</Text>
               </Text>
-              <Text style={styles.metricSubtext}>2 txns</Text>
+              <Text style={styles.metricSubtext}>2 Txns</Text>
             </View>
 
             <View style={styles.columnDivider} />
@@ -220,79 +325,180 @@ export default function OtherBusinessDashboard({
             {/* Tap & Go Column */}
             <View style={styles.metricColumn}>
               <View style={styles.metricLabelRow}>
-                <MaterialCommunityIcons
-                  name="alert-circle"
-                  size={13}
-                  color="#D97706"
-                />
+                <View style={[styles.metricDot, { backgroundColor: '#EA580C' }]} />
                 <Text style={styles.metricLabelTap}>TAP & GO</Text>
               </View>
               <Text style={styles.metricValue}>
-                <Text style={styles.currencySymbolGold}>$</Text>165
+                <Text style={styles.currencySymbolOrange}>$</Text>165
                 <Text style={styles.centsText}>.00</Text>
               </Text>
-              <Text style={styles.metricSubtext}>7 txns</Text>
+              <Text style={styles.metricSubtext}>7 Txns</Text>
             </View>
           </View>
         </View>
 
-        {/* 5. End Session / Start Session Action Button */}
+        {/* 5. End Shift Action Button (Black) */}
         <TouchableOpacity
           activeOpacity={0.85}
-          onPress={handleToggleSession}
-          style={styles.sessionActionBtn}
+          onPress={handleToggleShift}
+          style={[
+            styles.shiftButton,
+            !isOnShift && styles.startShiftButton,
+          ]}
         >
-          <Ionicons
-            name={isOnline ? 'exit-outline' : 'log-in-outline'}
-            size={20}
+          <Feather
+            name={isOnShift ? 'log-out' : 'log-in'}
+            size={18}
             color="#FFFFFF"
+            style={{ marginRight: 8 }}
           />
-          <Text style={styles.sessionActionText}>
-            {isOnline ? 'End Session' : 'Start Session'}
+          <Text style={styles.shiftButtonText}>
+            {isOnShift ? 'End Shift' : 'Start Shift'}
           </Text>
         </TouchableOpacity>
 
-        {/* 6. Recent Transactions Section Header */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Recent Transactions</Text>
-          <TouchableOpacity activeOpacity={0.7}>
-            <Text style={styles.seeAllText}>See All</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Recent Transaction Item 1 */}
-        <View style={styles.txnCard}>
-          <View style={styles.txnRow}>
-            <Text style={styles.txnIdText}>#TXN-984210</Text>
-            <Text style={styles.txnTimeText}>04:45 PM</Text>
-            <View style={styles.cardMethodBadge}>
-              <Feather name="credit-card" size={11} color="#0284C7" />
-              <Text style={styles.cardMethodText}>Card</Text>
+        {/* 6. Active Employee Section */}
+        <View style={styles.employeesSection}>
+          <View style={styles.employeesHeaderRow}>
+            <View style={styles.employeesTitleWrap}>
+              <Text style={styles.employeesMainTitle}>Active Employee</Text>
+              <TouchableOpacity
+                onPress={() => setFilterMode('all')}
+                activeOpacity={0.7}
+                style={[
+                  styles.totalEmployeesBadge,
+                  filterMode === 'all' && styles.totalEmployeesBadgeActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.totalEmployeesText,
+                    filterMode === 'all' && styles.totalEmployeesTextActive,
+                  ]}
+                >
+                  {totalCount} Total
+                </Text>
+              </TouchableOpacity>
             </View>
-            <View style={styles.txnSpacer} />
-            <Text style={styles.txnAmount}>
-              <Text style={styles.txnCurrency}>$</Text>106
-              <Text style={styles.txnCents}>.00</Text>
-            </Text>
+
+            {/* Filter Toggle Pills */}
+            <View style={styles.filtersWrap}>
+              <TouchableOpacity
+                style={[
+                  styles.filterPill,
+                  filterMode === 'on_shift'
+                    ? styles.filterPillActiveOn
+                    : styles.filterPillInactive,
+                ]}
+                activeOpacity={0.7}
+                onPress={() => setFilterMode('on_shift')}
+              >
+                <View
+                  style={[
+                    styles.filterDot,
+                    filterMode === 'on_shift' ? styles.filterDotActive : styles.filterDotInactive,
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.filterText,
+                    filterMode === 'on_shift'
+                      ? styles.filterTextActiveOn
+                      : styles.filterTextInactive,
+                  ]}
+                >
+                  On Shift {onShiftCount}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.filterPill,
+                  filterMode === 'off_shift'
+                    ? styles.filterPillActiveOff
+                    : styles.filterPillInactive,
+                ]}
+                activeOpacity={0.7}
+                onPress={() => setFilterMode('off_shift')}
+              >
+                <Text
+                  style={[
+                    styles.filterText,
+                    filterMode === 'off_shift'
+                      ? styles.filterTextActiveOff
+                      : styles.filterTextInactive,
+                  ]}
+                >
+                  Off Shift {offShiftCount}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Employee List Cards */}
+          <View style={styles.employeesList}>
+            {filteredEmployees.map((employee) => (
+              <TouchableOpacity
+                key={employee.id}
+                style={[
+                  styles.employeeCard,
+                  employee.isCurrentUser && styles.employeeCardCurrent,
+                ]}
+                activeOpacity={0.8}
+                onPress={handleNavigateToTransactions}
+              >
+                {/* Avatar + Info + Shift Rev */}
+                <View style={styles.employeeTopRow}>
+                  <Image source={employee.avatar} style={styles.employeeAvatar} />
+
+                  <View style={styles.employeeInfoCol}>
+                    <View style={styles.employeeNameRow}>
+                      <Text style={styles.employeeNameText}>{employee.name}</Text>
+                      <View
+                        style={[
+                          styles.employeeOnlinePill,
+                          !employee.isOnline && styles.employeeOfflinePill,
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.employeeStatusDot,
+                            !employee.isOnline && styles.employeeOfflineDot,
+                          ]}
+                        />
+                        <Text
+                          style={[
+                            styles.employeeOnlineText,
+                            !employee.isOnline && styles.employeeOfflineText,
+                          ]}
+                        >
+                          {employee.isOnline ? 'Online' : 'Offline'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <Text style={styles.employeeEmpId}>
+                      EMP ID: <Text style={styles.empIdValue}>{employee.empId}</Text>
+                    </Text>
+                  </View>
+
+                  <View style={styles.employeeRevCol}>
+                    <Text style={styles.employeeRevLabel}>ACTIVE SHIFT REV</Text>
+                    <Text style={styles.employeeRevAmount}>
+                      <Text style={styles.revDollarSign}>$</Text>
+                      {employee.activeShiftRev.split('.')[0]}
+                      <Text style={styles.revCents}>
+                        .{employee.activeShiftRev.split('.')[1] || '00'}
+                      </Text>
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
 
-        {/* Recent Transaction Item 2 */}
-        <View style={styles.txnCard}>
-          <View style={styles.txnRow}>
-            <Text style={styles.txnIdText}>#TXN-987541</Text>
-            <Text style={styles.txnTimeText}>05:58 PM</Text>
-            <View style={styles.cardMethodBadge}>
-              <Feather name="credit-card" size={11} color="#0284C7" />
-              <Text style={styles.cardMethodText}>Card</Text>
-            </View>
-            <View style={styles.txnSpacer} />
-            <Text style={styles.txnAmount}>
-              <Text style={styles.txnCurrency}>$</Text>85
-              <Text style={styles.txnCents}>.00</Text>
-            </Text>
-          </View>
-        </View>
+        <View style={{ height: 28 }} />
       </ScrollView>
     </View>
   );
@@ -304,16 +510,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    gap: 16,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 28,
   },
+
+  /* 1. Hero Banner */
   bannerContainer: {
     width: '100%',
-    height: 154,
-    borderRadius: 20,
+    height: 145,
+    borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: '#0F172A',
     position: 'relative',
+    marginBottom: 10,
+    backgroundColor: '#0F172A',
   },
   bannerImage: {
     width: '100%',
@@ -322,7 +532,7 @@ const styles = StyleSheet.create({
   bannerBottomRow: {
     position: 'absolute',
     bottom: 12,
-    left: 14,
+    left: 12,
     right: 14,
     flexDirection: 'row',
     alignItems: 'center',
@@ -332,26 +542,20 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 12,
     backgroundColor: '#FFFDF0',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#FEF08A',
-    padding: 3,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 3,
+    padding: 3,
   },
   avatarBadgeImage: {
     width: '100%',
     height: '100%',
-  },
-  avatarInitials: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#D97706',
-    letterSpacing: 0.5,
   },
   bannerTextBadge: {
     flexShrink: 1,
@@ -376,16 +580,19 @@ const styles = StyleSheet.create({
     color: '#E2E8F0',
     letterSpacing: 0.1,
   },
+
+  /* 2. Welcome Card */
   welcomeCardOuter: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    backgroundColor: '#FFFDF7',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(251, 191, 36, 0.45)',
+    borderColor: '#FEF08A',
     overflow: 'hidden',
-    shadowColor: '#C59B27',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
+    marginBottom: 12,
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
     elevation: 2,
   },
   cardTopStripe: {
@@ -393,326 +600,573 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   welcomeCardInner: {
-    paddingVertical: 18,
-    paddingHorizontal: 20,
-    gap: 10,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 10,
   },
   welcomeTitle: {
-    fontSize: 18,
-    fontWeight: '500',
-    color: '#0F172A',
+    fontSize: 15,
+    color: '#334155',
+    fontWeight: '400',
+    marginBottom: 4,
   },
   userNameText: {
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#0F172A',
   },
   welcomeMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
   },
-  sessionStartWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  sessionStartTime: {
-    fontSize: 13,
-    color: '#475569',
+  empIdMetaLabel: {
+    fontSize: 11,
+    color: '#64748B',
     fontWeight: '500',
   },
-  statusBadge: {
+  empIdHighlight: {
+    color: '#D97706',
+    fontWeight: '700',
+  },
+  metaDot: {
+    color: '#CBD5E1',
+    marginHorizontal: 6,
+    fontSize: 11,
+  },
+  clockRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 999,
   },
-  onlineBadge: {
-    backgroundColor: '#ECFDF5',
+  clockIcon: {
+    marginRight: 4,
+  },
+  shiftStartText: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  activeShiftRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    backgroundColor: '#FEFCE8',
+    borderTopWidth: 1,
+    borderTopColor: '#FEF08A',
+  },
+  activeShiftLabel: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  activeShiftCode: {
+    fontWeight: '600',
+    color: '#334155',
+  },
+  onShiftBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#DCFCE7',
     borderWidth: 1,
     borderColor: '#A7F3D0',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    gap: 4,
   },
-  offlineBadge: {
-    backgroundColor: '#FEF2F2',
-    borderWidth: 1,
-    borderColor: '#FECACA',
+  offShiftBadge: {
+    backgroundColor: '#F1F5F9',
+    borderColor: '#E2E8F0',
   },
-  statusDot: {
+  onShiftDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-  },
-  onlineDot: {
     backgroundColor: '#10B981',
   },
-  offlineDot: {
-    backgroundColor: '#EF4444',
+  offShiftDot: {
+    backgroundColor: '#94A3B8',
   },
-  statusText: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+  onShiftText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#166534',
+    letterSpacing: 0.3,
   },
-  onlineText: {
-    color: '#065F46',
+  offShiftText: {
+    color: '#64748B',
   },
-  offlineText: {
-    color: '#991B1B',
-  },
+
+  /* 3. CREATE SALE Quick Action Card */
   saleCardOuter: {
-    borderRadius: 20,
+    borderRadius: 16,
     overflow: 'hidden',
+    marginBottom: 12,
     shadowColor: '#F59E0B',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 3,
   },
   saleGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 18,
-    paddingHorizontal: 18,
-    gap: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
   },
   scissorsIconWrap: {
     width: 48,
     height: 48,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.45)',
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 14,
   },
   saleTextWrap: {
     flex: 1,
-    gap: 2,
   },
   saleTitle: {
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '900',
     color: '#0F172A',
     letterSpacing: 0.5,
   },
   saleSubtitle: {
-    fontSize: 13,
-    color: '#1E293B',
+    fontSize: 11.5,
     fontStyle: 'italic',
+    color: '#78350F',
+    marginTop: 2,
     fontWeight: '600',
   },
   saleArrowWrap: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    backgroundColor: 'rgba(255, 255, 255, 0.45)',
     alignItems: 'center',
     justifyContent: 'center',
   },
+
+  /* 4. Revenue Card */
   revenueCardOuter: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
-    padding: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-    gap: 14,
+    borderColor: '#E2E8F0',
+    padding: 14,
+    marginBottom: 12,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
   },
   revenueCardHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
   },
-  revenueTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+  revenueTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  revenueMainTitle: {
+    fontSize: 14,
+    fontWeight: '800',
     color: '#0F172A',
+  },
+  revenueSubTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#D97706',
   },
   txnsCountBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#ECFDF5',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    gap: 4,
   },
   txnsCountText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#065F46',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#059669',
   },
   revenueDivider: {
     height: 1,
     backgroundColor: '#F1F5F9',
+    marginBottom: 10,
   },
   metricsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
   },
   metricColumn: {
     flex: 1,
-    alignItems: 'flex-start',
-    gap: 4,
-  },
-  columnDivider: {
-    width: 1,
-    height: 48,
-    backgroundColor: '#F1F5F9',
-    marginHorizontal: 12,
   },
   metricLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    marginBottom: 3,
   },
   metricDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
+    marginRight: 4,
   },
   metricLabelTotal: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#D97706',
-    letterSpacing: 0.5,
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#B45309',
+    letterSpacing: 0.3,
   },
   metricLabelCard: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#0284C7',
-    letterSpacing: 0.5,
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#2563EB',
+    letterSpacing: 0.3,
   },
   metricLabelTap: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#D97706',
-    letterSpacing: 0.5,
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#EA580C',
+    letterSpacing: 0.3,
   },
   metricValue: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 17,
+    fontWeight: '900',
     color: '#0F172A',
+    letterSpacing: -0.5,
   },
   currencySymbolGold: {
+    fontSize: 14,
+    fontWeight: '800',
     color: '#D97706',
-    fontSize: 16,
-    fontWeight: '700',
   },
   currencySymbolBlue: {
-    color: '#0284C7',
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#2563EB',
+  },
+  currencySymbolOrange: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#EA580C',
   },
   centsText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
     color: '#64748B',
   },
   metricSubtext: {
+    fontSize: 10.5,
+    color: '#64748B',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  columnDivider: {
+    width: 1,
+    height: 38,
+    backgroundColor: '#F1F5F9',
+    marginHorizontal: 8,
+  },
+
+  /* 5. End Shift Action Button */
+  shiftButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0F172A',
+    borderRadius: 12,
+    paddingVertical: 13,
+    marginBottom: 16,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  startShiftButton: {
+    backgroundColor: '#16A34A',
+  },
+  shiftButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13.5,
+    fontWeight: '700',
+  },
+
+  /* 6. Active Employee Section */
+  employeesSection: {
+    marginTop: 2,
+  },
+  employeesHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  employeesTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  employeesMainTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  totalEmployeesBadge: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  totalEmployeesBadgeActive: {
+    backgroundColor: '#FDE68A',
+  },
+  totalEmployeesText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#B45309',
+  },
+  totalEmployeesTextActive: {
+    color: '#78350F',
+  },
+  filtersWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  filterPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 4,
+  },
+  filterPillActiveOn: {
+    backgroundColor: '#DCFCE7',
+    borderColor: '#86EFAC',
+  },
+  filterPillActiveOff: {
+    backgroundColor: '#F1F5F9',
+    borderColor: '#CBD5E1',
+  },
+  filterPillInactive: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
+  },
+  filterDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  filterDotActive: {
+    backgroundColor: '#15803D',
+  },
+  filterDotInactive: {
+    backgroundColor: '#94A3B8',
+  },
+  filterText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+  },
+  filterTextActiveOn: {
+    color: '#166534',
+  },
+  filterTextActiveOff: {
+    color: '#475569',
+  },
+  filterTextInactive: {
+    color: '#64748B',
+  },
+
+  /* Employee Cards */
+  employeesList: {
+    gap: 10,
+  },
+  employeeCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 12,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  employeeCardCurrent: {
+    borderColor: '#FBBF24',
+    borderWidth: 1.2,
+    backgroundColor: '#FFFDF9',
+  },
+  employeeTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  employeeAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#0F172A',
+    marginRight: 10,
+  },
+  employeeInfoCol: {
+    flex: 1,
+  },
+  employeeNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 3,
+  },
+  employeeNameText: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  employeeOnlinePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    gap: 4,
+  },
+  employeeOfflinePill: {
+    backgroundColor: '#F1F5F9',
+  },
+  employeeStatusDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#15803D',
+  },
+  employeeOfflineDot: {
+    backgroundColor: '#94A3B8',
+  },
+  employeeOnlineText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#166534',
+  },
+  employeeOfflineText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  employeeEmpId: {
     fontSize: 11,
     color: '#94A3B8',
     fontWeight: '500',
   },
-  sessionActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 50,
-    borderRadius: 14,
-    gap: 8,
-    backgroundColor: '#0F172A',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 3,
+  empIdValue: {
+    color: '#D97706',
+    fontWeight: '700',
   },
-  sessionActionText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#FFFFFF',
+  employeeRevCol: {
+    alignItems: 'flex-end',
   },
-  sectionHeaderRow: {
+  employeeRevLabel: {
+    fontSize: 8.5,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 0.4,
+    marginBottom: 2,
+  },
+  employeeRevAmount: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#0F172A',
+    letterSpacing: -0.3,
+  },
+  revDollarSign: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#D97706',
+  },
+  revCents: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+
+  /* Bottom Row in Employee Card */
+  employeeBottomRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 6,
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  seeAllText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#0284C7',
-  },
-  txnCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 1,
-  },
-  txnRow: {
+  shiftsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
-  txnIdText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  txnTimeText: {
-    fontSize: 12,
+  shiftsLabel: {
+    fontSize: 11,
     color: '#64748B',
+    fontWeight: '500',
+    marginRight: 2,
   },
-  cardMethodBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#EFF6FF',
+  paidShiftsPill: {
+    backgroundColor: '#DCFCE7',
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: '#A7F3D0',
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 2.5,
     borderRadius: 6,
   },
-  cardMethodText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#0284C7',
-  },
-  txnSpacer: {
-    flex: 1,
-  },
-  txnAmount: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  txnCurrency: {
-    color: '#D97706',
-    fontSize: 14,
+  paidShiftsText: {
+    fontSize: 10,
     fontWeight: '700',
+    color: '#166534',
   },
-  txnCents: {
-    fontSize: 12,
+  unpaidShiftsPill: {
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+  },
+  unpaidShiftsPillActive: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FDE68A',
+  },
+  unpaidShiftsText: {
+    fontSize: 10,
+    fontWeight: '700',
     color: '#64748B',
   },
+  unpaidShiftsTextActive: {
+    color: '#B45309',
+  },
+  viewDetailsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 8,
+    gap: 2,
+  },
+  viewDetailsBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
 });
-

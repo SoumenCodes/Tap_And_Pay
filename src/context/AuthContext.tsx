@@ -16,6 +16,7 @@ export interface UserProfile {
   businessName: string;
   businessAddress?: string;
   taxiNumber?: string;
+  empId?: string;
   sessionStartTime: string;
 }
 
@@ -71,11 +72,12 @@ export const MOCK_ACCOUNTS: Record<
     user: {
       id: 'usr_other_biz_04',
       username: 'other_business',
-      name: 'Soumen',
+      name: 'Soumen Sen',
       loginType: 'other_business',
       roleLabel: 'Merchant Owner',
       businessName: 'Crown Cuts',
       businessAddress: 'Suite 4, 120 Collins Street, Melbourne VIC',
+      empId: '93821048',
       sessionStartTime: '7:30 AM',
     },
   },

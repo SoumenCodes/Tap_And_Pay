@@ -15,7 +15,12 @@ export default function TransactionsTabScreen() {
 
   // Derive selected shift directly from route params (React 19 best practice)
   const selectedShift = params.shiftId
-    ? MOCK_SHIFTS.find((s) => s.id === params.shiftId) || null
+    ? MOCK_SHIFTS.find((s) => {
+        const idMatches = s.id === params.shiftId;
+        const normalizedIdMatches =
+          s.id.replace(/M[0-9]{4}/g, user.taxiNumber || 'M6022') === params.shiftId;
+        return idMatches || normalizedIdMatches;
+      }) || null
     : null;
 
   // Handle hardware back button on Android (called unconditionally)
@@ -62,7 +67,8 @@ export default function TransactionsTabScreen() {
   return (
     <ShiftHistoryScreen
       onSelectShift={handleSelectShift}
-      taxiNumber={user.taxiNumber || 'M6061'}
+      taxiNumber={user.taxiNumber || 'M6022'}
+      isDriver={user.loginType === 'taxi_business_driver'}
     />
   );
 }

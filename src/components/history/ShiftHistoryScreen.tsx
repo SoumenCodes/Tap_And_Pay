@@ -11,7 +11,8 @@ import {
   Pressable,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { MOCK_SHIFTS, MOCK_SHIFT_STATS } from '../../data/mockShifts';
 import { ShiftRecord } from '../../types/shift';
 import HeaderBar from '../common/HeaderBar';
@@ -19,6 +20,7 @@ import HeaderBar from '../common/HeaderBar';
 interface ShiftHistoryScreenProps {
   onSelectShift: (shift: ShiftRecord) => void;
   taxiNumber?: string;
+  isDriver?: boolean;
 }
 
 type ShiftFilterType = 'all' | 'paid' | 'unpaid';
@@ -69,6 +71,8 @@ const DRIVERS_LIST: TaxiDriver[] = [
 
 export default function ShiftHistoryScreen({
   onSelectShift,
+  taxiNumber = 'M6022',
+  isDriver = false,
 }: ShiftHistoryScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<ShiftFilterType>('all');
@@ -100,8 +104,15 @@ export default function ShiftHistoryScreen({
     <View style={styles.root}>
       <StatusBar style="dark" />
 
-      {/* Common Header Bar (Centered title, no back button) */}
-      <HeaderBar title="Shift History" />
+      {/* Common Header Bar */}
+      <HeaderBar
+        title="Shift History"
+        subtitle={
+          <Text style={styles.headerSubtitleText}>
+            Taxi No.: <Text style={styles.headerTaxiOrange}>{taxiNumber}</Text>
+          </Text>
+        }
+      />
 
       <ScrollView
         style={styles.scrollView}
@@ -109,31 +120,35 @@ export default function ShiftHistoryScreen({
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* ── SELECT DRIVER SECTION ── */}
-        <View style={styles.driverSectionHeader}>
-          <Text style={styles.driverSectionLabel}>SELECT DRIVER</Text>
-          <View style={styles.totalDriversBadge}>
-            <Text style={styles.totalDriversBadgeText}>{DRIVERS_LIST.length} Total</Text>
-          </View>
-        </View>
-
-        {/* Driver Selector Card */}
-        <TouchableOpacity
-          style={styles.driverCard}
-          activeOpacity={0.8}
-          onPress={() => setIsDriverModalVisible(true)}
-        >
-          <View style={styles.driverCardLeft}>
-            <Image source={selectedDriver.avatar} style={styles.driverAvatar} />
-            <Text style={styles.driverName}>{selectedDriver.name}</Text>
-            <View style={styles.taxiNoBadge}>
-              <Text style={styles.taxiNoBadgeText}>{selectedDriver.taxiNumber}</Text>
+        {/* ── SELECT DRIVER SECTION (Only for taxi fleet owner) ── */}
+        {!isDriver && (
+          <>
+            <View style={styles.driverSectionHeader}>
+              <Text style={styles.driverSectionLabel}>SELECT DRIVER</Text>
+              <View style={styles.totalDriversBadge}>
+                <Text style={styles.totalDriversBadgeText}>{DRIVERS_LIST.length} Total</Text>
+              </View>
             </View>
-          </View>
-          <View style={styles.chevronCircle}>
-            <Ionicons name="chevron-down" size={16} color="#64748B" />
-          </View>
-        </TouchableOpacity>
+
+            {/* Driver Selector Card */}
+            <TouchableOpacity
+              style={styles.driverCard}
+              activeOpacity={0.8}
+              onPress={() => setIsDriverModalVisible(true)}
+            >
+              <View style={styles.driverCardLeft}>
+                <Image source={selectedDriver.avatar} style={styles.driverAvatar} />
+                <Text style={styles.driverName}>{selectedDriver.name}</Text>
+                <View style={styles.taxiNoBadge}>
+                  <Text style={styles.taxiNoBadgeText}>{selectedDriver.taxiNumber}</Text>
+                </View>
+              </View>
+              <View style={styles.chevronCircle}>
+                <Ionicons name="chevron-down" size={16} color="#64748B" />
+              </View>
+            </TouchableOpacity>
+          </>
+        )}
 
         {/* ── SEARCH & DATE RANGE FILTER ROW ── */}
         <View style={styles.searchDateRow}>
@@ -238,6 +253,18 @@ export default function ShiftHistoryScreen({
 
         {/* ── TOTAL SHIFT COLLECTIONS CARD ── */}
         <View style={styles.statsCard}>
+          <LinearGradient
+            colors={[
+              'rgba(251, 191, 36, 0)',
+              '#FBBF24',
+              '#F59E0B',
+              '#FBBF24',
+              'rgba(251, 191, 36, 0)',
+            ]}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={styles.cardTopStripe}
+          />
           <Text style={styles.statsTitle}>TOTAL SHIFT COLLECTIONS</Text>
 
           <View style={styles.amountDisplayRow}>
@@ -292,11 +319,16 @@ export default function ShiftHistoryScreen({
         {/* ── SHIFT RECORDS HEADING ── */}
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>SHIFT RECORDS</Text>
+          <Text style={styles.sectionSubtitle}>Displaying {filteredShifts.length} recent</Text>
         </View>
 
         {/* ── SHIFT RECORDS LIST ── */}
         {filteredShifts.map((shift) => {
           const isUnpaid = shift.status === 'unpaid';
+          const displayShiftId =
+            isDriver && taxiNumber
+              ? shift.id.replace(/M[0-9]{4}/g, taxiNumber)
+              : shift.id;
 
           return (
             <View
@@ -309,7 +341,7 @@ export default function ShiftHistoryScreen({
                   style={[styles.shiftIdText, isUnpaid && styles.shiftIdTextUnpaid]}
                   numberOfLines={1}
                 >
-                  {shift.id}
+                  {displayShiftId}
                 </Text>
 
                 {isUnpaid ? (
@@ -351,7 +383,13 @@ export default function ShiftHistoryScreen({
 
                 <TouchableOpacity
                   style={[styles.viewTripsBtn, isUnpaid && styles.viewTripsBtnUnpaid]}
-                  onPress={() => onSelectShift(shift)}
+                  onPress={() =>
+                    onSelectShift({
+                      ...shift,
+                      id: displayShiftId,
+                      taxiNumber: isDriver && taxiNumber ? taxiNumber : shift.taxiNumber,
+                    })
+                  }
                   activeOpacity={0.8}
                 >
                   <Text
@@ -362,27 +400,37 @@ export default function ShiftHistoryScreen({
                   >
                     View Trips
                   </Text>
-                  <Ionicons
-                    name="chevron-forward"
+                  <Feather
+                    name="chevron-right"
                     size={14}
-                    color={isUnpaid ? '#D97706' : '#2563EB'}
+                    color={isUnpaid ? '#B45309' : '#2563EB'}
                   />
                 </TouchableOpacity>
               </View>
 
               {/* Bottom Row: Breakdown Pills */}
               <View style={styles.breakdownRow}>
-                <View style={styles.breakdownPill}>
-                  <Ionicons name="card-outline" size={13} color="#64748B" style={{ marginRight: 4 }} />
-                  <Text style={styles.breakdownPillText}>
-                    Card: <Text style={styles.breakdownPillBold}>{shift.cardCount} txns • ${shift.cardAmount.toFixed(2)}</Text>
+                <View style={[styles.breakdownPill, isUnpaid && styles.breakdownPillUnpaid]}>
+                  <Ionicons
+                    name="card-outline"
+                    size={13}
+                    color={isUnpaid ? '#B45309' : '#64748B'}
+                    style={{ marginRight: 4 }}
+                  />
+                  <Text style={[styles.breakdownPillText, isUnpaid && styles.breakdownPillTextUnpaid]}>
+                    Card: <Text style={[styles.breakdownPillBold, isUnpaid && styles.breakdownPillBoldUnpaid]}>{shift.cardCount} txns • ${shift.cardAmount.toFixed(2)}</Text>
                   </Text>
                 </View>
 
-                <View style={styles.breakdownPill}>
-                  <Ionicons name="flash-outline" size={13} color="#2563EB" style={{ marginRight: 4 }} />
-                  <Text style={styles.breakdownPillText}>
-                    Tap & Go: <Text style={styles.breakdownPillBold}>{shift.tapAndGoCount} txns • ${shift.tapAndGoAmount.toFixed(2)}</Text>
+                <View style={[styles.breakdownPill, isUnpaid && styles.breakdownPillUnpaid]}>
+                  <MaterialCommunityIcons
+                    name="contactless-payment"
+                    size={14}
+                    color={isUnpaid ? '#B45309' : '#2563EB'}
+                    style={{ marginRight: 4 }}
+                  />
+                  <Text style={[styles.breakdownPillText, isUnpaid && styles.breakdownPillTextUnpaid]}>
+                    Tap & Go: <Text style={[styles.breakdownPillBold, isUnpaid && styles.breakdownPillBoldUnpaid]}>{shift.tapAndGoCount} txns • ${shift.tapAndGoAmount.toFixed(2)}</Text>
                   </Text>
                 </View>
               </View>
@@ -625,26 +673,48 @@ const styles = StyleSheet.create({
     color: '#475569',
   },
 
+  headerSubtitleText: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '500',
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  headerTaxiOrange: {
+    color: '#D97706',
+    fontWeight: '700',
+  },
+
   /* Stats Card */
   statsCard: {
-    backgroundColor: '#FFFDF9',
-    borderRadius: 20,
-    borderWidth: 1.2,
-    borderColor: '#FEF08A',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     padding: 16,
     marginBottom: 18,
-    shadowColor: '#F59E0B',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  cardTopStripe: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 3,
   },
   statsTitle: {
-    fontSize: 10,
+    fontSize: 10.5,
     fontWeight: '700',
     color: '#94A3B8',
     letterSpacing: 0.7,
     marginBottom: 6,
+    marginTop: 2,
   },
   amountDisplayRow: {
     flexDirection: 'row',
@@ -742,13 +812,22 @@ const styles = StyleSheet.create({
 
   /* Section Header */
   sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 10,
+    paddingHorizontal: 2,
   },
   sectionTitle: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 0.5,
+  },
+  sectionSubtitle: {
+    fontSize: 11,
     color: '#94A3B8',
-    letterSpacing: 0.8,
+    fontWeight: '500',
   },
 
   /* Shift Records Card */
@@ -759,15 +838,15 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 14,
     marginBottom: 12,
-    shadowColor: '#000000',
+    shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
+    shadowOpacity: 0.03,
+    shadowRadius: 5,
     elevation: 2,
   },
   shiftCardUnpaid: {
-    borderColor: '#FDE047',
-    borderWidth: 1.4,
+    borderColor: '#FDE68A',
+    borderWidth: 1.2,
     backgroundColor: '#FFFDF9',
   },
   cardHeaderRow: {
@@ -784,12 +863,14 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   shiftIdTextUnpaid: {
-    color: '#D97706',
+    color: '#B45309',
   },
   paidBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+    borderWidth: 1,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
@@ -802,14 +883,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#10B981',
   },
   paidBadgeText: {
-    color: '#059669',
-    fontSize: 9.5,
-    fontWeight: '800',
+    color: '#047857',
+    fontSize: 10,
+    fontWeight: '700',
   },
   unpaidBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FEF3C7',
+    borderColor: '#FDE68A',
+    borderWidth: 1,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
@@ -822,12 +905,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#F59E0B',
   },
   unpaidBadgeText: {
-    color: '#D97706',
-    fontSize: 9.5,
-    fontWeight: '800',
+    color: '#B45309',
+    fontSize: 10,
+    fontWeight: '700',
   },
   dateRangeText: {
-    fontSize: 11,
+    fontSize: 11.5,
     color: '#64748B',
     fontWeight: '600',
     marginBottom: 10,
@@ -894,31 +977,41 @@ const styles = StyleSheet.create({
     color: '#2563EB',
   },
   viewTripsBtnTextUnpaid: {
-    color: '#D97706',
+    color: '#B45309',
   },
   breakdownRow: {
     flexDirection: 'row',
     gap: 8,
-    flexWrap: 'wrap',
   },
   breakdownPill: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: '#E2E8F0',
     paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingVertical: 5,
+    borderRadius: 7,
+  },
+  breakdownPillUnpaid: {
+    backgroundColor: '#FFFDF5',
+    borderColor: '#FEF08A',
   },
   breakdownPillText: {
     fontSize: 10,
     color: '#64748B',
     fontWeight: '600',
   },
+  breakdownPillTextUnpaid: {
+    color: '#78350F',
+  },
   breakdownPillBold: {
     color: '#0F172A',
     fontWeight: '700',
+  },
+  breakdownPillBoldUnpaid: {
+    color: '#78350F',
   },
 
   /* Driver Modal */

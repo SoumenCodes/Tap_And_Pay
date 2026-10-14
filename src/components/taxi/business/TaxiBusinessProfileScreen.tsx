@@ -814,9 +814,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
     gap: 8,
   },
-  startShiftBtn: {
-    backgroundColor: '#059669',
-  },
+
   endShiftBtnText: {
     color: '#FFFFFF',
     fontSize: 13.5,
@@ -872,7 +870,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#DC2626',
     borderRadius: 14,
     height: 48,
     marginTop: 4,

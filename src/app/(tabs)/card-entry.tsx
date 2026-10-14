@@ -15,6 +15,7 @@ import {
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import HeaderBar from '../../components/common/HeaderBar';
+import { colors } from '../../constants/theme';
 
 export default function CardEntryScreen() {
   const router = useRouter();
@@ -230,7 +231,7 @@ export default function CardEntryScreen() {
             >
               <Text style={styles.confirmBtnText}>
                 Confirm & Collect{' '}
-                <Text style={styles.confirmBtnAmount}>${integerPart}.{decimalPart}</Text>
+
               </Text>
             </TouchableOpacity>
 
@@ -456,7 +457,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   fraudAgreeBtn: {
-    backgroundColor: '#0A3977',
+    backgroundColor: colors.btnBlack,
     borderRadius: 12,
     height: 46,
     flexDirection: 'row',

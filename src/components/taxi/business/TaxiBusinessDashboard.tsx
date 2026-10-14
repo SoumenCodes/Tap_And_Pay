@@ -120,12 +120,8 @@ export default function TaxiBusinessDashboard({
     );
   };
 
-  const handleViewDriver = (driver: DriverItem) => {
-    Alert.alert(
-      driver.name,
-      `Taxi Plate: ${driver.taxiNo}\nDriver Credential: DC ${driver.dcNumber}\nStatus: ${driver.isOnline ? 'Online (Active Shift)' : 'Offline'}\nActive Shift Revenue: $${driver.activeShiftRev}\nPaid Shifts: ${driver.paidShifts}\nUnpaid Shifts: ${driver.unpaidShifts}`,
-      [{ text: 'Close' }]
-    );
+  const handleNavigateToHistory = () => {
+    router.push('/(tabs)/transactions');
   };
 
   return (
@@ -385,7 +381,12 @@ export default function TaxiBusinessDashboard({
           {/* Driver List Cards */}
           <View style={styles.driversList}>
             {filteredDrivers.map((driver) => (
-              <View key={driver.id} style={styles.driverCard}>
+              <TouchableOpacity
+                key={driver.id}
+                style={styles.driverCard}
+                activeOpacity={0.8}
+                onPress={handleNavigateToHistory}
+              >
                 {/* Top Row: Avatar + Info + Shift Rev */}
                 <View style={styles.driverTopRow}>
                   <Image source={driver.avatar} style={styles.driverAvatar} />
@@ -431,44 +432,7 @@ export default function TaxiBusinessDashboard({
                     </Text>
                   </View>
                 </View>
-
-                {/* Bottom Row: Shifts & View Button */}
-                <View style={styles.driverBottomRow}>
-                  <Text style={styles.shiftsLabel}>Shifts:</Text>
-
-                  {/* Paid Shifts badge */}
-                  <View style={styles.paidShiftsBadge}>
-                    <Text style={styles.paidShiftsText}>
-                      Paid: {driver.paidShifts} {driver.paidShifts === 1 ? 'Shift' : 'Shifts'}
-                    </Text>
-                  </View>
-
-                  {/* Unpaid Shifts badge */}
-                  {driver.unpaidShifts > 0 ? (
-                    <View style={styles.unpaidShiftsActiveBadge}>
-                      <Text style={styles.unpaidShiftsActiveText}>
-                        Unpaid: {driver.unpaidShifts} {driver.unpaidShifts === 1 ? 'Shift' : 'Shifts'}
-                      </Text>
-                    </View>
-                  ) : (
-                    <View style={styles.unpaidShiftsZeroBadge}>
-                      <Text style={styles.unpaidShiftsZeroText}>Unpaid: 0</Text>
-                    </View>
-                  )}
-
-                  <View style={{ flex: 1 }} />
-
-                  {/* View > Button */}
-                  <TouchableOpacity
-                    style={styles.viewButton}
-                    activeOpacity={0.7}
-                    onPress={() => handleViewDriver(driver)}
-                  >
-                    <Text style={styles.viewButtonText}>View</Text>
-                    <Feather name="chevron-right" size={13} color="#2563EB" style={{ marginLeft: 2 }} />
-                  </TouchableOpacity>
-                </View>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         </View>
@@ -998,73 +962,5 @@ const styles = StyleSheet.create({
   revCents: {
     fontSize: 9.5,
     color: '#475569',
-  },
-  driverBottomRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#F8FAFC',
-    gap: 6,
-  },
-  shiftsLabel: {
-    fontSize: 10,
-    color: '#64748B',
-    fontWeight: '500',
-  },
-  paidShiftsBadge: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 7,
-    paddingVertical: 2.5,
-  },
-  paidShiftsText: {
-    fontSize: 9.5,
-    fontWeight: '600',
-    color: '#047857',
-  },
-  unpaidShiftsActiveBadge: {
-    backgroundColor: '#FEF3C7',
-    borderColor: '#FDE68A',
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 7,
-    paddingVertical: 2.5,
-  },
-  unpaidShiftsActiveText: {
-    fontSize: 9.5,
-    fontWeight: '600',
-    color: '#B45309',
-  },
-  unpaidShiftsZeroBadge: {
-    backgroundColor: '#F8FAFC',
-    borderColor: '#E2E8F0',
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 7,
-    paddingVertical: 2.5,
-  },
-  unpaidShiftsZeroText: {
-    fontSize: 9.5,
-    fontWeight: '500',
-    color: '#64748B',
-  },
-  viewButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EFF6FF',
-    borderColor: '#BFDBFE',
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  viewButtonText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#2563EB',
   },
 });

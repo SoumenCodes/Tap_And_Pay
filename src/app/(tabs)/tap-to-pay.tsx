@@ -19,6 +19,7 @@ import { useRouter } from 'expo-router';
 import { Svg, Path, Circle } from 'react-native-svg';
 import { useAuth } from '../../context/AuthContext';
 import HeaderBar from '../../components/common/HeaderBar';
+import { colors } from '../../constants/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -608,8 +609,8 @@ export default function TapToPayEnterAmountScreen() {
               {selectedMethod === 'tap'
                 ? 'Tap to Pay'
                 : selectedMethod === 'card'
-                ? 'Continue to Charge'
-                : 'Confirm Cash Payment'}
+                  ? 'Continue to Charge'
+                  : 'Confirm Cash Payment'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -1097,7 +1098,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   primaryActionButton: {
-    backgroundColor: '#0A3977',
+    backgroundColor: colors.btnBlack,
     borderRadius: 14,
     height: 48,
     alignItems: 'center',

@@ -23,6 +23,7 @@ export const colors = {
 
   // Typography
   textPrimary: '#0F172A',
+  
   textSecondary: '#64748B',
   textMuted: '#94A3B8',
   textDisabled: '#CBD5E1',
@@ -58,6 +59,8 @@ export const colors = {
   tabInactive: '#94A3B8',
 
   divider: '#F1F5F9',
+
+  btnBlack: '#0F172A',
 };
 
 export const spacing = {

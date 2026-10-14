@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 20,
-    paddingBottom: 12,
+    paddingBottom: 2,
   },
   bottomBorder: {
     borderBottomWidth: 1,
@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    minHeight: 32,
+    minHeight: 30,
   },
   sideSlot: {
     width: 40,

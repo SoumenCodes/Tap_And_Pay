@@ -1,0 +1,799 @@
+import React, { useState, useMemo } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TextInput,
+  TouchableOpacity,
+} from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { MOCK_SHIFTS, MOCK_SHIFT_STATS } from '../../../data/mockShifts';
+import { ShiftRecord } from '../../../types/shift';
+import HeaderBar from '../../common/HeaderBar';
+
+interface TaxiOwnerHistoryScreenProps {
+  onSelectShift: (shift: ShiftRecord) => void;
+  taxiNumber?: string;
+}
+
+type ShiftFilterType = 'all' | 'paid' | 'unpaid';
+
+export default function TaxiOwnerHistoryScreen({
+  onSelectShift,
+  taxiNumber = 'M6022',
+}: TaxiOwnerHistoryScreenProps) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState<ShiftFilterType>('all');
+  const [dateRangeText, setDateRangeText] = useState('20–26 Oct 2026');
+
+  // Filter shifts based on tab & search input
+  const filteredShifts = useMemo(() => {
+    return MOCK_SHIFTS.filter((shift) => {
+      // Tab filter
+      if (filterType === 'paid' && shift.status !== 'paid') return false;
+      if (filterType === 'unpaid' && shift.status !== 'unpaid') return false;
+
+      // Search filter
+      if (searchQuery.trim().length > 0) {
+        const query = searchQuery.toLowerCase().trim();
+        const displayId = shift.id.replace(/M[0-9]{4}/g, taxiNumber).toLowerCase();
+        const matchId = displayId.includes(query);
+        const matchTaxi = taxiNumber.toLowerCase().includes(query);
+        const matchDate = shift.dateText.toLowerCase().includes(query);
+        if (!matchId && !matchTaxi && !matchDate) return false;
+      }
+
+      return true;
+    });
+  }, [filterType, searchQuery, taxiNumber]);
+
+  return (
+    <View style={styles.root}>
+      <StatusBar style="dark" />
+
+      {/* Header Bar with Taxi Number Subtitle */}
+      <HeaderBar
+        title="Shift History"
+        subtitle={
+          <Text style={styles.headerSubtitleText}>
+            Taxi No.: <Text style={styles.headerTaxiOrange}>{taxiNumber}</Text>
+          </Text>
+        }
+      />
+
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* ── SEARCH & DATE RANGE FILTER ROW ── */}
+        <View style={styles.searchDateRow}>
+          <View style={styles.searchContainer}>
+            <Ionicons name="search-outline" size={17} color="#94A3B8" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search Shift ID..."
+              placeholderTextColor="#94A3B8"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity
+                onPress={() => setSearchQuery('')}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={styles.clearButton}
+              >
+                <Ionicons name="close-circle" size={16} color="#94A3B8" />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <TouchableOpacity
+            style={styles.dateFilterButton}
+            activeOpacity={0.8}
+            onPress={() => {
+              setDateRangeText((prev) =>
+                prev === '20–26 Oct 2026' ? 'All Dates' : '20–26 Oct 2026'
+              );
+            }}
+          >
+            <Ionicons name="calendar-outline" size={16} color="#0F172A" />
+            <Text style={styles.dateFilterText}>{dateRangeText}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ── FILTER PILLS ── */}
+        <View style={styles.filterPillsRow}>
+          <TouchableOpacity
+            style={[
+              styles.filterPill,
+              filterType === 'all' ? styles.filterPillActive : styles.filterPillInactive,
+            ]}
+            onPress={() => setFilterType('all')}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={[
+                styles.filterPillText,
+                filterType === 'all'
+                  ? styles.filterPillTextActive
+                  : styles.filterPillTextInactive,
+              ]}
+            >
+              All Shifts ({MOCK_SHIFT_STATS.allShiftsCount})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.filterPill,
+              filterType === 'paid' ? styles.filterPillActive : styles.filterPillInactive,
+            ]}
+            onPress={() => setFilterType('paid')}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={[
+                styles.filterPillText,
+                filterType === 'paid'
+                  ? styles.filterPillTextActive
+                  : styles.filterPillTextInactive,
+              ]}
+            >
+              Paid Shifts ({MOCK_SHIFT_STATS.paidShiftsCount})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.filterPill,
+              filterType === 'unpaid' ? styles.filterPillActive : styles.filterPillInactive,
+            ]}
+            onPress={() => setFilterType('unpaid')}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={[
+                styles.filterPillText,
+                filterType === 'unpaid'
+                  ? styles.filterPillTextActive
+                  : styles.filterPillTextInactive,
+              ]}
+            >
+              Unpaid Shifts ({MOCK_SHIFT_STATS.unpaidShiftsCount})
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ── TOTAL SHIFT COLLECTIONS CARD ── */}
+        <View style={styles.statsCard}>
+          <LinearGradient
+            colors={[
+              'rgba(251, 191, 36, 0)',
+              '#FBBF24',
+              '#F59E0B',
+              '#FBBF24',
+              'rgba(251, 191, 36, 0)',
+            ]}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={styles.cardTopStripe}
+          />
+          <Text style={styles.statsTitle}>TOTAL SHIFT COLLECTIONS</Text>
+
+          <View style={styles.amountDisplayRow}>
+            <Text style={styles.amountBig}>
+              ${Math.floor(MOCK_SHIFT_STATS.totalCollection).toLocaleString('en-US')}
+            </Text>
+            <Text style={styles.amountCents}>.00</Text>
+          </View>
+
+          {/* Ratio Progress Bar */}
+          <View style={styles.ratioBarContainer}>
+            <View style={[styles.ratioBarGreen, { flex: 9 }]} />
+            <View style={[styles.ratioBarAmber, { flex: 1 }]} />
+          </View>
+
+          {/* Sub-Metric Boxes */}
+          <View style={styles.metricBoxesRow}>
+            {/* Box 1: Settled / Paid */}
+            <View style={styles.metricBoxPaid}>
+              <View style={styles.metricBoxHeader}>
+                <View style={styles.bulletPaid} />
+                <Text style={styles.metricBoxTitle}>Settled / Paid</Text>
+              </View>
+              <Text style={styles.metricPaidAmount}>
+                ${MOCK_SHIFT_STATS.paidAmount.toLocaleString('en-US', {
+                  minimumFractionDigits: 2,
+                })}
+              </Text>
+              <Text style={styles.metricSubtext}>
+                {MOCK_SHIFT_STATS.paidShiftsCount} shifts completed
+              </Text>
+            </View>
+
+            {/* Box 2: Pending / Unpaid */}
+            <View style={styles.metricBoxUnpaid}>
+              <View style={styles.metricBoxHeader}>
+                <View style={styles.bulletUnpaid} />
+                <Text style={styles.metricBoxTitle}>Pending / Unpaid</Text>
+              </View>
+              <Text style={styles.metricUnpaidAmount}>
+                ${MOCK_SHIFT_STATS.unpaidAmount.toLocaleString('en-US', {
+                  minimumFractionDigits: 2,
+                })}
+              </Text>
+              <Text style={styles.metricSubtext}>
+                {MOCK_SHIFT_STATS.unpaidShiftsCount} shifts awaiting
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* ── SHIFT RECORDS HEADING ── */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>SHIFT RECORDS</Text>
+          <Text style={styles.sectionSubtitle}>Displaying {filteredShifts.length} recent</Text>
+        </View>
+
+        {/* ── SHIFT RECORDS LIST ── */}
+        {filteredShifts.map((shift) => {
+          const isUnpaid = shift.status === 'unpaid';
+          const displayShiftId = shift.id.replace(/M[0-9]{4}/g, taxiNumber);
+
+          return (
+            <View
+              key={shift.id}
+              style={[styles.shiftCard, isUnpaid && styles.shiftCardUnpaid]}
+            >
+              {/* Header: ID + Status Badge */}
+              <View style={styles.cardHeaderRow}>
+                <Text
+                  style={[styles.shiftIdText, isUnpaid && styles.shiftIdTextUnpaid]}
+                  numberOfLines={1}
+                >
+                  {displayShiftId}
+                </Text>
+
+                {isUnpaid ? (
+                  <View style={styles.unpaidBadge}>
+                    <View style={styles.unpaidDot} />
+                    <Text style={styles.unpaidBadgeText}>UNPAID</Text>
+                  </View>
+                ) : (
+                  <View style={styles.paidBadge}>
+                    <View style={styles.paidDot} />
+                    <Text style={styles.paidBadgeText}>
+                      PAID{shift.paidDate ? ` on ${shift.paidDate}` : ''}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Time Range */}
+              <Text style={styles.dateRangeText}>
+                {shift.dateText} • {shift.timeRange}
+              </Text>
+
+              {/* Middle Row: Trips + Total/Pending + View Trips Button */}
+              <View style={styles.cardMiddleRow}>
+                <View style={styles.tripsAndAmountRow}>
+                  <View style={[styles.tripsPill, isUnpaid && styles.tripsPillUnpaid]}>
+                    <Text style={[styles.tripsPillText, isUnpaid && styles.tripsPillTextUnpaid]}>
+                      {shift.tripsCount} Trips
+                    </Text>
+                  </View>
+
+                  <Text style={styles.totalLabelText}>
+                    {isUnpaid ? 'Pending: ' : 'Total: '}
+                    <Text style={[styles.totalAmountValue, isUnpaid && styles.pendingAmountValue]}>
+                      ${shift.totalAmount.toFixed(2)}
+                    </Text>
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.viewTripsBtn, isUnpaid && styles.viewTripsBtnUnpaid]}
+                  onPress={() =>
+                    onSelectShift({
+                      ...shift,
+                      id: displayShiftId,
+                      taxiNumber,
+                    })
+                  }
+                  activeOpacity={0.8}
+                >
+                  <Text
+                    style={[
+                      styles.viewTripsBtnText,
+                      isUnpaid && styles.viewTripsBtnTextUnpaid,
+                    ]}
+                  >
+                    View Trips
+                  </Text>
+                  <Feather
+                    name="chevron-right"
+                    size={14}
+                    color={isUnpaid ? '#B45309' : '#2563EB'}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              {/* Bottom Row: Breakdown Pills */}
+              <View style={styles.breakdownRow}>
+                <View style={[styles.breakdownPill, isUnpaid && styles.breakdownPillUnpaid]}>
+                  <Ionicons
+                    name="card-outline"
+                    size={13}
+                    color={isUnpaid ? '#B45309' : '#64748B'}
+                    style={{ marginRight: 4 }}
+                  />
+                  <Text style={[styles.breakdownPillText, isUnpaid && styles.breakdownPillTextUnpaid]}>
+                    Card: <Text style={[styles.breakdownPillBold, isUnpaid && styles.breakdownPillBoldUnpaid]}>{shift.cardCount} txns • ${shift.cardAmount.toFixed(2)}</Text>
+                  </Text>
+                </View>
+
+                <View style={[styles.breakdownPill, isUnpaid && styles.breakdownPillUnpaid]}>
+                  <MaterialCommunityIcons
+                    name="contactless-payment"
+                    size={14}
+                    color={isUnpaid ? '#B45309' : '#2563EB'}
+                    style={{ marginRight: 4 }}
+                  />
+                  <Text style={[styles.breakdownPillText, isUnpaid && styles.breakdownPillTextUnpaid]}>
+                    Tap & Go: <Text style={[styles.breakdownPillBold, isUnpaid && styles.breakdownPillBoldUnpaid]}>{shift.tapAndGoCount} txns • ${shift.tapAndGoAmount.toFixed(2)}</Text>
+                  </Text>
+                </View>
+              </View>
+            </View>
+          );
+        })}
+
+        <View style={{ height: 28 }} />
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 28,
+  },
+
+  /* Header Subtitle */
+  headerSubtitleText: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '500',
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  headerTaxiOrange: {
+    color: '#D97706',
+    fontWeight: '700',
+  },
+
+  /* Search & Date Filter */
+  searchDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 14,
+  },
+  searchContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    height: 44,
+    paddingHorizontal: 12,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 12.5,
+    color: '#0F172A',
+    fontWeight: '500',
+    height: '100%',
+  },
+  clearButton: {
+    padding: 4,
+  },
+  dateFilterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    height: 44,
+    paddingHorizontal: 12,
+    gap: 6,
+  },
+  dateFilterText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+
+  /* Filter Pills */
+  filterPillsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 14,
+  },
+  filterPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  filterPillActive: {
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
+  },
+  filterPillInactive: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
+  },
+  filterPillText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  filterPillTextActive: {
+    color: '#FFFFFF',
+  },
+  filterPillTextInactive: {
+    color: '#475569',
+  },
+
+  /* Stats Card */
+  statsCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 16,
+    marginBottom: 18,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  cardTopStripe: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+  },
+  statsTitle: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#94A3B8',
+    letterSpacing: 0.7,
+    marginBottom: 6,
+    marginTop: 2,
+  },
+  amountDisplayRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: 12,
+  },
+  amountBig: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.5,
+  },
+  amountCents: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  ratioBarContainer: {
+    height: 6,
+    borderRadius: 3,
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    overflow: 'hidden',
+    marginBottom: 14,
+  },
+  ratioBarGreen: {
+    backgroundColor: '#10B981',
+    borderRadius: 3,
+  },
+  ratioBarAmber: {
+    backgroundColor: '#F59E0B',
+    borderRadius: 3,
+    marginLeft: 2,
+  },
+  metricBoxesRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  metricBoxPaid: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    padding: 12,
+  },
+  metricBoxUnpaid: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#FEF08A',
+    borderRadius: 14,
+    padding: 12,
+  },
+  metricBoxHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 4,
+  },
+  bulletPaid: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+  },
+  bulletUnpaid: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#F59E0B',
+  },
+  metricBoxTitle: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  metricPaidAmount: {
+    fontSize: 15.5,
+    fontWeight: '800',
+    color: '#059669',
+    marginBottom: 2,
+  },
+  metricUnpaidAmount: {
+    fontSize: 15.5,
+    fontWeight: '800',
+    color: '#D97706',
+    marginBottom: 2,
+  },
+  metricSubtext: {
+    fontSize: 9.5,
+    color: '#94A3B8',
+    fontWeight: '600',
+  },
+
+  /* Section Header */
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    paddingHorizontal: 2,
+  },
+  sectionTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 0.5,
+  },
+  sectionSubtitle: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+
+  /* Shift Records Card */
+  shiftCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 12,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  shiftCardUnpaid: {
+    borderColor: '#FDE68A',
+    borderWidth: 1.2,
+    backgroundColor: '#FFFDF9',
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  shiftIdText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#0F172A',
+    flex: 1,
+    marginRight: 8,
+  },
+  shiftIdTextUnpaid: {
+    color: '#B45309',
+  },
+  paidBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    gap: 4,
+  },
+  paidDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#10B981',
+  },
+  paidBadgeText: {
+    color: '#047857',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  unpaidBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FDE68A',
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    gap: 4,
+  },
+  unpaidDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#F59E0B',
+  },
+  unpaidBadgeText: {
+    color: '#B45309',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  dateRangeText: {
+    fontSize: 11.5,
+    color: '#64748B',
+    fontWeight: '600',
+    marginBottom: 10,
+  },
+  cardMiddleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  tripsAndAmountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  tripsPill: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  tripsPillUnpaid: {
+    backgroundColor: '#FEF3C7',
+  },
+  tripsPillText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  tripsPillTextUnpaid: {
+    color: '#B45309',
+  },
+  totalLabelText: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  totalAmountValue: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  pendingAmountValue: {
+    color: '#D97706',
+  },
+  viewTripsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    gap: 4,
+  },
+  viewTripsBtnUnpaid: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FDE68A',
+  },
+  viewTripsBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+  viewTripsBtnTextUnpaid: {
+    color: '#B45309',
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  breakdownPill: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 7,
+  },
+  breakdownPillUnpaid: {
+    backgroundColor: '#FFFDF5',
+    borderColor: '#FEF08A',
+  },
+  breakdownPillText: {
+    fontSize: 10,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  breakdownPillTextUnpaid: {
+    color: '#78350F',
+  },
+  breakdownPillBold: {
+    color: '#0F172A',
+    fontWeight: '700',
+  },
+  breakdownPillBoldUnpaid: {
+    color: '#78350F',
+  },
+});

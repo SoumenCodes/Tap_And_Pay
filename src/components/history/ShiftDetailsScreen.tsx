@@ -144,8 +144,8 @@ export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreen
             </thead>
             <tbody>
               ${shift.transactions
-                .map(
-                  (t) => `
+        .map(
+          (t) => `
                 <tr>
                   <td><b>${t.id}</b></td>
                   <td>${t.time}</td>
@@ -154,8 +154,8 @@ export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreen
                   <td style="text-align: right; font-weight: bold;">$${t.amount.toFixed(2)}</td>
                 </tr>
               `
-                )
-                .join('')}
+        )
+        .join('')}
             </tbody>
           </table>
 
@@ -623,7 +623,7 @@ export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreen
             ) : (
               <>
                 <Feather name="printer" size={16} color="#0F172A" style={{ marginRight: 6 }} />
-                <Text style={styles.reprintSlipText}>Reprint Shift Slip</Text>
+                <Text style={styles.reprintSlipText} numberOfLines={1}>Reprint Shift Slip</Text>
               </>
             )}
           </TouchableOpacity>
@@ -635,7 +635,7 @@ export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreen
             activeOpacity={0.88}
           >
             <Feather name="share" size={16} color="#0A3977" style={{ marginRight: 6 }} />
-            <Text style={styles.shareReportText}>Share Report</Text>
+            <Text style={styles.shareReportText} numberOfLines={1}>Share Report</Text>
           </TouchableOpacity>
         </View>
 
@@ -1128,16 +1128,20 @@ const styles = StyleSheet.create({
 
   /* Bottom Actions */
   bottomButtonsWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
     marginTop: 8,
   },
   reprintSlipButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FBBF24',
-    height: 52,
-    borderRadius: 14,
+    height: 48,
+    borderRadius: 12,
+    paddingHorizontal: 8,
     shadowColor: '#F59E0B',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2,
@@ -1146,22 +1150,24 @@ const styles = StyleSheet.create({
   },
   reprintSlipText: {
     color: '#0F172A',
-    fontSize: 15,
+    fontSize: 13.5,
     fontWeight: '700',
   },
   shareReportButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    height: 52,
-    borderRadius: 14,
+    height: 48,
+    borderRadius: 12,
+    paddingHorizontal: 8,
   },
   shareReportText: {
     color: '#0A3977',
-    fontSize: 15,
+    fontSize: 13.5,
     fontWeight: '700',
   },
 });

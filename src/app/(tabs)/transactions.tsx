@@ -6,6 +6,7 @@ import ShiftDetailsScreen from '../../components/history/ShiftDetailsScreen';
 import {
   TaxiBusinessHistoryScreen,
   TaxiDriverHistoryScreen,
+  TaxiOwnerHistoryScreen,
 } from '../../components/taxi';
 import { OtherBusinessTransactionsScreen } from '../../components/other-business';
 import { MOCK_SHIFTS } from '../../data/mockShifts';
@@ -77,7 +78,17 @@ export default function TransactionsTabScreen() {
     );
   }
 
-  // Role: Taxi Business Company / Fleet Admin / Taxi Owner
+  // Role: Taxi Owner
+  if (user.loginType === 'taxi_owner') {
+    return (
+      <TaxiOwnerHistoryScreen
+        onSelectShift={handleSelectShift}
+        taxiNumber={user.taxiNumber || 'M6022'}
+      />
+    );
+  }
+
+  // Role: Taxi Business Company / Fleet Admin
   return (
     <TaxiBusinessHistoryScreen
       onSelectShift={handleSelectShift}

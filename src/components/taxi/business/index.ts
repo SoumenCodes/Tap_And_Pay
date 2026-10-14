@@ -3,4 +3,5 @@ export { default as TaxiBusinessProfileScreen } from './TaxiBusinessProfileScree
 export { default as ManageDriverScreen } from './ManageDriverScreen';
 export { default as AddDriverScreen } from './AddDriverScreen';
 export { default as DriverDetailsScreen } from './DriverDetailsScreen';
+export { default as TaxiBusinessHistoryScreen } from './TaxiBusinessHistoryScreen';
 

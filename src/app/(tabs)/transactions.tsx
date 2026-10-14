@@ -2,8 +2,11 @@ import React, { useEffect } from 'react';
 import { BackHandler } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
-import ShiftHistoryScreen from '../../components/history/ShiftHistoryScreen';
 import ShiftDetailsScreen from '../../components/history/ShiftDetailsScreen';
+import {
+  TaxiBusinessHistoryScreen,
+  TaxiDriverHistoryScreen,
+} from '../../components/taxi';
 import { OtherBusinessTransactionsScreen } from '../../components/other-business';
 import { MOCK_SHIFTS } from '../../data/mockShifts';
 import { ShiftRecord } from '../../types/shift';
@@ -64,11 +67,21 @@ export default function TransactionsTabScreen() {
     );
   }
 
+  // Role: Taxi Driver
+  if (user.loginType === 'taxi_business_driver') {
+    return (
+      <TaxiDriverHistoryScreen
+        onSelectShift={handleSelectShift}
+        taxiNumber={user.taxiNumber || 'M6022'}
+      />
+    );
+  }
+
+  // Role: Taxi Business Company / Fleet Admin / Taxi Owner
   return (
-    <ShiftHistoryScreen
+    <TaxiBusinessHistoryScreen
       onSelectShift={handleSelectShift}
-      taxiNumber={user.taxiNumber || 'M6022'}
-      isDriver={user.loginType === 'taxi_business_driver'}
+      taxiNumber={user.taxiNumber}
     />
   );
 }

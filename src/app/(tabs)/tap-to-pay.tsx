@@ -56,6 +56,10 @@ export default function TapToPayEnterAmountScreen() {
   const router = useRouter();
   const { user } = useAuth();
 
+  const isOtherBusiness =
+    user.loginType === 'other_business' ||
+    user.loginType === 'other_business_employee';
+
   // Screen flow step: 'amount' (keypad) -> 'confirm' (summary breakdown)
   const [screenStep, setScreenStep] = useState<ScreenStep>('amount');
 
@@ -144,8 +148,41 @@ export default function TapToPayEnterAmountScreen() {
   const totalAmountFormatted = totalAmount.toFixed(2);
   const [totalIntPart, totalDecPart] = totalAmountFormatted.split('.');
 
-  // Continue from keypad to Confirm screen
+  // Continue from keypad to Confirm screen (Taxi) or directly to Payment (Other Business)
   const handleContinueToConfirm = () => {
+    if (isOtherBusiness) {
+      // Other business skips the taxi confirm/route/breakup screen and goes directly to payment
+      const finalAmountFormatted =
+        numericAmount > 0 ? numericAmount.toFixed(2) : '100.00';
+
+      if (selectedMethod === 'card') {
+        router.push({
+          pathname: '/(tabs)/card-entry',
+          params: {
+            amount: finalAmountFormatted,
+            showFraudWarning: 'true',
+          },
+        });
+      } else if (selectedMethod === 'tap') {
+        router.push({
+          pathname: '/(tabs)/tap-ready',
+          params: {
+            amount: finalAmountFormatted,
+          },
+        });
+      } else {
+        router.push({
+          pathname: '/(tabs)/payment-success',
+          params: {
+            amount: finalAmountFormatted,
+            method: 'cash',
+          },
+        });
+      }
+      return;
+    }
+
+    // For Taxi businesses: Show confirm screen with route pickup/dropoff and surcharge breakup
     setScreenStep('confirm');
   };
 
@@ -241,7 +278,6 @@ export default function TapToPayEnterAmountScreen() {
   };
 
   const headerInfo = getHeaderInfo();
-  const isOtherBusiness = user.loginType === 'other_business';
 
   return (
     <View style={styles.root}>
@@ -390,8 +426,8 @@ export default function TapToPayEnterAmountScreen() {
                 />
               </View>
               <View style={styles.merchantTextCol}>
-                <Text style={styles.merchantTitleText}>Crown Cuts</Text>
-                <Text style={styles.merchantSubtitleText}>Soumen&apos;s Business</Text>
+                <Text style={styles.merchantTitleText}>{user.businessName || 'Crown Cuts'}</Text>
+                <Text style={styles.merchantSubtitleText}>{user.name || 'Soumen Sen'} • POS Terminal</Text>
               </View>
             </View>
           )}

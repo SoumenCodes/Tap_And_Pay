@@ -19,10 +19,12 @@ import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useAuth } from '../../context/AuthContext';
 import HeaderBar from '../../components/common/HeaderBar';
+import { OtherBusinessReceiptScreen } from '../../components/other-business';
 
-export default function ReceiptDetailsScreen() {
+function TaxiReceiptScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+
   const params = useLocalSearchParams<{
     amount?: string;
     method?: string;
@@ -858,3 +860,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
+
+export default function ReceiptDetailsScreen() {
+  const { user } = useAuth();
+  const isOtherBusiness =
+    user?.loginType === 'other_business' ||
+    user?.loginType === 'other_business_employee';
+
+  if (isOtherBusiness) {
+    return <OtherBusinessReceiptScreen />;
+  }
+
+  return <TaxiReceiptScreen />;
+}
+

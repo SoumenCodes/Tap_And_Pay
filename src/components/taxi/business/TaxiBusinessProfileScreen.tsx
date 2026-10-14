@@ -814,7 +814,9 @@ const styles = StyleSheet.create({
     marginTop: 14,
     gap: 8,
   },
-
+  startShiftBtn: {
+    backgroundColor: '#059669',
+  },
   endShiftBtnText: {
     color: '#FFFFFF',
     fontSize: 13.5,

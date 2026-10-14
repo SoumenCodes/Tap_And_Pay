@@ -74,7 +74,7 @@ export default function LoginScreen() {
             {/* Top Brand Logo */}
             <View style={styles.logoWrap}>
               <Image
-                source={require('../../assets/se_pay_brand_logo.png')}
+                source={require('../../assets/SE-pay-logo-gif.gif')}
                 style={styles.logoImage}
                 resizeMode="contain"
               />
@@ -282,8 +282,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   logoWrap: {
-    width: 140,
-    height: 75,
+    width: 280,
+    height: 170,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 6,

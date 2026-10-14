@@ -299,34 +299,34 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   dollarSign: {
-    fontSize: 36,
+    fontSize: 30,
     fontWeight: '800',
     color: '#D97706', // Warm Gold
   },
   amountText: {
-    fontSize: 40,
+    fontSize: 34,
     fontWeight: '800',
     color: '#0F172A', // Deep Black
     letterSpacing: -0.5,
   },
   cursorBar: {
     width: 2,
-    height: 38,
+    height: 32,
     backgroundColor: '#CBD5E1',
     marginLeft: 6,
   },
   title: {
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: '700',
     color: '#0F172A',
     textAlign: 'center',
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 12.5,
     color: '#64748B',
     textAlign: 'center',
-    lineHeight: 21,
+    lineHeight: 18,
     paddingHorizontal: 20,
   },
   footer: {
@@ -335,13 +335,13 @@ const styles = StyleSheet.create({
   cancelBtn: {
     backgroundColor: '#F1F5F9',
     borderRadius: 14,
-    height: 50,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelText: {
     color: '#0F172A',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
   },
 });

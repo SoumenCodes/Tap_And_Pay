@@ -564,7 +564,7 @@ const styles = StyleSheet.create({
     height: 17,
   },
   bizCategoryText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
     color: '#D97706',
     letterSpacing: 0.8,
@@ -572,14 +572,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   driverNameText: {
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: '800',
     color: '#0F172A',
     marginTop: 2,
     textAlign: 'center',
   },
   metaLine: {
-    fontSize: 11.5,
+    fontSize: 10.5,
     color: '#64748B',
     fontWeight: '600',
     textAlign: 'center',
@@ -590,7 +590,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   emailLine: {
-    fontSize: 11.5,
+    fontSize: 10.5,
     color: '#64748B',
     fontWeight: '500',
     textAlign: 'center',
@@ -613,7 +613,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#10B981',
   },
   statusTextActive: {
-    fontSize: 11.5,
+    fontSize: 10.5,
     fontWeight: '800',
     color: '#059669',
   },
@@ -634,12 +634,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#94A3B8',
   },
   statusTextInactive: {
-    fontSize: 11.5,
+    fontSize: 10.5,
     fontWeight: '800',
     color: '#64748B',
   },
   shiftStartTimeText: {
-    fontSize: 11.5,
+    fontSize: 10.5,
     color: '#64748B',
     fontWeight: '600',
     marginTop: 6,
@@ -664,12 +664,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   shiftIdLabel: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#64748B',
     fontWeight: '600',
   },
   shiftIdValue: {
-    fontSize: 13.5,
+    fontSize: 12.5,
     fontWeight: '800',
     color: '#0F172A',
     marginTop: 2,
@@ -699,7 +699,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   txnsLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: '#64748B',
   },
@@ -709,7 +709,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   tripsBadgeText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
     color: '#059669',
   },
@@ -720,18 +720,18 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   fareDollar: {
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: '800',
     color: '#D97706',
   },
   fareInteger: {
-    fontSize: 34,
+    fontSize: 28,
     fontWeight: '800',
     color: '#0F172A',
     letterSpacing: -0.5,
   },
   fareDec: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '700',
     color: '#64748B',
   },
@@ -760,13 +760,13 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   cardMethodTitle: {
-    fontSize: 10.5,
+    fontSize: 10,
     fontWeight: '800',
     color: '#2563EB',
     letterSpacing: 0.5,
   },
   tapMethodTitle: {
-    fontSize: 10.5,
+    fontSize: 10,
     fontWeight: '800',
     color: '#D97706',
     letterSpacing: 0.5,
@@ -776,27 +776,27 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
   },
   breakdownDollarBlue: {
-    fontSize: 14,
+    fontSize: 12.5,
     fontWeight: '800',
     color: '#2563EB',
   },
   breakdownDollarAmber: {
-    fontSize: 14,
+    fontSize: 12.5,
     fontWeight: '800',
     color: '#D97706',
   },
   breakdownAmountVal: {
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: '800',
     color: '#0F172A',
   },
   breakdownDec: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     color: '#64748B',
   },
   breakdownSub: {
-    fontSize: 10.5,
+    fontSize: 9.5,
     color: '#64748B',
     fontWeight: '600',
     marginTop: 1,
@@ -819,7 +819,7 @@ const styles = StyleSheet.create({
   },
   endShiftBtnText: {
     color: '#FFFFFF',
-    fontSize: 14.5,
+    fontSize: 13.5,
     fontWeight: '700',
   },
 
@@ -855,12 +855,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   menuTitleText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: '#0F172A',
   },
   menuSubText: {
-    fontSize: 11.5,
+    fontSize: 10.5,
     color: '#64748B',
     marginTop: 2,
   },
@@ -880,7 +880,7 @@ const styles = StyleSheet.create({
   },
   logoutBtnText: {
     color: '#DC2626',
-    fontSize: 14.5,
+    fontSize: 13.5,
     fontWeight: '700',
   },
 
@@ -949,7 +949,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   bankSheetTitle: {
-    fontSize: 18,
+    fontSize: 15.5,
     fontWeight: '800',
     color: '#0F172A',
   },
@@ -963,12 +963,12 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   verifiedPillText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     color: '#2563EB',
   },
   bankSheetSubtitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748B',
     marginTop: 2,
   },
@@ -994,7 +994,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   bankInfoHeading: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
     color: '#0F172A',
     letterSpacing: 0.6,
@@ -1011,12 +1011,12 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   bankInfoLabel: {
-    fontSize: 13,
+    fontSize: 11.5,
     color: '#64748B',
     fontWeight: '500',
   },
   bankInfoValue: {
-    fontSize: 14,
+    fontSize: 12.5,
     fontWeight: '800',
     color: '#0F172A',
   },
@@ -1032,7 +1032,7 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
   nabBadgeText: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '800',
     color: '#64748B',
   },
@@ -1043,7 +1043,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   updateBankText: {
-    fontSize: 13.5,
+    fontSize: 12,
     fontWeight: '800',
     color: '#D97706',
   },
@@ -1070,16 +1070,16 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   updateModalTitle: {
-    fontSize: 18,
+    fontSize: 15.5,
     fontWeight: '800',
     color: '#0F172A',
     textAlign: 'center',
     marginTop: 12,
   },
   updateModalDesc: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748B',
-    lineHeight: 18,
+    lineHeight: 17,
     textAlign: 'center',
     marginTop: 8,
     paddingHorizontal: 4,
@@ -1093,7 +1093,7 @@ const styles = StyleSheet.create({
     marginVertical: 14,
   },
   newAccountHeading: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
     color: '#B45309',
     letterSpacing: 0.6,
@@ -1107,7 +1107,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   sheetInputLabel: {
-    fontSize: 10.5,
+    fontSize: 10,
     fontWeight: '700',
     color: '#64748B',
     marginBottom: 4,
@@ -1119,7 +1119,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     height: 44,
     paddingHorizontal: 12,
-    fontSize: 13.5,
+    fontSize: 12.5,
     color: '#0F172A',
     fontWeight: '700',
   },
@@ -1133,7 +1133,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#0F172A',
     borderRadius: 14,
-    height: 50,
+    height: 48,
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2,
@@ -1141,7 +1141,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   confirmSubmitBtnText: {
-    fontSize: 15,
+    fontSize: 13.5,
     fontWeight: '800',
     color: '#FBBF24',
   },
@@ -1150,11 +1150,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#F1F5F9',
     borderRadius: 14,
-    height: 50,
+    height: 48,
     marginTop: 10,
   },
   updateCancelBtnText: {
-    fontSize: 15,
+    fontSize: 13.5,
     fontWeight: '700',
     color: '#0F172A',
   },

@@ -119,14 +119,14 @@ const styles = StyleSheet.create({
     marginLeft: -4,
   },
   title: {
-    fontSize: 17,
+    fontSize: 15.5,
     fontWeight: '700',
     color: '#0F172A',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748B',
     marginTop: 2,
     textAlign: 'center',

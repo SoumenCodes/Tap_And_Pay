@@ -639,18 +639,18 @@ const styles = StyleSheet.create({
     height: 44,
   },
   bizName: {
-    fontSize: 18,
+    fontSize: 15.5,
     fontWeight: '800',
     color: '#0F172A',
     textAlign: 'center',
     marginBottom: 4,
   },
   bizMeta: {
-    fontSize: 11.5,
+    fontSize: 10.5,
     color: '#64748B',
     fontWeight: '600',
     textAlign: 'center',
-    lineHeight: 16,
+    lineHeight: 15,
     marginTop: 1,
   },
   amountSection: {
@@ -659,7 +659,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   totalPaidLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.8,
     color: '#64748B',
@@ -672,19 +672,19 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   dollarSign: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: '800',
     color: '#D97706',
     marginRight: 2,
   },
   amountInt: {
-    fontSize: 40,
+    fontSize: 32,
     fontWeight: '800',
     color: '#0F172A',
     letterSpacing: -0.5,
   },
   amountDec: {
-    fontSize: 26,
+    fontSize: 20,
     fontWeight: '800',
     color: '#475569',
   },
@@ -705,7 +705,7 @@ const styles = StyleSheet.create({
   },
   paidText: {
     color: '#059669',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
@@ -734,13 +734,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   routeLabel: {
-    fontSize: 10,
+    fontSize: 9.5,
     color: '#94A3B8',
     fontWeight: '700',
     letterSpacing: 0.6,
   },
   routeValue: {
-    fontSize: 15,
+    fontSize: 13.5,
     fontWeight: '700',
     color: '#0F172A',
     marginTop: 3,
@@ -755,13 +755,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   metaLabel: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#94A3B8',
     fontWeight: '600',
     marginBottom: 2,
   },
   metaValue: {
-    fontSize: 13.5,
+    fontSize: 12.5,
     color: '#0F172A',
     fontWeight: '700',
   },
@@ -777,7 +777,7 @@ const styles = StyleSheet.create({
   },
   methodCapsuleText: {
     color: '#2563EB',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
   },
   visaPill: {
@@ -790,7 +790,7 @@ const styles = StyleSheet.create({
   },
   visaPillText: {
     color: '#1D4ED8',
-    fontSize: 10.5,
+    fontSize: 9.5,
     fontWeight: '800',
     fontStyle: 'italic',
     letterSpacing: 0.5,
@@ -803,7 +803,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#F1F5F9',
   },
   thankYouText: {
-    fontSize: 11.5,
+    fontSize: 10.5,
     fontWeight: '800',
     color: '#0F172A',
     letterSpacing: 0.5,
@@ -811,7 +811,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   poweredByText: {
-    fontSize: 9.5,
+    fontSize: 9,
     color: '#94A3B8',
     letterSpacing: 0.8,
     fontWeight: '700',
@@ -829,7 +829,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FBBF24',
-    height: 52,
+    height: 48,
     borderRadius: 14,
     shadowColor: '#F59E0B',
     shadowOffset: { width: 0, height: 3 },
@@ -839,7 +839,7 @@ const styles = StyleSheet.create({
   },
   printBtnText: {
     color: '#0F172A',
-    fontSize: 15,
+    fontSize: 13.5,
     fontWeight: '700',
   },
   shareBtn: {
@@ -849,12 +849,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    height: 52,
+    height: 48,
     borderRadius: 14,
   },
   shareBtnText: {
     color: '#0F172A',
-    fontSize: 15,
+    fontSize: 13.5,
     fontWeight: '700',
   },
 });

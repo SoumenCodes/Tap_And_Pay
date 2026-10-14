@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sectionHeadingText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
     color: '#0F172A',
   },
@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   fieldLabel: {
-    fontSize: 11.5,
+    fontSize: 10.5,
     fontWeight: '600',
     color: '#64748B',
     marginBottom: 6,
@@ -421,7 +421,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     height: 46,
     paddingHorizontal: 14,
-    fontSize: 13.5,
+    fontSize: 12.5,
     color: '#0F172A',
     fontWeight: '600',
   },
@@ -447,12 +447,12 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   uploadTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
     color: '#0F172A',
   },
   uploadSubtitle: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#94A3B8',
     marginTop: 2,
   },
@@ -481,13 +481,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   licenseBoxTitle: {
-    fontSize: 10.5,
+    fontSize: 10,
     fontWeight: '800',
     color: '#0F172A',
     textAlign: 'center',
   },
   licenseBoxSub: {
-    fontSize: 10,
+    fontSize: 9.5,
     color: '#94A3B8',
     marginTop: 2,
   },
@@ -506,7 +506,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   countryCodeText: {
-    fontSize: 13.5,
+    fontSize: 12.5,
     fontWeight: '700',
     color: '#0F172A',
   },
@@ -538,7 +538,7 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   statusLabelText: {
-    fontSize: 13.5,
+    fontSize: 12.5,
     fontWeight: '700',
     color: '#0F172A',
   },
@@ -563,7 +563,7 @@ const styles = StyleSheet.create({
   },
   saveBtnText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 13.5,
     fontWeight: '700',
   },
   cancelBtn: {
@@ -575,7 +575,7 @@ const styles = StyleSheet.create({
   },
   cancelBtnText: {
     color: '#0F172A',
-    fontSize: 15,
+    fontSize: 13.5,
     fontWeight: '700',
   },
 });

@@ -765,7 +765,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   methodLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: '#475569',
   },
@@ -803,12 +803,12 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   shiftBadgeTitle: {
-    fontSize: 15,
+    fontSize: 13.5,
     fontWeight: '700',
     color: '#0F172A',
   },
   shiftBadgeSubtitle: {
-    fontSize: 11.5,
+    fontSize: 10.5,
     color: '#64748B',
     fontWeight: '500',
   },
@@ -856,13 +856,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   routeTypeLabel: {
-    fontSize: 9.5,
+    fontSize: 9,
     fontWeight: '700',
     color: '#64748B',
     letterSpacing: 0.5,
   },
   routeLocationName: {
-    fontSize: 14.5,
+    fontSize: 13.5,
     fontWeight: '700',
     color: '#0F172A',
     marginTop: 1,
@@ -910,12 +910,12 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   merchantTitleText: {
-    fontSize: 15,
+    fontSize: 13.5,
     fontWeight: '700',
     color: '#0F172A',
   },
   merchantSubtitleText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748B',
     fontWeight: '500',
   },
@@ -925,7 +925,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   amountLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
     color: '#0F172A',
     letterSpacing: 1,
@@ -937,20 +937,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   dollarSign: {
-    fontSize: 38,
+    fontSize: 32,
     fontWeight: '700',
     color: '#D97706',
     marginRight: 6,
   },
   amountDigits: {
-    fontSize: 48,
+    fontSize: 38,
     fontWeight: '800',
     color: '#0F172A',
     letterSpacing: -1,
   },
   cursorBar: {
     width: 2.5,
-    height: 40,
+    height: 34,
     backgroundColor: '#94A3B8',
     marginLeft: 4,
     borderRadius: 2,
@@ -960,7 +960,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   continueButton: {
-    height: 48,
+    height: 46,
     backgroundColor: '#0F172A',
     borderRadius: 14,
     alignItems: 'center',
@@ -972,7 +972,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   continueButtonText: {
-    fontSize: 15,
+    fontSize: 13.5,
     fontWeight: '700',
     color: '#FFFFFF',
   },
@@ -984,7 +984,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cancelButtonText: {
-    fontSize: 15,
+    fontSize: 13.5,
     fontWeight: '700',
     color: '#0F172A',
   },
@@ -1007,12 +1007,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   keyText: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
     color: '#0F172A',
   },
   dotKeyText: {
-    fontSize: 26,
+    fontSize: 22,
     marginTop: -6,
   },
   summaryBreakdownCard: {
@@ -1047,17 +1047,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   summaryDollarIcon: {
-    fontSize: 14,
+    fontSize: 12.5,
     fontWeight: '700',
     color: '#D97706',
   },
   summaryLabel: {
-    fontSize: 14,
+    fontSize: 12.5,
     fontWeight: '500',
     color: '#64748B',
   },
   summaryValue: {
-    fontSize: 15,
+    fontSize: 13.5,
     fontWeight: '700',
     color: '#0F172A',
   },
@@ -1072,34 +1072,34 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   totalMainLabel: {
-    fontSize: 16,
+    fontSize: 14.5,
     fontWeight: '800',
     color: '#0F172A',
   },
   totalIncGst: {
-    fontSize: 13,
+    fontSize: 11.5,
     fontWeight: '600',
     color: '#475569',
   },
   totalValue: {
-    fontSize: 22,
+    fontSize: 19,
     fontWeight: '800',
     color: '#0F172A',
   },
   totalDollarGold: {
     color: '#D97706',
     fontWeight: '800',
-    fontSize: 18,
+    fontSize: 15,
   },
   totalCents: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '700',
     color: '#64748B',
   },
   primaryActionButton: {
     backgroundColor: '#0A3977',
     borderRadius: 14,
-    height: 50,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#0A3977',
@@ -1110,7 +1110,7 @@ const styles = StyleSheet.create({
   },
   primaryActionText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
   },
   locationModalOverlay: {
@@ -1150,7 +1150,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   modalHeaderTitle: {
-    fontSize: 16,
+    fontSize: 14.5,
     fontWeight: '700',
     color: '#0F172A',
   },
@@ -1167,7 +1167,7 @@ const styles = StyleSheet.create({
   },
   searchTextInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 12.5,
     color: '#0F172A',
   },
   customLocationOption: {
@@ -1179,7 +1179,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   customLocationText: {
-    fontSize: 13.5,
+    fontSize: 12.5,
     fontWeight: '600',
     color: '#2563EB',
   },
@@ -1203,12 +1203,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   locationItemName: {
-    fontSize: 14,
+    fontSize: 12.5,
     fontWeight: '600',
     color: '#0F172A',
   },
   locationItemDesc: {
-    fontSize: 11.5,
+    fontSize: 10.5,
     color: '#64748B',
     marginTop: 1,
   },

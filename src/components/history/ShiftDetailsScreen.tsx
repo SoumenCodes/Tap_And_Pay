@@ -690,13 +690,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   driverNameText: {
-    fontSize: 15,
+    fontSize: 13.5,
     fontWeight: '800',
     color: '#0F172A',
     marginBottom: 2,
   },
   taxiDcMetaText: {
-    fontSize: 11.5,
+    fontSize: 10.5,
     color: '#64748B',
     fontWeight: '600',
   },
@@ -711,12 +711,12 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   shiftCodeText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: '#0F172A',
   },
   shiftTimeRangeText: {
-    fontSize: 11.5,
+    fontSize: 10.5,
     color: '#64748B',
     fontWeight: '600',
   },
@@ -737,7 +737,7 @@ const styles = StyleSheet.create({
   },
   paidBadgeText: {
     color: '#059669',
-    fontSize: 10.5,
+    fontSize: 9.5,
     fontWeight: '800',
   },
   unpaidBadge: {
@@ -757,7 +757,7 @@ const styles = StyleSheet.create({
   },
   unpaidBadgeText: {
     color: '#D97706',
-    fontSize: 10.5,
+    fontSize: 9.5,
     fontWeight: '800',
   },
 
@@ -800,19 +800,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#D97706',
   },
   metricColumnTitleTotal: {
-    fontSize: 10.5,
+    fontSize: 10,
     fontWeight: '800',
     color: '#D97706',
     letterSpacing: 0.5,
   },
   metricColumnTitleCard: {
-    fontSize: 10.5,
+    fontSize: 10,
     fontWeight: '800',
     color: '#2563EB',
     letterSpacing: 0.5,
   },
   metricColumnTitleTap: {
-    fontSize: 10.5,
+    fontSize: 10,
     fontWeight: '800',
     color: '#D97706',
     letterSpacing: 0.5,
@@ -823,42 +823,42 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   metricDollarTotal: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '800',
     color: '#D97706',
   },
   metricDollarCard: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '800',
     color: '#2563EB',
   },
   metricDollarTap: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '800',
     color: '#D97706',
   },
   metricAmountTotal: {
-    fontSize: 19,
+    fontSize: 16,
     fontWeight: '800',
     color: '#0F172A',
   },
   metricAmountCard: {
-    fontSize: 19,
+    fontSize: 16,
     fontWeight: '800',
     color: '#0F172A',
   },
   metricAmountTap: {
-    fontSize: 19,
+    fontSize: 16,
     fontWeight: '800',
     color: '#0F172A',
   },
   metricAmountCents: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: '#64748B',
   },
   metricSubtext: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#64748B',
     fontWeight: '600',
   },
@@ -877,7 +877,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 12,
     color: '#0F172A',
     fontWeight: '500',
   },
@@ -901,7 +901,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#2563EB',
   },
   segmentTabText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: '#64748B',
   },
@@ -921,7 +921,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   dateGroupTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: '#0F172A',
   },
@@ -930,17 +930,17 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
   },
   dateGroupCurrency: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
     color: '#D97706',
   },
   dateGroupTotalValue: {
-    fontSize: 15,
+    fontSize: 13.5,
     fontWeight: '800',
     color: '#0F172A',
   },
   dateGroupCents: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     color: '#64748B',
   },
@@ -970,12 +970,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   tripIdText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
     color: '#0F172A',
   },
   tripTimeText: {
-    fontSize: 11.5,
+    fontSize: 10.5,
     color: '#64748B',
     fontWeight: '600',
   },
@@ -990,7 +990,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   chipCardText: {
-    fontSize: 10.5,
+    fontSize: 9.5,
     fontWeight: '700',
     color: '#2563EB',
   },

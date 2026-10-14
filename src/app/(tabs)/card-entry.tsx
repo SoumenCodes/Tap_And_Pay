@@ -379,7 +379,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   fraudModalTitle: {
-    fontSize: 17,
+    fontSize: 15.5,
     fontWeight: '800',
     color: '#0F172A',
     textAlign: 'center',
@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
   },
   fraudAlertBannerText: {
     color: '#7F1D1D',
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '700',
     lineHeight: 16,
     flex: 1,
@@ -413,8 +413,8 @@ const styles = StyleSheet.create({
   },
   fraudInfoText: {
     color: '#334155',
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 11,
+    lineHeight: 17,
   },
   fraudInfoDivider: {
     height: 1,
@@ -444,9 +444,9 @@ const styles = StyleSheet.create({
   },
   fraudCheckboxText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: 11,
     color: '#334155',
-    lineHeight: 17,
+    lineHeight: 16,
   },
   fraudCheckboxBold: {
     fontWeight: '700',
@@ -458,7 +458,7 @@ const styles = StyleSheet.create({
   fraudAgreeBtn: {
     backgroundColor: '#0A3977',
     borderRadius: 12,
-    height: 48,
+    height: 46,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -475,20 +475,20 @@ const styles = StyleSheet.create({
   },
   fraudAgreeBtnText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 13.5,
     fontWeight: '700',
   },
   fraudCancelBtn: {
     backgroundColor: '#F1F5F9',
     borderRadius: 12,
-    height: 46,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
   },
   fraudCancelBtnText: {
     color: '#0F172A',
-    fontSize: 14.5,
+    fontSize: 13,
     fontWeight: '600',
   },
   root: {
@@ -518,7 +518,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   totalChargeLabel: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
     color: '#0F172A',
   },
@@ -527,18 +527,18 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
   },
   totalChargeDollar: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '800',
     color: '#D97706',
     marginRight: 1,
   },
   totalChargeInt: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '800',
     color: '#0F172A',
   },
   totalChargeCents: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '700',
     color: '#64748B',
   },
@@ -549,7 +549,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   inputLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     color: '#0F172A',
     letterSpacing: 0.6,
@@ -562,14 +562,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
     paddingHorizontal: 14,
-    height: 52,
+    height: 48,
   },
   inputIcon: {
     marginRight: 10,
   },
   input: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 13.5,
     color: '#0F172A',
     fontWeight: '600',
   },
@@ -580,7 +580,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   cardBadgeText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     color: '#64748B',
     letterSpacing: 0.5,
@@ -596,7 +596,7 @@ const styles = StyleSheet.create({
   confirmBtn: {
     backgroundColor: '#0F172A',
     borderRadius: 14,
-    height: 52,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000000',
@@ -607,7 +607,7 @@ const styles = StyleSheet.create({
   },
   confirmBtnText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
   },
   confirmBtnAmount: {
@@ -617,13 +617,13 @@ const styles = StyleSheet.create({
   cancelBtn: {
     backgroundColor: '#F1F5F9',
     borderRadius: 14,
-    height: 50,
+    height: 46,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelBtnText: {
     color: '#0F172A',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
   },
   dragHandle: {

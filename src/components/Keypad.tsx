@@ -74,12 +74,12 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   keyText: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
     color: '#0F172A',
   },
   dotText: {
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: '700',
     marginTop: -6,
   },

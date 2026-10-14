@@ -521,7 +521,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F1F5F9',
   },
   driverName: {
-    fontSize: 14.5,
+    fontSize: 13.5,
     fontWeight: '700',
     color: '#0F172A',
   },
@@ -532,7 +532,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   taxiNoBadgeText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
     color: '#B45309',
   },
@@ -568,7 +568,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 13.5,
+    fontSize: 12.5,
     color: '#0F172A',
     fontWeight: '500',
     height: '100%',
@@ -588,7 +588,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   dateFilterText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: '#0F172A',
   },
@@ -615,7 +615,7 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   filterPillText: {
-    fontSize: 12.5,
+    fontSize: 11.5,
     fontWeight: '700',
   },
   filterPillTextActive: {
@@ -640,7 +640,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   statsTitle: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     color: '#94A3B8',
     letterSpacing: 0.7,
@@ -652,13 +652,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   amountBig: {
-    fontSize: 32,
+    fontSize: 26,
     fontWeight: '800',
     color: '#0F172A',
     letterSpacing: -0.5,
   },
   amountCents: {
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: '700',
     color: '#64748B',
   },
@@ -718,24 +718,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#F59E0B',
   },
   metricBoxTitle: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     color: '#64748B',
   },
   metricPaidAmount: {
-    fontSize: 18,
+    fontSize: 15.5,
     fontWeight: '800',
     color: '#059669',
     marginBottom: 2,
   },
   metricUnpaidAmount: {
-    fontSize: 18,
+    fontSize: 15.5,
     fontWeight: '800',
     color: '#D97706',
     marginBottom: 2,
   },
   metricSubtext: {
-    fontSize: 10.5,
+    fontSize: 9.5,
     color: '#94A3B8',
     fontWeight: '600',
   },
@@ -745,7 +745,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   sectionTitle: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     color: '#94A3B8',
     letterSpacing: 0.8,
@@ -777,7 +777,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   shiftIdText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
     color: '#0F172A',
     flex: 1,
@@ -803,7 +803,7 @@ const styles = StyleSheet.create({
   },
   paidBadgeText: {
     color: '#059669',
-    fontSize: 10.5,
+    fontSize: 9.5,
     fontWeight: '800',
   },
   unpaidBadge: {
@@ -823,11 +823,11 @@ const styles = StyleSheet.create({
   },
   unpaidBadgeText: {
     color: '#D97706',
-    fontSize: 10.5,
+    fontSize: 9.5,
     fontWeight: '800',
   },
   dateRangeText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748B',
     fontWeight: '600',
     marginBottom: 10,
@@ -853,7 +853,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEF3C7',
   },
   tripsPillText: {
-    fontSize: 11.5,
+    fontSize: 10.5,
     fontWeight: '700',
     color: '#334155',
   },
@@ -861,12 +861,12 @@ const styles = StyleSheet.create({
     color: '#B45309',
   },
   totalLabelText: {
-    fontSize: 12.5,
+    fontSize: 11,
     color: '#64748B',
     fontWeight: '600',
   },
   totalAmountValue: {
-    fontSize: 14,
+    fontSize: 12.5,
     fontWeight: '800',
     color: '#0F172A',
   },
@@ -889,7 +889,7 @@ const styles = StyleSheet.create({
     borderColor: '#FDE68A',
   },
   viewTripsBtnText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: '#2563EB',
   },
@@ -912,7 +912,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   breakdownPillText: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#64748B',
     fontWeight: '600',
   },
@@ -944,13 +944,13 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 15.5,
     fontWeight: '800',
     color: '#0F172A',
     marginBottom: 2,
   },
   modalSubtitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748B',
     marginBottom: 16,
   },
@@ -974,12 +974,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   modalDriverName: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: '#0F172A',
   },
   modalDriverMeta: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#64748B',
     marginTop: 1,
   },

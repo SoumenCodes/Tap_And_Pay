@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   initialsText: {
-    fontSize: 16,
+    fontSize: 14.5,
     fontWeight: '800',
     color: '#92400E',
   },
@@ -419,12 +419,12 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   driverNameText: {
-    fontSize: 14.5,
+    fontSize: 13.5,
     fontWeight: '800',
     color: '#0F172A',
   },
   dcText: {
-    fontSize: 12.5,
+    fontSize: 11.5,
     fontWeight: '600',
     color: '#64748B',
   },
@@ -438,7 +438,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   taxiText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: '#D97706',
   },
@@ -453,13 +453,13 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   statusIndicatorText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
   },
 
   /* DC Documents */
   sectionTitle: {
-    fontSize: 12.5,
+    fontSize: 11.5,
     fontWeight: '800',
     color: '#1E293B',
     letterSpacing: 0.5,
@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   docCardText: {
-    fontSize: 11.5,
+    fontSize: 10.5,
     fontWeight: '600',
     color: '#334155',
     textAlign: 'center',
@@ -529,7 +529,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   cardHeaderText: {
-    fontSize: 12.5,
+    fontSize: 11.5,
     fontWeight: '800',
     color: '#1E293B',
     letterSpacing: 0.5,
@@ -549,12 +549,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   infoLabel: {
-    fontSize: 13,
+    fontSize: 11.5,
     fontWeight: '500',
     color: '#94A3B8',
   },
   infoValue: {
-    fontSize: 13.5,
+    fontSize: 12.5,
     fontWeight: '700',
     color: '#0F172A',
     textAlign: 'right',
@@ -576,12 +576,12 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   bankFieldLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
     color: '#94A3B8',
   },
   bankFieldValue: {
-    fontSize: 14,
+    fontSize: 12.5,
     fontWeight: '700',
     color: '#0F172A',
     marginTop: 2,
@@ -593,7 +593,7 @@ const styles = StyleSheet.create({
 
   /* Driver Status Section */
   statusSectionLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: '#64748B',
     marginBottom: 6,
@@ -616,7 +616,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   statusStateText: {
-    fontSize: 14.5,
+    fontSize: 13,
     fontWeight: '700',
     color: '#0F172A',
   },
@@ -628,7 +628,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#0F172A',
     borderRadius: 14,
-    height: 50,
+    height: 48,
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
@@ -637,7 +637,7 @@ const styles = StyleSheet.create({
   },
   editButtonText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 13.5,
     fontWeight: '700',
   },
 
@@ -659,13 +659,13 @@ const styles = StyleSheet.create({
     minWidth: 60,
   },
   bottomTabLabelInactive: {
-    fontSize: 10.5,
+    fontSize: 10,
     fontWeight: '600',
     color: '#64748B',
     marginTop: 3,
   },
   bottomTabLabelActive: {
-    fontSize: 10.5,
+    fontSize: 10,
     fontWeight: '700',
     color: '#D97706',
     marginTop: 3,

@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 13.5,
+    fontSize: 12.5,
     color: '#0F172A',
     fontWeight: '500',
   },
@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headingTitle: {
-    fontSize: 16,
+    fontSize: 14.5,
     fontWeight: '800',
     color: '#0F172A',
   },
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   registeredBadgeText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     color: '#4F46E5',
   },
@@ -382,7 +382,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#D97706',
   },
   pendingBadgeText: {
-    fontSize: 10.5,
+    fontSize: 9.5,
     fontWeight: '800',
     color: '#D97706',
   },
@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   initialsText: {
-    fontSize: 16,
+    fontSize: 14.5,
     fontWeight: '800',
     color: '#92400E',
   },
@@ -418,12 +418,12 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   driverNameText: {
-    fontSize: 14.5,
+    fontSize: 13.5,
     fontWeight: '800',
     color: '#0F172A',
   },
   dcText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: '#64748B',
   },
@@ -437,7 +437,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   taxiNoText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: '#D97706',
   },
@@ -452,7 +452,7 @@ const styles = StyleSheet.create({
     borderRadius: 2.5,
   },
   statusText: {
-    fontSize: 11.5,
+    fontSize: 10.5,
     fontWeight: '700',
   },
   callButton: {
@@ -472,7 +472,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#0F172A',
     borderRadius: 14,
-    height: 50,
+    height: 48,
     marginTop: 12,
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 3 },
@@ -481,7 +481,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   addDriverButtonText: {
-    fontSize: 15,
+    fontSize: 13.5,
     fontWeight: '700',
     color: '#FFFFFF',
   },

@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   title: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '800',
     color: '#0F172A',
     textAlign: 'center',
@@ -214,18 +214,18 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   dollarSign: {
-    fontSize: 34,
+    fontSize: 28,
     fontWeight: '800',
     color: '#D97706',
   },
   amountText: {
-    fontSize: 40,
+    fontSize: 32,
     fontWeight: '800',
     color: '#0F172A',
     letterSpacing: -0.5,
   },
   timestamp: {
-    fontSize: 13,
+    fontSize: 11.5,
     color: '#64748B',
     textAlign: 'center',
     marginBottom: 10,
@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
   },
   methodBadgeText: {
     color: '#B45309',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
   },
   cardContainer: {
@@ -271,12 +271,12 @@ const styles = StyleSheet.create({
     marginRight: 14,
   },
   rowText: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '700',
     color: '#0F172A',
   },
   idLabel: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#94A3B8',
     fontWeight: '600',
     marginBottom: 2,
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
   viewReceiptBtn: {
     backgroundColor: '#FBBF24', // Yellow CTA
     borderRadius: 14,
-    height: 52,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#F59E0B',
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
   },
   viewReceiptText: {
     color: '#0F172A',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
   },
   doneBtn: {
@@ -312,13 +312,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
     borderRadius: 14,
-    height: 50,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
   doneText: {
     color: '#0F172A',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
   },
 });

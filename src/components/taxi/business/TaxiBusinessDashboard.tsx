@@ -573,7 +573,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F1F5F9',
   },
   welcomeTitle: {
-    fontSize: 16,
+    fontSize: 14.5,
     fontWeight: '400',
     color: '#1E293B',
     marginBottom: 4,
@@ -588,7 +588,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   taxiMetaLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748B',
   },
   taxiNoHighlight: {
@@ -598,7 +598,7 @@ const styles = StyleSheet.create({
   metaDot: {
     marginHorizontal: 8,
     color: '#CBD5E1',
-    fontSize: 12,
+    fontSize: 11,
   },
   clockRow: {
     flexDirection: 'row',
@@ -608,7 +608,7 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   shiftStartText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748B',
   },
   activeShiftRow: {
@@ -618,7 +618,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   activeShiftLabel: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '700',
     color: '#1E293B',
     letterSpacing: 0.2,
@@ -652,7 +652,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#94A3B8',
   },
   onShiftText: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '700',
     color: '#047857',
     letterSpacing: 0.3,
@@ -676,8 +676,8 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   taxiIconWrap: {
-    width: 50,
-    height: 50,
+    width: 48,
+    height: 48,
     borderRadius: 14,
     backgroundColor: 'rgba(217, 119, 6, 0.22)',
     alignItems: 'center',
@@ -688,13 +688,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   taxiFareTitle: {
-    fontSize: 18,
+    fontSize: 15.5,
     fontWeight: '900',
     color: '#0F172A',
     letterSpacing: 0.5,
   },
   taxiFareSubtitle: {
-    fontSize: 12.5,
+    fontSize: 11,
     fontWeight: '500',
     fontStyle: 'italic',
     color: '#451A03',
@@ -733,12 +733,12 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
   },
   revenueMainTitle: {
-    fontSize: 15,
+    fontSize: 13.5,
     fontWeight: '700',
     color: '#0F172A',
   },
   revenueSubTitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: '#D97706',
   },
@@ -747,7 +747,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tripsCountText: {
-    fontSize: 12.5,
+    fontSize: 11,
     fontWeight: '700',
     color: '#047857',
     marginLeft: 4,
@@ -772,22 +772,22 @@ const styles = StyleSheet.create({
     marginRight: 5,
   },
   metricLabelText: {
-    fontSize: 10.5,
+    fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.3,
   },
   metricValueText: {
-    fontSize: 16,
+    fontSize: 14.5,
     fontWeight: '800',
     color: '#0F172A',
   },
   metricCents: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     color: '#475569',
   },
   metricSubInfo: {
-    fontSize: 10.5,
+    fontSize: 9.5,
     color: '#64748B',
     marginTop: 2,
   },
@@ -806,7 +806,7 @@ const styles = StyleSheet.create({
   },
   shiftButtonText: {
     color: '#FFFFFF',
-    fontSize: 14.5,
+    fontSize: 13.5,
     fontWeight: '700',
   },
   driversSection: {
@@ -823,7 +823,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   driversMainTitle: {
-    fontSize: 15.5,
+    fontSize: 14,
     fontWeight: '700',
     color: '#0F172A',
     marginRight: 8,
@@ -838,7 +838,7 @@ const styles = StyleSheet.create({
   },
   totalDriversText: {
     color: '#92400E',
-    fontSize: 10.5,
+    fontSize: 9.5,
     fontWeight: '700',
   },
   filtersWrap: {
@@ -881,7 +881,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#94A3B8',
   },
   filterText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
   },
   filterTextActiveOn: {
@@ -930,7 +930,7 @@ const styles = StyleSheet.create({
     marginBottom: 3,
   },
   driverNameText: {
-    fontSize: 13.5,
+    fontSize: 12.5,
     fontWeight: '700',
     color: '#0F172A',
     marginRight: 6,
@@ -960,7 +960,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#94A3B8',
   },
   driverOnlineText: {
-    fontSize: 9.5,
+    fontSize: 9,
     fontWeight: '700',
     color: '#047857',
   },
@@ -968,7 +968,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   driverPlateDC: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#64748B',
   },
   plateHighlight: {
@@ -979,24 +979,24 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   driverRevLabel: {
-    fontSize: 8.5,
+    fontSize: 8,
     fontWeight: '700',
     color: '#64748B',
     letterSpacing: 0.3,
     marginBottom: 2,
   },
   driverRevAmount: {
-    fontSize: 14.5,
+    fontSize: 13,
     fontWeight: '800',
     color: '#0F172A',
   },
   revDollarSign: {
     color: '#D97706',
     fontWeight: '800',
-    fontSize: 13,
+    fontSize: 12,
   },
   revCents: {
-    fontSize: 10.5,
+    fontSize: 9.5,
     color: '#475569',
   },
   driverBottomRow: {
@@ -1009,7 +1009,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   shiftsLabel: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#64748B',
     fontWeight: '500',
   },
@@ -1022,7 +1022,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2.5,
   },
   paidShiftsText: {
-    fontSize: 10.5,
+    fontSize: 9.5,
     fontWeight: '600',
     color: '#047857',
   },
@@ -1035,7 +1035,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2.5,
   },
   unpaidShiftsActiveText: {
-    fontSize: 10.5,
+    fontSize: 9.5,
     fontWeight: '600',
     color: '#B45309',
   },
@@ -1048,7 +1048,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2.5,
   },
   unpaidShiftsZeroText: {
-    fontSize: 10.5,
+    fontSize: 9.5,
     fontWeight: '500',
     color: '#64748B',
   },
@@ -1063,7 +1063,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   viewButtonText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     color: '#2563EB',
   },

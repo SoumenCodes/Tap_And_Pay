@@ -297,14 +297,14 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   headingTitle: {
-    fontSize: 28,
+    fontSize: 23,
     fontWeight: '700',
     color: colors.text.primary,
     marginBottom: 4,
     letterSpacing: -0.3,
   },
   headingSubtitle: {
-    fontSize: 14,
+    fontSize: 12.5,
     color: colors.text.secondary,
     fontWeight: '400',
     textAlign: 'center',
@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: 11,
     color: '#DC2626',
     fontWeight: '500',
   },
@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   fieldLabel: {
-    fontSize: 13,
+    fontSize: 11.5,
     fontWeight: '700',
     color: colors.text.primary,
     letterSpacing: 0.3,
@@ -381,14 +381,14 @@ const styles = StyleSheet.create({
     borderColor: colors.border.default,
     borderRadius: 12,
     paddingHorizontal: 14,
-    height: 48,
+    height: 46,
   },
   inputLeadingIcon: {
     marginRight: 10,
   },
   input: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 13.5,
     color: colors.text.primary,
     paddingVertical: 0,
   },
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   forgotText: {
-    fontSize: 14,
+    fontSize: 12.5,
     fontWeight: '600',
     color: colors.text.link,
   },
@@ -424,12 +424,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 48,
+    height: 46,
     gap: 8,
   },
   loginBtnText: {
     color: colors.text.inverse,
-    fontSize: 15,
+    fontSize: 13.5,
     fontWeight: '600',
   },
   testSectionWrap: {
@@ -439,7 +439,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   testSectionTitle: {
-    fontSize: 12,
+    fontSize: 10.5,
     fontWeight: '600',
     color: '#64748B',
     textTransform: 'uppercase',
@@ -465,7 +465,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   testChipText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: '#1E293B',
   },

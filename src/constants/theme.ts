@@ -76,16 +76,16 @@ export const spacing = {
 
 export const typography = {
   size: {
-    xs: 11,
-    sm: 12,
-    base: 13,
-    md: 15,
-    lg: 17,
-    xl: 20,
-    '2xl': 22,
-    '3xl': 26,
-    '4xl': 32,
-    '5xl': 36,
+    xs: 10,
+    sm: 11,
+    base: 12.5,
+    md: 14,
+    lg: 15.5,
+    xl: 18,
+    '2xl': 20,
+    '3xl': 24,
+    '4xl': 28,
+    '5xl': 32,
   },
   weight: {
     regular: '400' as const,

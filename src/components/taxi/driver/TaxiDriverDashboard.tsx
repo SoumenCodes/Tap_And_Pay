@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import HeaderBar from '../../common/HeaderBar';
 
@@ -22,219 +22,317 @@ interface TaxiDriverDashboardProps {
 }
 
 export default function TaxiDriverDashboard({
-  businessName = 'Elite Taxi Fleet',
-  userName = 'Gurpreet Singh',
-  taxiNumber = 'M6061',
+  businessName = 'Elite Taxi Service',
+  userName = 'Harpreet Singh',
+  taxiNumber = 'M6022',
   sessionStartTime = '7:30 AM',
 }: TaxiDriverDashboardProps) {
   const router = useRouter();
-  const [isOnline, setIsOnline] = useState(true);
+  const [isOnShift, setIsOnShift] = useState(true);
 
   const handleStartTaxiFare = () => {
     router.push('/(tabs)/tap-to-pay');
   };
 
   const handleToggleShift = () => {
-    setIsOnline((prev) => {
-      const next = !prev;
-      Alert.alert(
-        next ? 'Shift Started' : 'Shift Ended',
-        next
-          ? 'You are now Online and ready to accept passenger taxi fares.'
-          : 'Your shift has ended. Total fare collections submitted to fleet records.'
-      );
-      return next;
-    });
+    Alert.alert(
+      isOnShift ? 'End Shift' : 'Start Shift',
+      isOnShift
+        ? 'Are you sure you want to end your current active shift? Total fare collections ($485.00) will be submitted to records.'
+        : `Start a new active shift for vehicle ${taxiNumber}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: isOnShift ? 'End Shift' : 'Start Shift',
+          style: isOnShift ? 'destructive' : 'default',
+          onPress: () => setIsOnShift((prev) => !prev),
+        },
+      ]
+    );
+  };
+
+  const handleNavigateToTransactions = () => {
+    router.push('/(tabs)/transactions');
   };
 
   return (
     <View style={styles.root}>
       <StatusBar style="dark" />
 
-      {/* Header Bar */}
-      <HeaderBar title="SE PAY DASHBOARD" />
+      {/* Header Bar with back arrow */}
+      <HeaderBar title="SE PAY DASHBOARD" showBack />
 
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 28 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 32 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* 1. Elite Taxi Fleet Hero Banner */}
-        <View style={styles.bannerContainer}>
-          <Image
-            source={require('../../../../assets/elite_taxi_hero.png')}
-            style={styles.bannerImage}
-            resizeMode="cover"
-          />
+        {/* 1. Combined Hero Banner & Driver Info Card */}
+        <View style={styles.topCardContainer}>
+          {/* Banner with Cityscape and Taxi */}
+          <View style={styles.bannerContainer}>
+            <Image
+              source={require('../../../../assets/elite_taxi_hero.png')}
+              style={styles.bannerImage}
+              resizeMode="cover"
+            />
 
-          {/* Bottom-left row: Avatar + Translucent Text Badge */}
-          <View style={styles.bannerBottomRow}>
-            {/* Avatar Logo Box with ET Initials */}
-            <View style={styles.avatarBox}>
-              <Text style={styles.avatarInitials}>ET</Text>
-            </View>
-
-            {/* Translucent Text Badge */}
-            <View style={styles.bannerTextBadge}>
-              <Text style={styles.bannerTitle} numberOfLines={1}>
-                {businessName}
-              </Text>
-              <Text style={styles.bannerSubtitle} numberOfLines={1}>
-                SHIFT: {isOnline ? 'Active' : 'Start Shift Now!'}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* 2. Welcome Driver Card */}
-        <View style={styles.welcomeCardOuter}>
-          <LinearGradient
-            colors={[
-              'rgba(251, 191, 36, 0)',
-              '#FBBF24',
-              '#F59E0B',
-              '#FBBF24',
-              'rgba(251, 191, 36, 0)',
-            ]}
-            start={{ x: 0, y: 0.5 }}
-            end={{ x: 1, y: 0.5 }}
-            style={styles.cardTopStripe}
-          />
-
-          <View style={styles.welcomeCardInner}>
-            <View style={styles.titleRow}>
-              <Text style={styles.welcomeTitle}>Welcome, {userName}</Text>
-              <View style={styles.driverBadge}>
-                <Ionicons name="car-outline" size={13} color="#D97706" />
-                <Text style={styles.driverBadgeText}>Driver • {taxiNumber}</Text>
+            {/* Bottom-left row: Avatar + Translucent Text Badge */}
+            <View style={styles.bannerBottomRow}>
+              <View style={styles.avatarBox}>
+                <Text style={styles.avatarInitials}>ET</Text>
               </View>
-            </View>
 
-            <View style={styles.welcomeMetaRow}>
-              <View style={styles.sessionStartWrap}>
-                <Feather name="clock" size={14} color="#64748B" />
-                <Text style={styles.sessionStartTime}>
-                  Session Start: {sessionStartTime}
+              {/* Translucent Text Badge */}
+              <View style={styles.bannerTextBadge}>
+                <Text style={styles.bannerTitle} numberOfLines={1}>
+                  {businessName}
+                </Text>
+                <Text style={styles.bannerSubtitle} numberOfLines={1}>
+                  SHIFT: {isOnShift ? 'Active' : 'Start Shift Now!'}
                 </Text>
               </View>
+            </View>
+          </View>
 
-              <TouchableOpacity
+          {/* Welcome & Shift Info Box */}
+          <View style={styles.welcomeBody}>
+            <View style={styles.welcomeCenterWrap}>
+              <Text style={styles.welcomeTitle}>
+                Welcome, <Text style={styles.welcomeNameBold}>{userName}</Text>
+              </Text>
+
+              <View style={styles.welcomeMetaRow}>
+                <Text style={styles.taxiMetaLabel}>
+                  Taxi No.: <Text style={styles.taxiNoHighlight}>{taxiNumber}</Text>
+                </Text>
+                <Text style={styles.metaDot}>•</Text>
+                <View style={styles.clockRow}>
+                  <Feather name="clock" size={12} color="#64748B" style={styles.clockIcon} />
+                  <Text style={styles.shiftStartText}>Shift Start: {sessionStartTime}</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Active Shift row with ON/OFF SHIFT pill */}
+            <View style={styles.activeShiftRow}>
+              <Text style={styles.activeShiftLabel}>
+                ACTIVE SHIFT:{' '}
+                <Text style={styles.activeShiftCode}>
+                  26062021/{taxiNumber}/537384
+                </Text>
+              </Text>
+
+              <View
                 style={[
-                  styles.shiftStatusPill,
-                  isOnline ? styles.shiftOnline : styles.shiftOffline,
+                  styles.onShiftBadge,
+                  !isOnShift && styles.offShiftBadge,
                 ]}
-                activeOpacity={0.8}
-                onPress={handleToggleShift}
               >
                 <View
                   style={[
-                    styles.statusDot,
-                    isOnline ? styles.dotOnline : styles.dotOffline,
+                    styles.onShiftDot,
+                    !isOnShift && styles.offShiftDot,
                   ]}
                 />
                 <Text
                   style={[
-                    styles.shiftStatusText,
-                    isOnline ? styles.onlineText : styles.offlineText,
+                    styles.onShiftText,
+                    !isOnShift && styles.offShiftText,
                   ]}
                 >
-                  {isOnline ? 'Active Shift' : 'Start Shift'}
+                  {isOnShift ? 'ON SHIFT' : 'OFF SHIFT'}
                 </Text>
-              </TouchableOpacity>
+              </View>
             </View>
           </View>
         </View>
 
-        {/* 3. Primary Start Taxi Fare CTA */}
-        <TouchableOpacity
-          style={styles.fareButtonOuter}
-          activeOpacity={0.88}
-          onPress={handleStartTaxiFare}
-        >
-          <LinearGradient
-            colors={['#0F172A', '#1E293B']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.fareButtonGradient}
+        {/* 2. TAXI FARE Golden Card (Only visible when On Shift) */}
+        {isOnShift && (
+          <TouchableOpacity
+            activeOpacity={0.88}
+            onPress={handleStartTaxiFare}
+            style={styles.taxiFareCard}
           >
-            <View style={styles.fareIconCircle}>
-              <MaterialCommunityIcons name="taxi" size={24} color="#FBBF24" />
+            <LinearGradient
+              colors={['#FBBF24', '#F59E0B']}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 1, y: 0.5 }}
+              style={styles.taxiFareGradient}
+            >
+              <View style={styles.taxiFareIconBox}>
+                <MaterialCommunityIcons name="taxi" size={26} color="#0F172A" />
+              </View>
+
+              <View style={styles.taxiFareTextCol}>
+                <Text style={styles.taxiFareTitle}>TAXI FARE</Text>
+                <Text style={styles.taxiFareSubtitle}>Ready to charge passengers</Text>
+              </View>
+
+              <View style={styles.taxiFareArrowCircle}>
+                <Feather name="chevron-right" size={20} color="#78350F" />
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
+
+        {/* 3. Revenue Card */}
+        <View style={styles.revenueCard}>
+          <View style={styles.revenueHeader}>
+            <View style={styles.revenueTitleRow}>
+              <Text style={styles.revenueMainTitle}>Revenue </Text>
+              <Text style={styles.revenueSubTitle}>Last 7 days</Text>
             </View>
-            <View style={styles.fareTextCol}>
-              <Text style={styles.fareTitle}>Start Taxi Fare</Text>
-              <Text style={styles.fareSubtitle}>Tap to enter amount & accept payment</Text>
+            <View style={styles.tripsCountBadge}>
+              <Ionicons name="checkmark-circle-outline" size={15} color="#059669" />
+              <Text style={styles.tripsCountText}>14 Trips</Text>
             </View>
-            <Feather name="arrow-right" size={20} color="#FFFFFF" />
-          </LinearGradient>
+          </View>
+
+          {/* 3 Metrics: Total, Card, Tap & Go */}
+          <View style={styles.metricsRow}>
+            {/* 1. Total */}
+            <View style={styles.metricCol}>
+              <View style={styles.metricLabelRow}>
+                <View style={[styles.metricColorDot, { backgroundColor: '#D97706' }]} />
+                <Text style={[styles.metricLabelText, { color: '#B45309' }]}>TOTAL</Text>
+              </View>
+              <Text style={styles.metricValueText}>
+                <Text style={styles.metricDollarOrange}>$</Text>485
+                <Text style={styles.metricCents}>.00</Text>
+              </Text>
+              <Text style={styles.metricSubInfo}>14 Trips</Text>
+            </View>
+
+            {/* 2. Card */}
+            <View style={styles.metricCol}>
+              <View style={styles.metricLabelRow}>
+                <Ionicons name="card" size={12} color="#2563EB" style={styles.metricCardIcon} />
+                <Text style={[styles.metricLabelText, { color: '#2563EB' }]}>CARD</Text>
+              </View>
+              <Text style={styles.metricValueText}>
+                <Text style={styles.metricDollarBlue}>$</Text>320
+                <Text style={styles.metricCents}>.00</Text>
+              </Text>
+              <Text style={styles.metricSubInfo}>9 txns</Text>
+            </View>
+
+            {/* 3. Tap & Go */}
+            <View style={styles.metricCol}>
+              <View style={styles.metricLabelRow}>
+                <View style={[styles.metricColorDot, { backgroundColor: '#EA580C' }]} />
+                <Text style={[styles.metricLabelText, { color: '#EA580C' }]}>TAP & GO</Text>
+              </View>
+              <Text style={styles.metricValueText}>
+                <Text style={styles.metricDollarAmber}>$</Text>165
+                <Text style={styles.metricCents}>.00</Text>
+              </Text>
+              <Text style={styles.metricSubInfo}>5 txns</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* 4. End / Start Shift Action Button (Black) */}
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={handleToggleShift}
+          style={styles.shiftButton}
+        >
+          <MaterialCommunityIcons
+            name={isOnShift ? 'logout' : 'login'}
+            size={18}
+            color="#FFFFFF"
+            style={{ marginRight: 8 }}
+          />
+          <Text style={styles.shiftButtonText}>
+            {isOnShift ? 'End Shift' : 'Start Shift'}
+          </Text>
         </TouchableOpacity>
 
-        {/* 4. Shift Revenue Stats */}
-        <View style={styles.statsCard}>
-          <Text style={styles.statsHeaderTitle}>Shift Fare Earnings</Text>
-          <View style={styles.statsAmountRow}>
-            <Text style={styles.currencySymbol}>$</Text>
-            <Text style={styles.mainAmount}>285</Text>
-            <Text style={styles.centsText}>.50</Text>
-            <View style={styles.tripsCountBadge}>
-              <Ionicons name="checkmark-done" size={13} color="#16A34A" />
-              <Text style={styles.tripsCountText}>8 Trips</Text>
-            </View>
+        {/* 5. Recent Trips Section */}
+        <View style={styles.recentSection}>
+          <View style={styles.recentHeaderRow}>
+            <Text style={styles.recentTitle}>Recent Trips</Text>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={handleNavigateToTransactions}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={styles.seeAllText}>See All</Text>
+            </TouchableOpacity>
           </View>
 
-          <View style={styles.chipsRow}>
-            <View style={styles.statChip}>
-              <Feather name="credit-card" size={12} color="#0284C7" />
-              <Text style={styles.statChipLabel}>Card: $190.00 (5)</Text>
-            </View>
-            <View style={styles.statChip}>
-              <MaterialCommunityIcons name="contactless-payment" size={14} color="#16A34A" />
-              <Text style={styles.statChipLabel}>Tap: $95.50 (3)</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* 5. Recent Shift Rides Section Header */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionHeaderTitle}>Recent Rides</Text>
+          {/* Trip Card 1 */}
           <TouchableOpacity
-            onPress={() => router.push('/(tabs)/transactions')}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={styles.tripCard}
+            activeOpacity={0.85}
+            onPress={handleNavigateToTransactions}
           >
-            <Text style={styles.viewAllText}>View History</Text>
+            <View style={styles.tripHeaderRow}>
+              <Text style={styles.tripIdText}>#TXN-984210</Text>
+              <Text style={styles.tripTimeText}>04:45 PM</Text>
+              <View style={styles.cardPill}>
+                <Ionicons name="card" size={11} color="#2563EB" style={{ marginRight: 3 }} />
+                <Text style={styles.cardPillText}>Card</Text>
+              </View>
+              <View style={styles.spacer} />
+              <Text style={styles.tripAmountText}>
+                <Text style={styles.dollarOrange}>$</Text>106
+                <Text style={styles.tripCents}>.00</Text>
+              </Text>
+            </View>
+
+            <View style={styles.routeContainer}>
+              {/* Pickup */}
+              <View style={styles.routePointRow}>
+                <View style={[styles.routeDot, { backgroundColor: '#2563EB' }]} />
+                <Text style={styles.routeAddressText}>St. Jude Medical Centre</Text>
+              </View>
+              {/* Connector */}
+              <View style={styles.routeConnector} />
+              {/* Dropoff */}
+              <View style={styles.routePointRow}>
+                <View style={[styles.routeDot, { backgroundColor: '#EA580C' }]} />
+                <Text style={styles.routeAddressText}>42 Richmond Road</Text>
+              </View>
+            </View>
           </TouchableOpacity>
-        </View>
 
-        {/* Recent Ride Card 1 */}
-        <View style={styles.txnCard}>
-          <View style={styles.txnRow}>
-            <Text style={styles.txnIdText}>#TRIP-849201</Text>
-            <Text style={styles.txnTimeText}>10:14 AM</Text>
-            <View style={styles.cardMethodBadge}>
-              <MaterialCommunityIcons name="contactless-payment" size={13} color="#16A34A" />
-              <Text style={styles.cardMethodText}>Tap & Go</Text>
+          {/* Trip Card 2 */}
+          <TouchableOpacity
+            style={styles.tripCard}
+            activeOpacity={0.85}
+            onPress={handleNavigateToTransactions}
+          >
+            <View style={styles.tripHeaderRow}>
+              <Text style={styles.tripIdText}>#TXN-987541</Text>
+              <Text style={styles.tripTimeText}>05:58 PM</Text>
+              <View style={styles.cardPill}>
+                <Ionicons name="card" size={11} color="#2563EB" style={{ marginRight: 3 }} />
+                <Text style={styles.cardPillText}>Card</Text>
+              </View>
+              <View style={styles.spacer} />
+              <Text style={styles.tripAmountText}>
+                <Text style={styles.dollarOrange}>$</Text>85
+                <Text style={styles.tripCents}>.00</Text>
+              </Text>
             </View>
-            <View style={styles.txnSpacer} />
-            <Text style={styles.txnAmount}>
-              <Text style={styles.txnCurrency}>$</Text>42
-              <Text style={styles.txnCents}>.50</Text>
-            </Text>
-          </View>
-        </View>
 
-        {/* Recent Ride Card 2 */}
-        <View style={styles.txnCard}>
-          <View style={styles.txnRow}>
-            <Text style={styles.txnIdText}>#TRIP-849188</Text>
-            <Text style={styles.txnTimeText}>09:30 AM</Text>
-            <View style={styles.cardMethodBadge}>
-              <Feather name="credit-card" size={11} color="#0284C7" />
-              <Text style={styles.cardMethodText}>Card</Text>
+            <View style={styles.routeContainer}>
+              {/* Pickup */}
+              <View style={styles.routePointRow}>
+                <View style={[styles.routeDot, { backgroundColor: '#2563EB' }]} />
+                <Text style={styles.routeAddressText}>Melbourne Airport 2</Text>
+              </View>
+              {/* Connector */}
+              <View style={styles.routeConnector} />
+              {/* Dropoff */}
+              <View style={styles.routePointRow}>
+                <View style={[styles.routeDot, { backgroundColor: '#EA580C' }]} />
+                <Text style={styles.routeAddressText}>Great Central Hotel</Text>
+              </View>
             </View>
-            <View style={styles.txnSpacer} />
-            <Text style={styles.txnAmount}>
-              <Text style={styles.txnCurrency}>$</Text>68
-              <Text style={styles.txnCents}>.00</Text>
-            </Text>
-          </View>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>
@@ -247,14 +345,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    gap: 16,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    gap: 14,
+  },
+
+  /* 1. Combined Top Card */
+  topCardContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   bannerContainer: {
     width: '100%',
-    height: 154,
-    borderRadius: 20,
-    overflow: 'hidden',
+    height: 140,
     backgroundColor: '#0F172A',
     position: 'relative',
   },
@@ -265,8 +376,8 @@ const styles = StyleSheet.create({
   bannerBottomRow: {
     position: 'absolute',
     bottom: 12,
-    left: 14,
-    right: 14,
+    left: 12,
+    right: 12,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -286,7 +397,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   avatarInitials: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '800',
     color: '#D97706',
     letterSpacing: 0.5,
@@ -314,283 +425,385 @@ const styles = StyleSheet.create({
     color: '#E2E8F0',
     letterSpacing: 0.1,
   },
-  welcomeCardOuter: {
+  welcomeBody: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(251, 191, 36, 0.4)',
-    overflow: 'hidden',
-    shadowColor: '#C59B27',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-    elevation: 2,
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 12,
   },
-  cardTopStripe: {
-    height: 3,
-    width: '100%',
-  },
-  welcomeCardInner: {
-    paddingVertical: 18,
-    paddingHorizontal: 20,
-    gap: 12,
-  },
-  titleRow: {
-    flexDirection: 'row',
+  welcomeCenterWrap: {
     alignItems: 'center',
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
-    gap: 8,
+    justifyContent: 'center',
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
   welcomeTitle: {
-    fontSize: 18,
+    fontSize: 14.5,
+    fontWeight: '400',
+    color: '#1E293B',
+    marginBottom: 4,
+  },
+  welcomeNameBold: {
     fontWeight: '700',
     color: '#0F172A',
-  },
-  driverBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FEF3C7',
-    borderWidth: 1,
-    borderColor: '#F59E0B',
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    gap: 4,
-  },
-  driverBadgeText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#B45309',
   },
   welcomeMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
   },
-  sessionStartWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  sessionStartTime: {
-    fontSize: 13,
+  taxiMetaLabel: {
+    fontSize: 11,
     color: '#64748B',
-    fontWeight: '500',
   },
-  shiftStatusPill: {
+  taxiNoHighlight: {
+    color: '#D97706',
+    fontWeight: '700',
+  },
+  metaDot: {
+    marginHorizontal: 8,
+    color: '#CBD5E1',
+    fontSize: 11,
+  },
+  clockRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 14,
-    gap: 5,
   },
-  shiftOnline: {
-    backgroundColor: '#DCFCE7',
+  clockIcon: {
+    marginRight: 4,
   },
-  shiftOffline: {
-    backgroundColor: '#FEE2E2',
+  shiftStartText: {
+    fontSize: 11,
+    color: '#64748B',
   },
-  statusDot: {
+  activeShiftRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 10,
+  },
+  activeShiftLabel: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#1E293B',
+    letterSpacing: 0.2,
+  },
+  activeShiftCode: {
+    fontWeight: '600',
+    color: '#475569',
+  },
+  onShiftBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+  },
+  offShiftBadge: {
+    backgroundColor: '#F1F5F9',
+    borderColor: '#CBD5E1',
+  },
+  onShiftDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
+    backgroundColor: '#10B981',
+    marginRight: 5,
   },
-  dotOnline: {
-    backgroundColor: '#16A34A',
+  offShiftDot: {
+    backgroundColor: '#94A3B8',
   },
-  dotOffline: {
-    backgroundColor: '#DC2626',
-  },
-  shiftStatusText: {
-    fontSize: 12,
+  onShiftText: {
+    fontSize: 9.5,
     fontWeight: '700',
+    color: '#047857',
+    letterSpacing: 0.3,
   },
-  onlineText: {
-    color: '#166534',
+  offShiftText: {
+    color: '#64748B',
   },
-  offlineText: {
-    color: '#991B1B',
-  },
-  fareButtonOuter: {
-    borderRadius: 18,
+
+  /* 2. Taxi Fare CTA Card */
+  taxiFareCard: {
+    borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#0F172A',
+    shadowColor: '#F59E0B',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 4,
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  fareButtonGradient: {
+  taxiFareGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 18,
-    paddingHorizontal: 18,
-    gap: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
-  fareIconCircle: {
-    width: 46,
-    height: 46,
+  taxiFareIconBox: {
+    width: 48,
+    height: 48,
     borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(217, 119, 6, 0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  taxiFareTextCol: {
+    flex: 1,
+  },
+  taxiFareTitle: {
+    fontSize: 15.5,
+    fontWeight: '900',
+    color: '#0F172A',
+    letterSpacing: 0.5,
+  },
+  taxiFareSubtitle: {
+    fontSize: 11,
+    fontWeight: '500',
+    fontStyle: 'italic',
+    color: '#451A03',
+    marginTop: 2,
+  },
+  taxiFareArrowCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(254, 240, 138, 0.6)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  fareTextCol: {
-    flex: 1,
-    gap: 2,
-  },
-  fareTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 0.3,
-  },
-  fareSubtitle: {
-    fontSize: 12,
-    color: '#94A3B8',
-  },
-  statsCard: {
+
+  /* 3. Revenue Card */
+  revenueCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 14,
+    padding: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    padding: 18,
-    gap: 10,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 5,
+    elevation: 2,
   },
-  statsHeaderTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#64748B',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+  revenueHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
-  statsAmountRow: {
+  revenueTitleRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
   },
-  currencySymbol: {
-    fontSize: 22,
+  revenueMainTitle: {
+    fontSize: 13.5,
     fontWeight: '700',
-    color: '#D97706',
-    marginRight: 4,
-  },
-  mainAmount: {
-    fontSize: 34,
-    fontWeight: '800',
     color: '#0F172A',
   },
-  centsText: {
-    fontSize: 20,
+  revenueSubTitle: {
+    fontSize: 11,
     fontWeight: '600',
-    color: '#64748B',
-    marginRight: 10,
+    color: '#D97706',
   },
   tripsCountBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#DCFCE7',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    gap: 4,
   },
   tripsCountText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
-    color: '#166534',
+    color: '#047857',
+    marginLeft: 4,
   },
-  chipsRow: {
+  metricsRow: {
+    flexDirection: 'row',
+    paddingTop: 12,
+  },
+  metricCol: {
+    flex: 1,
+    alignItems: 'flex-start',
+  },
+  metricLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    marginBottom: 4,
+  },
+  metricColorDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    marginRight: 5,
+  },
+  metricCardIcon: {
+    marginRight: 4,
+  },
+  metricLabelText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  metricValueText: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  metricDollarOrange: {
+    color: '#D97706',
+    fontWeight: '800',
+  },
+  metricDollarBlue: {
+    color: '#2563EB',
+    fontWeight: '800',
+  },
+  metricDollarAmber: {
+    color: '#EA580C',
+    fontWeight: '800',
+  },
+  metricCents: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  metricSubInfo: {
+    fontSize: 9.5,
+    color: '#64748B',
+    marginTop: 2,
+  },
+
+  /* 4. Action Button (Black) */
+  shiftButton: {
+    backgroundColor: '#0F172A',
+    borderRadius: 12,
+    paddingVertical: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  shiftButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13.5,
+    fontWeight: '700',
+  },
+
+  /* 5. Recent Trips */
+  recentSection: {
     marginTop: 4,
+    gap: 10,
   },
-  statChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    gap: 5,
-  },
-  statChipLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#334155',
-  },
-  sectionHeaderRow: {
+  recentHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 6,
     paddingHorizontal: 2,
   },
-  sectionHeaderTitle: {
-    fontSize: 16,
+  recentTitle: {
+    fontSize: 14,
     fontWeight: '700',
     color: '#0F172A',
   },
-  viewAllText: {
-    fontSize: 13,
+  seeAllText: {
+    fontSize: 12,
     fontWeight: '600',
     color: '#2563EB',
   },
-  txnCard: {
+  tripCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
-    padding: 14,
-    shadowColor: '#000',
+    borderColor: '#E2E8F0',
+    padding: 12,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.03,
-    shadowRadius: 6,
+    shadowRadius: 4,
     elevation: 1,
   },
-  txnRow: {
+  tripHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
   },
-  txnIdText: {
-    fontSize: 13,
+  tripIdText: {
+    fontSize: 12,
     fontWeight: '700',
     color: '#0F172A',
   },
-  txnTimeText: {
-    fontSize: 12,
+  tripTimeText: {
+    fontSize: 11,
     color: '#94A3B8',
+    marginLeft: 8,
   },
-  cardMethodBadge: {
+  cardPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0FDF4',
+    backgroundColor: '#EFF6FF',
+    borderColor: '#DBEAFE',
+    borderWidth: 1,
+    borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 6,
-    gap: 3,
+    marginLeft: 8,
   },
-  cardMethodText: {
-    fontSize: 11,
+  cardPillText: {
+    fontSize: 10,
     fontWeight: '600',
-    color: '#166534',
+    color: '#2563EB',
   },
-  txnSpacer: {
+  spacer: {
     flex: 1,
   },
-  txnAmount: {
-    fontSize: 15,
-    fontWeight: '700',
+  tripAmountText: {
+    fontSize: 14.5,
+    fontWeight: '800',
     color: '#0F172A',
   },
-  txnCurrency: {
+  dollarOrange: {
     color: '#D97706',
+    fontWeight: '800',
   },
-  txnCents: {
-    color: '#94A3B8',
+  tripCents: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  routeContainer: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginTop: 10,
+  },
+  routePointRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  routeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 9,
+  },
+  routeConnector: {
+    marginLeft: 3.5,
+    width: 1,
+    height: 10,
+    backgroundColor: '#CBD5E1',
+    marginVertical: 2,
+  },
+  routeAddressText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#1E293B',
   },
 });

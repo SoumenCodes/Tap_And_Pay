@@ -8,13 +8,16 @@ import {
   TaxiDriverHistoryScreen,
   TaxiOwnerHistoryScreen,
 } from '../../components/taxi';
-import { OtherBusinessTransactionsScreen } from '../../components/other-business';
+import {
+  OtherBusinessTransactionsScreen,
+  OtherBusinessShiftDetailsScreen,
+} from '../../components/other-business';
 import { MOCK_SHIFTS } from '../../data/mockShifts';
 import { ShiftRecord } from '../../types/shift';
 
 export default function TransactionsTabScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ shiftId?: string }>();
+  const params = useLocalSearchParams<{ shiftId?: string; empId?: string }>();
   const { user } = useAuth();
 
   // Derive selected shift directly from route params (React 19 best practice)
@@ -30,7 +33,7 @@ export default function TransactionsTabScreen() {
   // Handle hardware back button on Android (called unconditionally)
   useEffect(() => {
     const backAction = () => {
-      if (selectedShift) {
+      if (params.shiftId) {
         router.setParams({ shiftId: '' });
         return true;
       }
@@ -39,14 +42,27 @@ export default function TransactionsTabScreen() {
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
     return () => backHandler.remove();
-  }, [selectedShift, router]);
+  }, [params.shiftId, router]);
 
-  // If user is Other Business (owner or employee), render Screen 23 Transactions History
+  // If user is Other Business (owner or employee), render dedicated Shift History or Shift Details
   if (user.loginType === 'other_business' || user.loginType === 'other_business_employee') {
+    if (params.shiftId) {
+      return (
+        <OtherBusinessShiftDetailsScreen
+          shiftId={params.shiftId}
+          onBack={() => router.setParams({ shiftId: '' })}
+          businessName={user.businessName}
+          userName={user.name}
+        />
+      );
+    }
+
     return (
       <OtherBusinessTransactionsScreen
         businessName={user.businessName}
         userName={user.name}
+        initialEmpId={params.empId}
+        onSelectShift={(shift) => router.setParams({ shiftId: shift.id })}
       />
     );
   }

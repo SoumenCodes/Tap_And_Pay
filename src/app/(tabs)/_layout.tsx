@@ -4,15 +4,10 @@ import { View, StyleSheet, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../constants/colors';
-import { useAuth } from '../../context/AuthContext';
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
-  const historyTabTitle =
-    user?.loginType === 'other_business' || user?.loginType === 'other_business_employee'
-      ? 'Transactions'
-      : 'History';
+  const historyTabTitle = 'History';
 
   return (
     <Tabs

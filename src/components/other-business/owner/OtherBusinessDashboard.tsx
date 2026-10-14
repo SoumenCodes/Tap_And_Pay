@@ -133,8 +133,11 @@ export default function OtherBusinessDashboard({
     }
   };
 
-  const handleNavigateToTransactions = () => {
-    router.push('/(tabs)/transactions');
+  const handleNavigateToTransactions = (empId?: string) => {
+    router.push({
+      pathname: '/(tabs)/transactions',
+      params: empId ? { empId } : undefined,
+    });
   };
 
   return (
@@ -445,7 +448,7 @@ export default function OtherBusinessDashboard({
                   employee.isCurrentUser && styles.employeeCardCurrent,
                 ]}
                 activeOpacity={0.8}
-                onPress={handleNavigateToTransactions}
+                onPress={() => handleNavigateToTransactions(employee.empId)}
               >
                 {/* Avatar + Info + Shift Rev */}
                 <View style={styles.employeeTopRow}>

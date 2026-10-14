@@ -69,7 +69,7 @@ export default function TaxiOwnerDashboard({
       <StatusBar style="dark" />
 
       {/* Header Bar with back arrow */}
-      <HeaderBar title="SE PAY DASHBOARD" showBack />
+      <HeaderBar title="SE PAY DASHBOARD" />
 
       <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 32 }]}

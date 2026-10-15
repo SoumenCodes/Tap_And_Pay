@@ -251,10 +251,7 @@ export default function OtherBusinessProfileScreen() {
 
           {/* End Shift Button */}
           <TouchableOpacity
-            style={[
-              styles.endShiftButton,
-              !isOnShift && styles.startShiftButton,
-            ]}
+            style={styles.endShiftButton}
             onPress={handleToggleShift}
             activeOpacity={0.85}
           >

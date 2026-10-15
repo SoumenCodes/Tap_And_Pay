@@ -57,6 +57,7 @@ export default function DashboardScreen() {
         businessAddress={user.businessAddress}
         userName={user.name}
         sessionStartTime={user.sessionStartTime}
+        empId={user.empId || '93822048'}
       />
     );
   }

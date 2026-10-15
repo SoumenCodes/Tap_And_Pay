@@ -93,6 +93,7 @@ export const MOCK_ACCOUNTS: Record<
       businessName: 'Crown Cuts',
       businessAddress: 'Suite 4, 120 Collins Street, Melbourne VIC',
       sessionStartTime: '7:30 AM',
+      empId: '93822048',
     },
   },
 };

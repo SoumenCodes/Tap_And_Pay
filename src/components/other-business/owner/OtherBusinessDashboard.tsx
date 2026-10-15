@@ -249,34 +249,36 @@ export default function OtherBusinessDashboard({
         </View>
 
         {/* 3. CREATE SALE Quick Action Card (Gold gradient with scissors icon) */}
-        <TouchableOpacity
-          activeOpacity={0.88}
-          onPress={handleCreateSale}
-          style={styles.saleCardOuter}
-        >
-          <LinearGradient
-            colors={['#F59E0B', '#FBBF24', '#FCD34D']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.saleGradient}
+        {isOnShift && (
+          <TouchableOpacity
+            activeOpacity={0.88}
+            onPress={handleCreateSale}
+            style={styles.saleCardOuter}
           >
-            {/* Left Scissors Icon Pill */}
-            <View style={styles.scissorsIconWrap}>
-              <Ionicons name="cut" size={24} color="#0F172A" />
-            </View>
+            <LinearGradient
+              colors={['#F59E0B', '#FBBF24', '#FCD34D']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.saleGradient}
+            >
+              {/* Left Scissors Icon Pill */}
+              <View style={styles.scissorsIconWrap}>
+                <Ionicons name="cut" size={24} color="#0F172A" />
+              </View>
 
-            {/* Text Information */}
-            <View style={styles.saleTextWrap}>
-              <Text style={styles.saleTitle}>CREATE SALE</Text>
-              <Text style={styles.saleSubtitle}>Charge. Confirm. Done.</Text>
-            </View>
+              {/* Text Information */}
+              <View style={styles.saleTextWrap}>
+                <Text style={styles.saleTitle}>CREATE SALE</Text>
+                <Text style={styles.saleSubtitle}>Charge. Confirm. Done.</Text>
+              </View>
 
-            {/* Right Arrow Button */}
-            <View style={styles.saleArrowWrap}>
-              <Feather name="chevron-right" size={20} color="#0F172A" />
-            </View>
-          </LinearGradient>
-        </TouchableOpacity>
+              {/* Right Arrow Button */}
+              <View style={styles.saleArrowWrap}>
+                <Feather name="chevron-right" size={20} color="#0F172A" />
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
 
         {/* 4. Revenue Card: Last 7 days */}
         <View style={styles.revenueCardOuter}>
@@ -344,10 +346,7 @@ export default function OtherBusinessDashboard({
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={handleToggleShift}
-          style={[
-            styles.shiftButton,
-            !isOnShift && styles.startShiftButton,
-          ]}
+          style={styles.shiftButton}
         >
           <Feather
             name={isOnShift ? 'log-out' : 'log-in'}

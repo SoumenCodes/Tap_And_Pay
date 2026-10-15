@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "SE Pay",
-    "slug": "se-pay",
+    "slug": "TapToPay",
     "scheme": "sepay",
     "version": "1.0",
     "orientation": "portrait",

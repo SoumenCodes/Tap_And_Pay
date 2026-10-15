@@ -4,11 +4,12 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  Image,
   TouchableOpacity,
   Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../../context/AuthContext';
 import HeaderBar from '../../common/HeaderBar';
@@ -16,23 +17,42 @@ import HeaderBar from '../../common/HeaderBar';
 export default function OtherBusinessEmployeeProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
-  const [isCheckedIn, setIsCheckedIn] = useState(true);
+
+  const [isOnShift, setIsOnShift] = useState(true);
 
   const businessName = user.businessName || 'Crown Cuts';
   const userName = user.name || 'Liam Hemsworth';
-  const businessAddress = user.businessAddress || 'Suite 4, 120 Collins Street, Melbourne VIC';
+  const shiftId = '26102026/93822048/537384';
 
-  const handleToggleCheckIn = () => {
-    setIsCheckedIn((prev) => {
-      const next = !prev;
+  const handleCopyShiftId = () => {
+    Alert.alert('Shift ID Copied', `Active Shift ID: ${shiftId}`);
+  };
+
+  const handleToggleShift = () => {
+    if (isOnShift) {
       Alert.alert(
-        next ? 'Checked In' : 'Checked Out',
-        next
-          ? 'You are now checked in for your shift.'
-          : 'You have checked out. Have a great day!'
+        'End Shift',
+        `Are you sure you want to end your current active shift (${shiftId})? Total sales ($485.00) will be submitted for settlement.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'End Shift',
+            style: 'destructive',
+            onPress: () => {
+              setIsOnShift(false);
+              Alert.alert('Shift Ended', 'Active shift ended. Summary submitted to records.');
+            },
+          },
+        ]
       );
-      return next;
-    });
+    } else {
+      setIsOnShift(true);
+      Alert.alert('Shift Started', 'You are now on shift and ready to accept sales.');
+    }
+  };
+
+  const handlePastShiftRecords = () => {
+    router.push('/(tabs)/transactions');
   };
 
   const handleLogout = () => {
@@ -58,161 +78,196 @@ export default function OtherBusinessEmployeeProfileScreen() {
       <StatusBar style="dark" />
 
       {/* Header Bar */}
-      <HeaderBar title="Profile" />
+      <HeaderBar title="Profile" showBack={false} />
 
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Main Profile Summary Card */}
+        {/* ── 1. MAIN PROFILE SUMMARY CARD ── */}
         <View style={styles.profileCard}>
+          {/* Avatar with Crown Badge */}
           <View style={styles.avatarContainer}>
             <View style={styles.avatarWrap}>
-              <View style={styles.initialsAvatar}>
-                <Text style={styles.initialsText}>LH</Text>
-              </View>
-            </View>
-            <View style={styles.verifiedBadge}>
-              <Ionicons name="checkmark-circle" size={18} color="#10B981" />
-            </View>
-          </View>
-
-          <Text style={styles.userName}>{userName}</Text>
-          <View style={styles.roleBadge}>
-            <Text style={styles.roleBadgeText}>BUSINESS EMPLOYEE • STYLIST</Text>
-          </View>
-          <Text style={styles.businessTitle}>{businessName}</Text>
-          <Text style={styles.businessAddress}>{businessAddress}</Text>
-
-          {/* Quick Stats Row */}
-          <View style={styles.statsRow}>
-            <View style={styles.statCol}>
-              <Text style={styles.statNum}>$420.00</Text>
-              <Text style={styles.statLabel}>{"Today's Sales"}</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statCol}>
-              <Text style={styles.statNum}>7</Text>
-              <Text style={styles.statLabel}>Services</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statCol}>
-              <Text style={[styles.statNum, { color: '#059669' }]}>$45.00</Text>
-              <Text style={styles.statLabel}>Tips</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Shift / Attendance Status */}
-        <View style={styles.shiftCard}>
-          <View style={styles.shiftHeader}>
-            <View>
-              <Text style={styles.shiftTitle}>Shift Status</Text>
-              <Text style={styles.shiftSub}>Session started at {user.sessionStartTime || '7:30 AM'}</Text>
-            </View>
-            <TouchableOpacity
-              style={[
-                styles.shiftToggleBtn,
-                isCheckedIn ? styles.shiftBtnActive : styles.shiftBtnInactive,
-              ]}
-              activeOpacity={0.8}
-              onPress={handleToggleCheckIn}
-            >
-              <View
-                style={[
-                  styles.statusDot,
-                  isCheckedIn ? styles.dotActive : styles.dotInactive,
-                ]}
+              <Image
+                source={require('../../../../assets/emp_avatar_2.png')}
+                style={styles.avatarImg}
+                resizeMode="cover"
               />
-              <Text
-                style={[
-                  styles.shiftToggleText,
-                  isCheckedIn ? styles.shiftToggleTextActive : styles.shiftToggleTextInactive,
-                ]}
-              >
-                {isCheckedIn ? 'Checked In' : 'Checked Out'}
-              </Text>
+              <View style={styles.crownBadgeWrap}>
+                <Image
+                  source={require('../../../../assets/crown_cuts_badge_hd.png')}
+                  style={styles.crownBadgeImg}
+                  resizeMode="contain"
+                />
+              </View>
+            </View>
+          </View>
+
+          {/* Business & Employee Details */}
+          <Text style={styles.brandTitle}>{businessName.toUpperCase()}</Text>
+          <Text style={styles.ownerNameText}>{userName}</Text>
+
+          <View style={styles.metaLinesWrap}>
+            <Text style={styles.metaLineText}>
+              ABN: 62 458 123 800 • PH: 0400 555 320
+            </Text>
+            <Text style={styles.metaLineText}>
+              EMP ID: <Text style={styles.empIdBold}>93822048</Text>
+            </Text>
+            <Text style={styles.metaLineText}>Liamhemsworth_crowncuts@testmail.com.au</Text>
+            <Text style={styles.metaLineText}>
+              Suite 4, 120 Collins Street, Melbourne VIC
+            </Text>
+          </View>
+
+          {/* Status Badge */}
+          <View
+            style={[
+              styles.statusPill,
+              !isOnShift && styles.statusPillOff,
+            ]}
+          >
+            <View
+              style={[
+                styles.statusDot,
+                !isOnShift && styles.statusDotOff,
+              ]}
+            />
+            <Text
+              style={[
+                styles.statusText,
+                !isOnShift && styles.statusTextOff,
+              ]}
+            >
+              {isOnShift ? 'Active • On Shift' : 'Off Shift • Inactive'}
+            </Text>
+          </View>
+
+          {/* Shift Start Duration Text */}
+          <Text style={styles.shiftDurationText}>
+            Started 26 Oct 2026 | 07:30 AM (8h 45m)
+          </Text>
+
+          {/* Active Shift ID Box */}
+          <View style={styles.activeShiftIdBox}>
+            <View style={styles.activeShiftIdInfo}>
+              <Text style={styles.activeShiftIdLabel}>Active Shift ID</Text>
+              <Text style={styles.activeShiftIdCode}>{shiftId}</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.copyShiftBtn}
+              onPress={handleCopyShiftId}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="copy-outline" size={16} color="#B45309" />
             </TouchableOpacity>
           </View>
-        </View>
 
-        {/* Staff Actions Section */}
-        <View style={styles.sectionWrap}>
-          <Text style={styles.sectionHeader}>Staff Tools</Text>
-          <View style={styles.cardGroup}>
-            <TouchableOpacity
-              style={styles.menuItem}
-              activeOpacity={0.7}
-              onPress={() => router.push('/(tabs)/transactions')}
-            >
-              <View style={[styles.menuIconBox, { backgroundColor: '#EFF6FF' }]}>
-                <Ionicons name="receipt-outline" size={18} color="#2563EB" />
+          {/* Active Shift Txns Card */}
+          <View style={styles.activeTxnsCard}>
+            <View style={styles.activeTxnsHeaderRow}>
+              <Text style={styles.activeTxnsLabel}>Active Shift Txns</Text>
+              <View style={styles.activeTxnsCountWrap}>
+                <Ionicons name="checkmark-circle-outline" size={14} color="#059669" />
+                <Text style={styles.activeTxnsCountText}>14 Txns</Text>
               </View>
-              <View style={styles.menuTextBox}>
-                <Text style={styles.menuTitle}>My Processed Transactions</Text>
-                <Text style={styles.menuSub}>View history of customer tickets</Text>
-              </View>
-              <Feather name="chevron-right" size={18} color="#94A3B8" />
-            </TouchableOpacity>
+            </View>
 
-            <TouchableOpacity
-              style={styles.menuItem}
-              activeOpacity={0.7}
-              onPress={() =>
-                Alert.alert(
-                  'Tips Summary',
-                  'Today\'s Earned Tips: $45.00\nThis Week: $280.00\nTips are disbursed directly to your nominated account every Friday.'
-                )
-              }
-            >
-              <View style={[styles.menuIconBox, { backgroundColor: '#ECFDF5' }]}>
-                <MaterialCommunityIcons name="hand-coin-outline" size={18} color="#059669" />
+            {/* Big Amount */}
+            <View style={styles.bigAmountRow}>
+              <Text style={styles.bigAmountDollar}>$</Text>
+              <Text style={styles.bigAmountWhole}>485</Text>
+              <Text style={styles.bigAmountCents}>.00</Text>
+            </View>
+
+            <View style={styles.txnsDivider} />
+
+            {/* 2 Sub-metrics: Card & Tap & Go */}
+            <View style={styles.subMetricsRow}>
+              {/* Card */}
+              <View style={styles.subMetricCol}>
+                <View style={styles.subMetricLabelRow}>
+                  <Ionicons name="card-outline" size={12} color="#2563EB" />
+                  <Text style={styles.subMetricTitleCard}>CARD</Text>
+                </View>
+                <Text style={styles.subMetricValueCard}>$320.00</Text>
+                <Text style={styles.subMetricTxns}>9 Txns</Text>
               </View>
-              <View style={styles.menuTextBox}>
-                <Text style={styles.menuTitle}>Tip Breakdown & Payouts</Text>
-                <Text style={styles.menuSub}>Track personal gratuities</Text>
+
+              <View style={styles.subMetricDivider} />
+
+              {/* Tap & Go */}
+              <View style={styles.subMetricCol}>
+                <View style={styles.subMetricLabelRow}>
+                  <View style={styles.bulletTap} />
+                  <Text style={styles.subMetricTitleTap}>TAP & GO</Text>
+                </View>
+                <Text style={styles.subMetricValueTap}>$165.00</Text>
+                <Text style={styles.subMetricTxns}>5 Txns</Text>
               </View>
-              <Feather name="chevron-right" size={18} color="#94A3B8" />
-            </TouchableOpacity>
+            </View>
           </View>
+
+          {/* End Shift Button */}
+          <TouchableOpacity
+            style={styles.endShiftButton}
+            onPress={handleToggleShift}
+            activeOpacity={0.85}
+          >
+            <Feather
+              name={isOnShift ? 'log-out' : 'log-in'}
+              size={16}
+              color="#FFFFFF"
+              style={{ marginRight: 8 }}
+            />
+            <Text style={styles.endShiftButtonText}>
+              {isOnShift ? 'End Shift' : 'Start Shift'}
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        {/* General & Support */}
-        <View style={styles.sectionWrap}>
-          <Text style={styles.sectionHeader}>App & Support</Text>
-          <View style={styles.cardGroup}>
-            <TouchableOpacity
-              style={styles.menuItem}
-              activeOpacity={0.7}
-              onPress={() => Alert.alert('Support', 'Contact manager or call Support at 1800-SE-PAY.')}
-            >
-              <View style={[styles.menuIconBox, { backgroundColor: '#F8FAFC' }]}>
-                <Feather name="help-circle" size={18} color="#475569" />
-              </View>
-              <View style={styles.menuTextBox}>
-                <Text style={styles.menuTitle}>Help & Support</Text>
-                <Text style={styles.menuSub}>Terminal troubleshooting & FAQs</Text>
-              </View>
-              <Feather name="chevron-right" size={18} color="#94A3B8" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.menuItem, styles.lastMenuItem]}
-              activeOpacity={0.7}
-              onPress={handleLogout}
-            >
-              <View style={[styles.menuIconBox, { backgroundColor: '#FEE2E2' }]}>
-                <Feather name="log-out" size={18} color="#DC2626" />
-              </View>
-              <View style={styles.menuTextBox}>
-                <Text style={[styles.menuTitle, { color: '#DC2626' }]}>Log Out</Text>
-                <Text style={styles.menuSub}>Switch account or end shift</Text>
-              </View>
-              <Feather name="chevron-right" size={18} color="#DC2626" />
-            </TouchableOpacity>
-          </View>
+        {/* ── 2. MENU ACTION CARD: Past Shift Records ── */}
+        <View style={styles.actionCardsList}>
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={handlePastShiftRecords}
+            activeOpacity={0.8}
+          >
+            <View style={styles.actionIconCircle}>
+              <Ionicons name="swap-horizontal" size={19} color="#B45309" />
+            </View>
+            <View style={styles.actionInfoCol}>
+              <Text style={styles.actionTitle}>Past Shift Records</Text>
+              <Text style={styles.actionSubtitle}>View your previous shift history</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+          </TouchableOpacity>
         </View>
+
+        {/* ── 3. LOG OUT BUTTON ── */}
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={handleLogout}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="power" size={16} color="#DC2626" style={{ marginRight: 6 }} />
+          <Text style={styles.logoutButtonText}>Log Out Account</Text>
+        </TouchableOpacity>
+
+        {/* ── 4. FOOTER: POWERED BY SE PAY ── */}
+        <View style={styles.footerWrap}>
+          <Text style={styles.poweredByText}>POWERED BY</Text>
+          <Image
+            source={require('../../../../assets/se_pay_brand_logo.png')}
+            style={styles.sePayBrandLogo}
+            resizeMode="contain"
+          />
+        </View>
+
+        <View style={{ height: 28 }} />
       </ScrollView>
     </View>
   );
@@ -221,229 +276,384 @@ export default function OtherBusinessEmployeeProfileScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
   },
   scrollView: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 14,
+    paddingTop: 8,
     paddingBottom: 32,
   },
+
+  /* 1. Profile Summary Card */
   profileCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
+    backgroundColor: '#FFFDF7',
+    borderRadius: 22,
+    borderWidth: 1.2,
+    borderColor: '#FEF08A',
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
   },
   avatarContainer: {
-    position: 'relative',
-    marginBottom: 12,
+    marginTop: 4,
+    marginBottom: 10,
+    alignItems: 'center',
   },
   avatarWrap: {
+    position: 'relative',
     width: 68,
     height: 68,
-    borderRadius: 34,
-    backgroundColor: '#0F172A',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#CBD5E1',
   },
-  initialsAvatar: {
-    alignItems: 'center',
-    justifyContent: 'center',
+  avatarImg: {
+    width: 68,
+    height: 68,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#FEF08A',
+    backgroundColor: '#F8FAFC',
   },
-  initialsText: {
-    color: '#F8FAFC',
-    fontSize: 22,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-  verifiedBadge: {
+  crownBadgeWrap: {
     position: 'absolute',
-    bottom: -2,
-    right: -2,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
+    bottom: -6,
+    alignSelf: 'center',
+    width: 26,
+    height: 26,
+    borderRadius: 7,
+    backgroundColor: '#FFFDF0',
+    borderWidth: 1.2,
+    borderColor: '#FEF08A',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+    padding: 1,
   },
-  userName: {
+  crownBadgeImg: {
+    width: '100%',
+    height: '100%',
+  },
+  brandTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#B45309',
+    letterSpacing: 0.8,
+    marginTop: 2,
+    marginBottom: 3,
+  },
+  ownerNameText: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '900',
     color: '#0F172A',
-    marginBottom: 4,
-  },
-  roleBadge: {
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 6,
+    letterSpacing: -0.3,
     marginBottom: 6,
   },
-  roleBadgeText: {
-    color: '#92400E',
-    fontSize: 10.5,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+  metaLinesWrap: {
+    alignItems: 'center',
+    marginBottom: 10,
+    gap: 3,
   },
-  businessTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#334155',
-    marginBottom: 2,
-  },
-  businessAddress: {
+  metaLineText: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#475569',
+    fontWeight: '500',
     textAlign: 'center',
-    paddingHorizontal: 10,
   },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 18,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-    width: '100%',
-  },
-  statCol: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statDivider: {
-    width: 1,
-    height: 28,
-    backgroundColor: '#E2E8F0',
-  },
-  statNum: {
-    fontSize: 16,
+  empIdBold: {
     fontWeight: '800',
     color: '#0F172A',
   },
-  statLabel: {
-    fontSize: 10.5,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  shiftCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 14,
-    marginTop: 14,
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#DCFCE7',
     borderWidth: 1,
+    borderColor: '#A7F3D0',
+    paddingHorizontal: 12,
+    paddingVertical: 4.5,
+    borderRadius: 14,
+    marginBottom: 6,
+    gap: 6,
+  },
+  statusPillOff: {
+    backgroundColor: '#F1F5F9',
     borderColor: '#E2E8F0',
   },
-  shiftHeader: {
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+  },
+  statusDotOff: {
+    backgroundColor: '#94A3B8',
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#166534',
+  },
+  statusTextOff: {
+    color: '#64748B',
+  },
+  shiftDurationText: {
+    fontSize: 11,
+    color: '#475569',
+    fontWeight: '500',
+    marginBottom: 12,
+  },
+  activeShiftIdBox: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#FEF08A',
+    borderRadius: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: 10,
   },
-  shiftTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  shiftSub: {
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  shiftToggleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  shiftBtnActive: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
-  },
-  shiftBtnInactive: {
-    backgroundColor: '#F1F5F9',
-    borderColor: '#CBD5E1',
-  },
-  statusDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    marginRight: 6,
-  },
-  dotActive: {
-    backgroundColor: '#10B981',
-  },
-  dotInactive: {
-    backgroundColor: '#94A3B8',
-  },
-  shiftToggleText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  shiftToggleTextActive: {
-    color: '#065F46',
-  },
-  shiftToggleTextInactive: {
-    color: '#64748B',
-  },
-  sectionWrap: {
-    marginTop: 18,
-  },
-  sectionHeader: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#64748B',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 8,
-    marginLeft: 4,
-  },
-  cardGroup: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    overflow: 'hidden',
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 13,
-    paddingHorizontal: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  lastMenuItem: {
-    borderBottomWidth: 0,
-  },
-  menuIconBox: {
-    width: 34,
-    height: 34,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  menuTextBox: {
+  activeShiftIdInfo: {
     flex: 1,
   },
-  menuTitle: {
-    fontSize: 13.5,
+  activeShiftIdLabel: {
+    fontSize: 11,
+    color: '#475569',
     fontWeight: '600',
+    marginBottom: 2,
+  },
+  activeShiftIdCode: {
+    fontSize: 12,
+    fontWeight: '800',
     color: '#0F172A',
   },
-  menuSub: {
-    fontSize: 11,
+  copyShiftBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#FEFCE8',
+    borderWidth: 1,
+    borderColor: '#FEF08A',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  activeTxnsCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+  },
+  activeTxnsHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  activeTxnsLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  activeTxnsCountWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  activeTxnsCountText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  bigAmountRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: 8,
+  },
+  bigAmountDollar: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#D97706',
+    marginRight: 2,
+  },
+  bigAmountWhole: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#0F172A',
+    letterSpacing: -0.5,
+  },
+  bigAmountCents: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#64748B',
+  },
+  txnsDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginBottom: 8,
+  },
+  subMetricsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  subMetricCol: {
+    flex: 1,
+  },
+  subMetricLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+    gap: 3,
+  },
+  subMetricTitleCard: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#2563EB',
+    letterSpacing: 0.3,
+  },
+  bulletTap: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#EA580C',
+  },
+  subMetricTitleTap: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#EA580C',
+    letterSpacing: 0.3,
+  },
+  subMetricValueCard: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  subMetricValueTap: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  subMetricTxns: {
+    fontSize: 10.5,
     color: '#64748B',
     marginTop: 1,
+  },
+  subMetricDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: '#F1F5F9',
+    marginHorizontal: 8,
+  },
+  endShiftButton: {
+    width: '100%',
+    backgroundColor: '#0F172A',
+    borderRadius: 12,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  endShiftButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  /* 2. Menu Action Cards */
+  actionCardsList: {
+    marginBottom: 12,
+    gap: 8,
+  },
+  actionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFDF7',
+    borderWidth: 1.2,
+    borderColor: '#FEF08A',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  actionIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FEFCE8',
+    borderWidth: 1,
+    borderColor: '#FEF08A',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  actionInfoCol: {
+    flex: 1,
+  },
+  actionTitle: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 1,
+  },
+  actionSubtitle: {
+    fontSize: 10.5,
+    color: '#64748B',
+  },
+
+  /* 3. Log Out Button */
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingVertical: 11,
+    marginBottom: 16,
+  },
+  logoutButtonText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+
+  /* 4. Footer */
+  footerWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  poweredByText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#94A3B8',
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+  sePayBrandLogo: {
+    width: 110,
+    height: 32,
   },
 });

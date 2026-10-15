@@ -176,7 +176,7 @@ export default function LoginScreen() {
                 <TouchableOpacity
                   style={styles.forgotBtn}
                   activeOpacity={0.7}
-                  onPress={() => console.log('Forgot Password clicked')}
+                  onPress={() => router.push('/forgot-password')}
                 >
                   <Text style={styles.forgotText}>Forgot Password?</Text>
                 </TouchableOpacity>
@@ -198,6 +198,10 @@ export default function LoginScreen() {
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
+            </View>
+            {/* Version Text */}
+            <View style={styles.versionWrap}>
+              <Text style={styles.versionText}>VERSION 1.0</Text>
             </View>
 
             {/* Quick Test Accounts Section for 5 User Types */}
@@ -260,6 +264,8 @@ export default function LoginScreen() {
                 </TouchableOpacity>
               </View>
             </View>
+
+
           </ScrollView>
         </KeyboardAvoidingView>
       </View>
@@ -286,7 +292,7 @@ const styles = StyleSheet.create({
     height: 170,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 6,
+    // marginBottom: 6,
   },
   logoImage: {
     width: '100%',
@@ -294,7 +300,7 @@ const styles = StyleSheet.create({
   },
   heroTextWrap: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 8,
   },
   headingTitle: {
     fontSize: 23,
@@ -433,7 +439,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   testSectionWrap: {
-    marginTop: 20,
     width: Math.min(SCREEN_WIDTH - 48, 350),
     alignItems: 'center',
     gap: 10,
@@ -468,5 +473,16 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#1E293B',
+  },
+  versionWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+  },
+  versionText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#000000ff',
+    letterSpacing: 1.5,
   },
 });

@@ -11,6 +11,7 @@ import {
 import {
   OtherBusinessTransactionsScreen,
   OtherBusinessShiftDetailsScreen,
+  OtherBusinessEmployeeHistoryScreen,
 } from '../../components/other-business';
 import { MOCK_SHIFTS } from '../../data/mockShifts';
 import { ShiftRecord } from '../../types/shift';
@@ -44,8 +45,30 @@ export default function TransactionsTabScreen() {
     return () => backHandler.remove();
   }, [params.shiftId, router]);
 
-  // If user is Other Business (owner or employee), render dedicated Shift History or Shift Details
-  if (user.loginType === 'other_business' || user.loginType === 'other_business_employee') {
+  // Role 5: Other Business Employee (Liam Hemsworth) - Dedicated Employee Shift History
+  if (user.loginType === 'other_business_employee') {
+    if (params.shiftId) {
+      return (
+        <OtherBusinessShiftDetailsScreen
+          shiftId={params.shiftId}
+          onBack={() => router.setParams({ shiftId: '' })}
+          businessName={user.businessName}
+          userName={user.name}
+        />
+      );
+    }
+
+    return (
+      <OtherBusinessEmployeeHistoryScreen
+        userName={user.name}
+        empId={user.empId || '93822048'}
+        onSelectShift={(shift) => router.setParams({ shiftId: shift.id })}
+      />
+    );
+  }
+
+  // Role 4: Other Business Owner (Soumen Sen / Crown Cuts)
+  if (user.loginType === 'other_business') {
     if (params.shiftId) {
       return (
         <OtherBusinessShiftDetailsScreen

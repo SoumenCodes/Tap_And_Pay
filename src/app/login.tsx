@@ -20,6 +20,7 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { colors } from '../constants/colors';
 import { useAuth } from '../context/AuthContext';
+import { APP_CONFIG } from '../constants/appConfig';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -201,7 +202,7 @@ export default function LoginScreen() {
             </View>
             {/* Version Text */}
             <View style={styles.versionWrap}>
-              <Text style={styles.versionText}>VERSION 1.0</Text>
+              <Text style={styles.versionText}>{APP_CONFIG.displayVersion}</Text>
             </View>
 
             {/* Quick Test Accounts Section for 5 User Types */}

@@ -18,6 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import HeaderBar from '../components/common/HeaderBar';
+import { APP_CONFIG } from '../constants/appConfig';
 
 type ForgotStep = 'mobile' | 'otp' | 'new_password' | 'success';
 
@@ -562,7 +563,7 @@ export default function ForgotPasswordScreen() {
 
             {/* Version Text */}
             <View style={styles.versionWrap}>
-              <Text style={styles.versionText}>VERSION 1.0</Text>
+              <Text style={styles.versionText}>{APP_CONFIG.displayVersion}</Text>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>

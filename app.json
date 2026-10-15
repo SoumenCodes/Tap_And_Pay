@@ -64,7 +64,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/se_pay_logo.png",
+          "image": "./assets/se_pay_unicorn.png",
           "resizeMode": "contain",
           "backgroundColor": "#FFFFFF"
         }

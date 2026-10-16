@@ -71,7 +71,8 @@
       ],
       "expo-web-browser",
       "expo-router",
-      "expo-video"
+      "expo-video",
+      "expo-secure-store"
     ],
     "web": {
       "favicon": "./assets/favicon.png"

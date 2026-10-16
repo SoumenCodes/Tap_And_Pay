@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { authService } from '../services/authService';
+import { tokenStorage } from '../services/tokenStorage';
 
 export type LoginType =
   | 'taxi_owner'
@@ -101,16 +102,39 @@ export const MOCK_ACCOUNTS: Record<
 
 interface AuthContextType {
   user: UserProfile;
+  isAuthenticated: boolean;
+  isInitializing: boolean;
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  logout: () => void;
+  logout: () => Promise<void>;
   quickLogin: (type: LoginType) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // Default to other_business for testing
   const [user, setUser] = useState<UserProfile>(MOCK_ACCOUNTS.other_business.user);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isInitializing, setIsInitializing] = useState<boolean>(true);
+
+  // Restore encrypted session on cold start
+  useEffect(() => {
+    async function restoreSession() {
+      try {
+        const { user: storedUser, accessToken } = await tokenStorage.loadStoredSession();
+        if (storedUser && accessToken) {
+          setUser(storedUser);
+          setIsAuthenticated(true);
+          console.log('🔐 [AuthContext] Restored encrypted user session:', storedUser.name);
+        }
+      } catch (err) {
+        console.warn('⚠️ [AuthContext] Could not restore session from storage:', err);
+      } finally {
+        setIsInitializing(false);
+      }
+    }
+
+    restoreSession();
+  }, []);
 
   const login = async (
     inputUsername: string,
@@ -131,11 +155,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       });
       setUser(liveUser);
+      setIsAuthenticated(true);
       return { success: true };
     } catch (apiErr: any) {
       console.log('Live login attempt notice:', apiErr.message || apiErr);
-      // If server returns explicit credential/auth error, we can check mock fallback
-      // or surface error if it's not a local mock username
     }
 
     // 2. Mock fallback for local design review accounts
@@ -149,6 +172,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ) {
       if (MOCK_ACCOUNTS.taxi_owner.passwords.includes(trimmedPass)) {
         setUser(MOCK_ACCOUNTS.taxi_owner.user);
+        setIsAuthenticated(true);
+        await tokenStorage.saveUser(MOCK_ACCOUNTS.taxi_owner.user);
         return { success: true };
       }
       return { success: false, error: 'Invalid password. Use "owner123" or "123456".' };
@@ -163,6 +188,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ) {
       if (MOCK_ACCOUNTS.taxi_business.passwords.includes(trimmedPass)) {
         setUser(MOCK_ACCOUNTS.taxi_business.user);
+        setIsAuthenticated(true);
+        await tokenStorage.saveUser(MOCK_ACCOUNTS.taxi_business.user);
         return { success: true };
       }
       return { success: false, error: 'Invalid password. Use "fleet123" or "123456".' };
@@ -177,6 +204,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ) {
       if (MOCK_ACCOUNTS.taxi_business_driver.passwords.includes(trimmedPass)) {
         setUser(MOCK_ACCOUNTS.taxi_business_driver.user);
+        setIsAuthenticated(true);
+        await tokenStorage.saveUser(MOCK_ACCOUNTS.taxi_business_driver.user);
         return { success: true };
       }
       return { success: false, error: 'Invalid password. Use "driver123" or "123456".' };
@@ -191,6 +220,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ) {
       if (MOCK_ACCOUNTS.other_business.passwords.includes(trimmedPass)) {
         setUser(MOCK_ACCOUNTS.other_business.user);
+        setIsAuthenticated(true);
+        await tokenStorage.saveUser(MOCK_ACCOUNTS.other_business.user);
         return { success: true };
       }
       return { success: false, error: 'Invalid password. Use "business123" or "123456".' };
@@ -206,6 +237,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ) {
       if (MOCK_ACCOUNTS.other_business_employee.passwords.includes(trimmedPass)) {
         setUser(MOCK_ACCOUNTS.other_business_employee.user);
+        setIsAuthenticated(true);
+        await tokenStorage.saveUser(MOCK_ACCOUNTS.other_business_employee.user);
         return { success: true };
       }
       return { success: false, error: 'Invalid password. Use "staff123" or "123456".' };
@@ -217,16 +250,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   };
 
-  const logout = () => {
+  const logout = async () => {
+    setIsAuthenticated(false);
     setUser(MOCK_ACCOUNTS.other_business.user);
+    await authService.logout();
   };
 
   const quickLogin = (type: LoginType) => {
-    setUser(MOCK_ACCOUNTS[type].user);
+    const selectedUser = MOCK_ACCOUNTS[type].user;
+    setUser(selectedUser);
+    setIsAuthenticated(true);
+    tokenStorage.saveUser(selectedUser);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, quickLogin }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated,
+        isInitializing,
+        login,
+        logout,
+        quickLogin,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

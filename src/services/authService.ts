@@ -113,7 +113,7 @@ export const authService = {
     // Save tokens if returned
     const accessToken = resData.access_token || resData.token;
     if (accessToken) {
-      tokenStorage.setTokens(accessToken, resData.refresh_token);
+      await tokenStorage.setTokens(accessToken, resData.refresh_token);
     }
 
     const u = resData.user;
@@ -154,6 +154,9 @@ export const authService = {
       empId: u.employee_code || undefined,
       sessionStartTime: '7:30 AM',
     };
+
+    // Save user profile to encrypted storage
+    await tokenStorage.saveUser(profile);
 
     return profile;
   },

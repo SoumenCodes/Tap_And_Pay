@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEventListener } from 'expo';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import * as SplashScreen from 'expo-splash-screen';
+import { useAuth } from '../context/AuthContext';
 
 // Keep native splash screen until video is ready
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -19,6 +20,7 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 const videoSource = require('../../assets/SE-pay-video.mp4');
 
 export default function VideoSplashScreen() {
+  const { isAuthenticated } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const hasNavigated = useRef(false);
@@ -42,9 +44,13 @@ export default function VideoSplashScreen() {
       duration: 400,
       useNativeDriver: true,
     }).start(() => {
-      router.replace('/login');
+      if (isAuthenticated) {
+        router.replace('/(tabs)');
+      } else {
+        router.replace('/login');
+      }
     });
-  }, [fadeAnim, router]);
+  }, [fadeAnim, isAuthenticated, router]);
 
   // Hide the native OS splash screen once the video player starts playing or is ready
   useEventListener(player, 'statusChange', ({ status }) => {

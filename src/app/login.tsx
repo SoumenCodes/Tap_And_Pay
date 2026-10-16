@@ -12,6 +12,7 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -33,8 +34,9 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     // If empty, default to Other Business for smooth design review
     if (!username.trim() && !password.trim()) {
       quickLogin('other_business');
@@ -42,12 +44,20 @@ export default function LoginScreen() {
       return;
     }
 
-    const result = login(username, password);
-    if (result.success) {
+    try {
+      setIsLoading(true);
       setErrorMessage('');
-      router.replace('/(tabs)');
-    } else {
-      setErrorMessage(result.error || 'Invalid credentials');
+      const result = await login(username, password);
+      if (result.success) {
+        setErrorMessage('');
+        router.replace('/(tabs)');
+      } else {
+        setErrorMessage(result.error || 'Invalid credentials');
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Login failed. Please check credentials.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -186,7 +196,8 @@ export default function LoginScreen() {
                 <TouchableOpacity
                   activeOpacity={0.85}
                   onPress={handleLogin}
-                  style={styles.loginBtnOuter}
+                  disabled={isLoading}
+                  style={[styles.loginBtnOuter, isLoading && { opacity: 0.75 }]}
                 >
                   <LinearGradient
                     colors={[colors.black.charcoal, colors.black.dark, colors.black.pure]}
@@ -194,8 +205,14 @@ export default function LoginScreen() {
                     end={{ x: 1, y: 0 }}
                     style={styles.loginBtnGradient}
                   >
-                    <Text style={styles.loginBtnText}>Login</Text>
-                    <Feather name="arrow-right" size={18} color={colors.text.inverse} />
+                    {isLoading ? (
+                      <ActivityIndicator size="small" color={colors.text.inverse} />
+                    ) : (
+                      <>
+                        <Text style={styles.loginBtnText}>Login</Text>
+                        <Feather name="arrow-right" size={18} color={colors.text.inverse} />
+                      </>
+                    )}
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
@@ -217,7 +234,7 @@ export default function LoginScreen() {
                     router.replace('/(tabs)');
                   }}
                 >
-                  <Text style={styles.testChipText}>🚕 Taxi Owner</Text>
+                  <Text style={styles.testChipText}>🚕 Owner Driver</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -228,7 +245,7 @@ export default function LoginScreen() {
                     router.replace('/(tabs)');
                   }}
                 >
-                  <Text style={styles.testChipText}>🏢 Taxi Business</Text>
+                  <Text style={styles.testChipText}>🏢 Taxi Company</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -239,7 +256,7 @@ export default function LoginScreen() {
                     router.replace('/(tabs)');
                   }}
                 >
-                  <Text style={styles.testChipText}>🚖 Taxi Driver</Text>
+                  <Text style={styles.testChipText}>🚖Driver</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -261,7 +278,7 @@ export default function LoginScreen() {
                     router.replace('/(tabs)');
                   }}
                 >
-                  <Text style={styles.testChipText}>✂️ Other Employee</Text>
+                  <Text style={styles.testChipText}>✂️Employee</Text>
                 </TouchableOpacity>
               </View>
             </View>

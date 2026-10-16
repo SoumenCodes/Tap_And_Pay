@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { authService } from '../services/authService';
 
 export type LoginType =
   | 'taxi_owner'
@@ -100,7 +101,7 @@ export const MOCK_ACCOUNTS: Record<
 
 interface AuthContextType {
   user: UserProfile;
-  login: (username: string, password: string) => { success: boolean; error?: string };
+  login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   quickLogin: (type: LoginType) => void;
 }
@@ -111,18 +112,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Default to other_business for testing
   const [user, setUser] = useState<UserProfile>(MOCK_ACCOUNTS.other_business.user);
 
-  const login = (
+  const login = async (
     inputUsername: string,
     inputPassword: string
-  ): { success: boolean; error?: string } => {
-    const trimmedUser = inputUsername.trim().toLowerCase();
+  ): Promise<{ success: boolean; error?: string }> => {
+    const trimmedUser = inputUsername.trim();
     const trimmedPass = inputPassword.trim();
+
+    // 1. First attempt live stage API login
+    try {
+      const liveUser = await authService.login({
+        username: trimmedUser,
+        password: trimmedPass,
+        deviceInfo: {
+          platform: 'android',
+          deviceId: 'D9F345A1-9721-4E65-B6E3-138240D9F7C2',
+          appVersion: '1.0.0',
+        },
+      });
+      setUser(liveUser);
+      return { success: true };
+    } catch (apiErr: any) {
+      console.log('Live login attempt notice:', apiErr.message || apiErr);
+      // If server returns explicit credential/auth error, we can check mock fallback
+      // or surface error if it's not a local mock username
+    }
+
+    // 2. Mock fallback for local design review accounts
+    const lowerUser = trimmedUser.toLowerCase();
 
     // 1. Taxi Owner
     if (
-      trimmedUser === 'taxi_owner' ||
-      trimmedUser === 'owner' ||
-      trimmedUser === 'owner@taxi.com'
+      lowerUser === 'taxi_owner' ||
+      lowerUser === 'owner' ||
+      lowerUser === 'owner@taxi.com'
     ) {
       if (MOCK_ACCOUNTS.taxi_owner.passwords.includes(trimmedPass)) {
         setUser(MOCK_ACCOUNTS.taxi_owner.user);
@@ -133,10 +156,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // 2. Taxi Business
     if (
-      trimmedUser === 'taxi_business' ||
-      trimmedUser === 'fleet' ||
-      trimmedUser === 'operator' ||
-      trimmedUser === 'fleet@taxi.com'
+      lowerUser === 'taxi_business' ||
+      lowerUser === 'fleet' ||
+      lowerUser === 'operator' ||
+      lowerUser === 'fleet@taxi.com'
     ) {
       if (MOCK_ACCOUNTS.taxi_business.passwords.includes(trimmedPass)) {
         setUser(MOCK_ACCOUNTS.taxi_business.user);
@@ -147,10 +170,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // 3. Taxi Business Driver
     if (
-      trimmedUser === 'taxi_driver' ||
-      trimmedUser === 'driver' ||
-      trimmedUser === 'taxi_business_driver' ||
-      trimmedUser === 'driver@taxi.com'
+      lowerUser === 'taxi_driver' ||
+      lowerUser === 'driver' ||
+      lowerUser === 'taxi_business_driver' ||
+      lowerUser === 'driver@taxi.com'
     ) {
       if (MOCK_ACCOUNTS.taxi_business_driver.passwords.includes(trimmedPass)) {
         setUser(MOCK_ACCOUNTS.taxi_business_driver.user);
@@ -161,10 +184,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // 4. Other Business (Owner)
     if (
-      trimmedUser === 'other_business' ||
-      trimmedUser === 'business' ||
-      trimmedUser === 'crowncuts' ||
-      trimmedUser === 'merchant@business.com'
+      lowerUser === 'other_business' ||
+      lowerUser === 'business' ||
+      lowerUser === 'crowncuts' ||
+      lowerUser === 'merchant@business.com'
     ) {
       if (MOCK_ACCOUNTS.other_business.passwords.includes(trimmedPass)) {
         setUser(MOCK_ACCOUNTS.other_business.user);
@@ -175,11 +198,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // 5. Other Business Employee
     if (
-      trimmedUser === 'other_employee' ||
-      trimmedUser === 'employee' ||
-      trimmedUser === 'staff' ||
-      trimmedUser === 'liam' ||
-      trimmedUser === 'staff@business.com'
+      lowerUser === 'other_employee' ||
+      lowerUser === 'employee' ||
+      lowerUser === 'staff' ||
+      lowerUser === 'liam' ||
+      lowerUser === 'staff@business.com'
     ) {
       if (MOCK_ACCOUNTS.other_business_employee.passwords.includes(trimmedPass)) {
         setUser(MOCK_ACCOUNTS.other_business_employee.user);
@@ -190,8 +213,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return {
       success: false,
-      error:
-        'User not recognized. Choose: taxi_owner, taxi_business, taxi_driver, other_business, or other_employee.',
+      error: 'Invalid credentials. Please check your username and password.',
     };
   };
 

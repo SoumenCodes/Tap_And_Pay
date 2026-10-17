@@ -63,19 +63,52 @@ export interface StageLoginResponse {
   };
 }
 
-export interface RequestOtpPayload {
-  mobileNumber: string;
+export interface ForgotPasswordPayload {
+  username: string;
+}
+
+export interface ForgotPasswordResponse {
+  status: boolean;
+  message: string;
+  data: {
+    message?: string;
+    expires_in?: number;
+    dev_otp?: string;
+  };
 }
 
 export interface VerifyOtpPayload {
-  mobileNumber: string;
+  username: string;
   otp: string;
 }
 
+export interface VerifyOtpResponse {
+  status: boolean;
+  message: string;
+  data: {
+    temp_token?: string;
+    expires_in?: number;
+  };
+}
+
 export interface ResetPasswordPayload {
-  mobileNumber: string;
-  otp: string;
-  newPassword: string;
+  tempToken: string;
+  password: string;
+  confirm_password: string;
+}
+
+export interface ResetPasswordResponse {
+  status: boolean;
+  message: string;
+}
+
+export interface LogoutPayload {
+  deviceId?: string;
+}
+
+export interface LogoutResponse {
+  status: boolean;
+  message: string;
 }
 
 /**
@@ -162,39 +195,71 @@ export const authService = {
   },
 
   /**
-   * Request OTP for forgot password
+   * Request OTP for forgot password via stage API (/api/forgot-password)
    */
-  requestPasswordResetOtp: async (payload: RequestOtpPayload) => {
-    const response = await apiClient.post('/api/forgot-password/request-otp', payload);
+  requestPasswordResetOtp: async (
+    payload: ForgotPasswordPayload
+  ): Promise<ForgotPasswordResponse> => {
+    const response = await apiClient.post<ForgotPasswordResponse>(
+      '/api/forgot-password',
+      payload
+    );
     return response.data;
   },
 
   /**
-   * Verify OTP
+   * Verify OTP via stage API (/api/verify-otp)
    */
-  verifyPasswordResetOtp: async (payload: VerifyOtpPayload) => {
-    const response = await apiClient.post('/api/forgot-password/verify-otp', payload);
+  verifyPasswordResetOtp: async (
+    payload: VerifyOtpPayload
+  ): Promise<VerifyOtpResponse> => {
+    const response = await apiClient.post<VerifyOtpResponse>(
+      '/api/verify-otp',
+      payload
+    );
     return response.data;
   },
 
   /**
-   * Reset Password
+   * Reset Password via stage API (/api/reset-password)
+   * Sends Authorization: Bearer <tempToken>
    */
-  resetPassword: async (payload: ResetPasswordPayload) => {
-    const response = await apiClient.post('/api/forgot-password/reset', payload);
+  resetPassword: async (
+    payload: ResetPasswordPayload
+  ): Promise<ResetPasswordResponse> => {
+    const response = await apiClient.post<ResetPasswordResponse>(
+      '/api/reset-password',
+      {
+        password: payload.password,
+        confirm_password: payload.confirm_password,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${payload.tempToken}`,
+        },
+      }
+    );
     return response.data;
   },
 
   /**
-   * Logout user
+   * Logout user via stage API (/api/logout)
+   * Sends Authorization: Bearer <accessToken>
    */
-  logout: async () => {
+  logout: async (payload?: LogoutPayload): Promise<LogoutResponse | null> => {
     try {
-      await apiClient.post('/api/logout');
+      const response = await apiClient.post<LogoutResponse>(
+        '/api/logout',
+        payload || {
+          deviceId: 'D9F345A1-9721-4E65-B6E3-138240D9F7C2',
+        }
+      );
+      return response.data;
     } catch {
       // Ignore network errors on logout
+      return null;
     } finally {
-      tokenStorage.clearTokens();
+      await tokenStorage.clearSession();
     }
   },
 };

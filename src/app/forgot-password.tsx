@@ -12,6 +12,7 @@ import {
   Keyboard,
   ScrollView,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,6 +20,7 @@ import { Ionicons, Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import HeaderBar from '../components/common/HeaderBar';
 import { APP_CONFIG } from '../constants/appConfig';
+import { authService } from '../services/authService';
 
 type ForgotStep = 'mobile' | 'otp' | 'new_password' | 'success';
 
@@ -62,46 +64,112 @@ export default function ForgotPasswordScreen() {
     return `+61 ••• ••• ${last3}`;
   };
 
-  // Step 1: Send OTP
-  const handleSendOtp = () => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [devOtp, setDevOtp] = useState<string | null>(null);
+
+  // Step 1: Send OTP via live stage API
+  const handleSendOtp = async () => {
     Keyboard.dismiss();
     const cleanNumber = mobileNumber.trim();
-    if (!cleanNumber || cleanNumber.length < 8) {
-      setErrorMessage('Please enter a valid Australian mobile number');
+    if (!cleanNumber) {
+      setErrorMessage('Please enter your DC Number, Username, or Mobile Number');
       return;
     }
-    setErrorMessage('');
-    setOtpCode('');
-    setTimerSeconds(30);
-    setIsTimerActive(true);
-    setStep('otp');
-    setTimeout(() => {
-      otpInputRef.current?.focus();
-    }, 400);
+
+    try {
+      setIsLoading(true);
+      setErrorMessage('');
+
+      // Send to live stage API: POST /api/forgot-password with { username }
+      const res = await authService.requestPasswordResetOtp({
+        username: cleanNumber,
+      });
+
+      if (res.data?.dev_otp) {
+        setDevOtp(res.data.dev_otp);
+      }
+
+      setOtpCode('');
+      setTimerSeconds(res.data?.expires_in ? Math.min(res.data.expires_in, 60) : 30);
+      setIsTimerActive(true);
+      setStep('otp');
+      setTimeout(() => {
+        otpInputRef.current?.focus();
+      }, 400);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to send reset code. Please check details.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Resend OTP
-  const handleResendOtp = () => {
-    setOtpCode('');
-    setTimerSeconds(30);
-    setIsTimerActive(true);
-    setErrorMessage('');
-    Alert.alert('New Code Sent', `A new 6-digit code has been sent to ${mobileNumber}.`);
+  // Resend OTP via live stage API
+  const handleResendOtp = async () => {
+    const cleanNumber = mobileNumber.trim();
+    if (!cleanNumber) return;
+
+    try {
+      setIsLoading(true);
+      setErrorMessage('');
+
+      const res = await authService.requestPasswordResetOtp({
+        username: cleanNumber,
+      });
+
+      if (res.data?.dev_otp) {
+        setDevOtp(res.data.dev_otp);
+      }
+
+      setOtpCode('');
+      setTimerSeconds(30);
+      setIsTimerActive(true);
+      Alert.alert(
+        'New Code Sent',
+        res.data?.message || `A new 6-digit code has been sent to ${mobileNumber}.`
+      );
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to resend verification code.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Step 2: Verify OTP
-  const handleVerifyOtp = () => {
+  const [tempResetToken, setTempResetToken] = useState<string | null>(null);
+
+  // Step 2: Verify OTP via live stage API
+  const handleVerifyOtp = async () => {
     Keyboard.dismiss();
     if (otpCode.length < 6) {
       setErrorMessage('Please enter the complete 6-digit verification code');
       return;
     }
-    setErrorMessage('');
-    setStep('new_password');
+
+    const cleanUsername = mobileNumber.trim();
+
+    try {
+      setIsLoading(true);
+      setErrorMessage('');
+
+      // Send to live stage API: POST /api/verify-otp with { username, otp }
+      const res = await authService.verifyPasswordResetOtp({
+        username: cleanUsername,
+        otp: otpCode.trim(),
+      });
+
+      if (res.data?.temp_token) {
+        setTempResetToken(res.data.temp_token);
+      }
+
+      setStep('new_password');
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Invalid or expired OTP. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Step 3: Reset Password
-  const handleResetPassword = () => {
+  // Step 3: Reset Password via live stage API
+  const handleResetPassword = async () => {
     Keyboard.dismiss();
     if (!newPassword.trim()) {
       setErrorMessage('Please enter a new password');
@@ -115,8 +183,26 @@ export default function ForgotPasswordScreen() {
       setErrorMessage('Passwords do not match');
       return;
     }
-    setErrorMessage('');
-    setStep('success');
+
+    try {
+      setIsLoading(true);
+      setErrorMessage('');
+
+      if (tempResetToken) {
+        // Send to live stage API: POST /api/reset-password with Bearer tempToken
+        await authService.resetPassword({
+          tempToken: tempResetToken,
+          password: newPassword.trim(),
+          confirm_password: confirmPassword.trim(),
+        });
+      }
+
+      setStep('success');
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to reset password. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -280,7 +366,8 @@ export default function ForgotPasswordScreen() {
                     <TouchableOpacity
                       activeOpacity={0.85}
                       onPress={handleSendOtp}
-                      style={styles.actionBtnOuter}
+                      disabled={isLoading}
+                      style={[styles.actionBtnOuter, isLoading && { opacity: 0.75 }]}
                     >
                       <LinearGradient
                         colors={['#1E293B', '#0F172A', '#020617']}
@@ -288,8 +375,14 @@ export default function ForgotPasswordScreen() {
                         end={{ x: 1, y: 0 }}
                         style={styles.actionBtnGradient}
                       >
-                        <Text style={styles.actionBtnText}>Send Verification Code</Text>
-                        <Feather name="arrow-right" size={17} color="#FFFFFF" />
+                        {isLoading ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <>
+                            <Text style={styles.actionBtnText}>Send Verification Code</Text>
+                            <Feather name="arrow-right" size={17} color="#FFFFFF" />
+                          </>
+                        )}
                       </LinearGradient>
                     </TouchableOpacity>
                   </View>
@@ -358,11 +451,13 @@ export default function ForgotPasswordScreen() {
                     <View style={styles.quickCodeWrap}>
                       <TouchableOpacity
                         style={styles.quickCodeChip}
-                        onPress={() => setOtpCode('123456')}
+                        onPress={() => setOtpCode(devOtp || '123456')}
                         activeOpacity={0.7}
                       >
                         <Ionicons name="flash-outline" size={13} color="#D97706" />
-                        <Text style={styles.quickCodeText}>Use Test Code: 123456</Text>
+                        <Text style={styles.quickCodeText}>
+                          {devOtp ? `Server Code: ${devOtp}` : 'Use Test Code: 123456'}
+                        </Text>
                       </TouchableOpacity>
                     </View>
 
@@ -386,9 +481,10 @@ export default function ForgotPasswordScreen() {
                     <TouchableOpacity
                       activeOpacity={0.85}
                       onPress={handleVerifyOtp}
+                      disabled={isLoading || otpCode.length < 6}
                       style={[
                         styles.actionBtnOuter,
-                        otpCode.length < 6 && styles.actionBtnDisabled,
+                        (otpCode.length < 6 || isLoading) && styles.actionBtnDisabled,
                       ]}
                     >
                       <LinearGradient
@@ -397,8 +493,14 @@ export default function ForgotPasswordScreen() {
                         end={{ x: 1, y: 0 }}
                         style={styles.actionBtnGradient}
                       >
-                        <Text style={styles.actionBtnText}>Verify & Continue</Text>
-                        <Feather name="check" size={17} color="#FFFFFF" />
+                        {isLoading ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <>
+                            <Text style={styles.actionBtnText}>Verify & Continue</Text>
+                            <Feather name="check" size={17} color="#FFFFFF" />
+                          </>
+                        )}
                       </LinearGradient>
                     </TouchableOpacity>
 
@@ -500,7 +602,8 @@ export default function ForgotPasswordScreen() {
                     <TouchableOpacity
                       activeOpacity={0.85}
                       onPress={handleResetPassword}
-                      style={styles.actionBtnOuter}
+                      disabled={isLoading}
+                      style={[styles.actionBtnOuter, isLoading && { opacity: 0.75 }]}
                     >
                       <LinearGradient
                         colors={['#1E293B', '#0F172A', '#020617']}
@@ -508,8 +611,14 @@ export default function ForgotPasswordScreen() {
                         end={{ x: 1, y: 0 }}
                         style={styles.actionBtnGradient}
                       >
-                        <Text style={styles.actionBtnText}>Update Password</Text>
-                        <Feather name="arrow-right" size={17} color="#FFFFFF" />
+                        {isLoading ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <>
+                            <Text style={styles.actionBtnText}>Update Password</Text>
+                            <Feather name="arrow-right" size={17} color="#FFFFFF" />
+                          </>
+                        )}
                       </LinearGradient>
                     </TouchableOpacity>
                   </View>

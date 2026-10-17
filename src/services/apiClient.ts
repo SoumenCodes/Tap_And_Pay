@@ -83,15 +83,17 @@ apiClient.interceptors.response.use(
       tokenStorage.clearTokens();
     }
 
+    const responseData = error.response?.data as any;
     const customMessage =
-      error.response?.data?.message ||
-      error.response?.data?.error ||
+      responseData?.messages?.error ||
+      responseData?.message ||
+      (typeof responseData?.error === 'string' ? responseData?.error : null) ||
       error.message ||
       'An unexpected error occurred. Please check your network connection.';
 
     const enhancedError = new Error(customMessage);
     (enhancedError as any).status = error.response?.status;
-    (enhancedError as any).code = error.response?.data?.code || error.code;
+    (enhancedError as any).code = responseData?.code || error.code;
     (enhancedError as any).raw = error;
 
     return Promise.reject(enhancedError);

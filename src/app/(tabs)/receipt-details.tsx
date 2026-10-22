@@ -10,8 +10,10 @@ import {
   Share,
   Alert,
   ActivityIndicator,
+  Modal,
+  TouchableWithoutFeedback,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import * as Print from 'expo-print';
@@ -20,6 +22,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useAuth } from '../../context/AuthContext';
 import HeaderBar from '../../components/common/HeaderBar';
 import { OtherBusinessReceiptScreen } from '../../components/other-business';
+import { getAssetDataUri } from '../../utils/assetUtils';
 
 function TaxiReceiptScreen() {
   const insets = useSafeAreaInsets();
@@ -59,10 +62,20 @@ function TaxiReceiptScreen() {
   const decimalPart = (numericAmount % 1).toFixed(2).split('.')[1] || '00';
 
   const [isSharing, setIsSharing] = useState(false);
+  const [isShareModalVisible, setIsShareModalVisible] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
 
-  // Generate HTML for printing or sharing as PDF
-  const generateReceiptHtml = () => {
+  // Generate HTML for printing or sharing as PDF/Photo card
+  const generateReceiptHtml = async (isPhotoCard = false) => {
+    const taxiLogoUri = await getAssetDataUri(
+      require('../../../assets/taxi-logo.png'),
+      'image/png'
+    );
+    const sePayLogoUri = await getAssetDataUri(
+      require('../../../assets/SE-pay-logo-gif.gif'),
+      'image/gif'
+    );
+
     return `
 <!DOCTYPE html>
 <html>
@@ -74,8 +87,8 @@ function TaxiReceiptScreen() {
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       margin: 0;
-      padding: 24px 16px;
-      background-color: #F8FAFC;
+      padding: ${isPhotoCard ? '24px 16px' : '0'};
+      background-color: ${isPhotoCard ? '#F8FAFC' : '#FFFFFF'};
       color: #0F172A;
       display: flex;
       justify-content: center;
@@ -87,7 +100,7 @@ function TaxiReceiptScreen() {
       border: 1.5px solid #FEF08A;
       border-radius: 24px;
       padding: 24px 20px 28px;
-      box-shadow: 0 8px 24px rgba(245, 158, 11, 0.12);
+      box-shadow: ${isPhotoCard ? '0 12px 32px rgba(245, 158, 11, 0.16)' : 'none'};
       text-align: center;
       box-sizing: border-box;
     }
@@ -101,7 +114,12 @@ function TaxiReceiptScreen() {
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 24px;
+      overflow: hidden;
+    }
+    .logo-badge img {
+      width: 32px;
+      height: 32px;
+      object-fit: contain;
     }
     .biz-name {
       font-size: 18px;
@@ -259,17 +277,20 @@ function TaxiReceiptScreen() {
       letter-spacing: 0.8px;
       margin: 0 0 6px;
     }
-    .se-pay {
-      font-size: 16px;
-      font-weight: 900;
-      color: #0F172A;
-      letter-spacing: 1.5px;
+    .se-pay-gif-logo {
+      display: block;
+      margin: 0 auto;
+      width: 105px;
+      height: auto;
+      object-fit: contain;
     }
   </style>
 </head>
 <body>
   <div class="receipt-card">
-    <div class="logo-badge">🚖</div>
+    <div class="logo-badge">
+      <img src="${taxiLogoUri}" alt="Taxi" />
+    </div>
     <div class="biz-name">${businessName}</div>
     <div class="biz-meta">ABN: ${abn} • PH: ${phone}</div>
     <div class="biz-meta">TAXI NO.: ${taxiNumber} &nbsp;&nbsp; DC: ${dcNumber}</div>
@@ -324,7 +345,7 @@ function TaxiReceiptScreen() {
     <div class="footer">
       <div class="thank-you">THANK YOU FOR CHOOSING TAXI ${taxiNumber}</div>
       <div class="powered-by">POWERED BY</div>
-      <div class="se-pay">SE PAY</div>
+      <img class="se-pay-gif-logo" src="${sePayLogoUri}" alt="SE PAY" />
     </div>
   </div>
 </body>
@@ -332,32 +353,67 @@ function TaxiReceiptScreen() {
     `;
   };
 
-  // Open native mobile share dialog with generated PDF
-  const handleShare = async () => {
+  // Open the Selection Modal (Photo or PDF)
+  const handleOpenShareMenu = () => {
+    setIsShareModalVisible(true);
+  };
+
+  // 1. Share as Animated Card Photo / HTML image
+  const handleSharePhoto = async () => {
+    setIsShareModalVisible(false);
     try {
       setIsSharing(true);
-      const html = generateReceiptHtml();
-      const { uri, base64 } = await Print.printToFileAsync({ html, base64: true });
 
-      const pdfFileName = `receipt_${Date.now()}.pdf`;
-      const targetUri = `${FileSystem.cacheDirectory}${pdfFileName}`;
+      const html = await generateReceiptHtml(true);
+      const sanitize = (name: string) => name.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const filename = `Receipt_Card_${sanitize(businessName)}_${Date.now()}.html`;
+      const targetUri = `${FileSystem.documentDirectory}${filename}`;
 
-      if (base64) {
-        await FileSystem.writeAsStringAsync(targetUri, base64, {
-          encoding: FileSystem.EncodingType.Base64,
+      await FileSystem.writeAsStringAsync(targetUri, html, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (isAvailable) {
+        await Sharing.shareAsync(targetUri, {
+          mimeType: 'text/html',
+          dialogTitle: `Share Receipt Card Photo - ${businessName}`,
+          UTI: 'public.html',
         });
       } else {
-        await FileSystem.copyAsync({
-          from: uri,
-          to: targetUri,
+        await Share.share({
+          title: `Receipt Card - ${businessName}`,
+          message: `Digital Receipt Card: ${businessName}\nTaxi: ${taxiNumber}\nRoute: ${pickup} to ${dropoff}\nAmount: $${formattedWithComma}.${decimalPart} AUD\nDate: 21 Sep 2026, 09:41 AM\nPayment ID: ${paymentId}`,
         });
       }
+    } catch (error) {
+      console.error('Error sharing receipt photo:', error);
+      Alert.alert('Share Receipt', 'Could not open share menu. Please try again.');
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  // 2. Share as PDF Document
+  const handleSharePdf = async () => {
+    setIsShareModalVisible(false);
+    try {
+      setIsSharing(true);
+
+      const html = await generateReceiptHtml(false);
+      const { uri } = await Print.printToFileAsync({ html });
+
+      const sanitize = (name: string) => name.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const filename = `Receipt_${sanitize(businessName)}_${Date.now()}.pdf`;
+      const targetUri = `${FileSystem.documentDirectory}${filename}`;
+
+      await FileSystem.copyAsync({ from: uri, to: targetUri });
 
       const isAvailable = await Sharing.isAvailableAsync();
       if (isAvailable) {
         await Sharing.shareAsync(targetUri, {
           mimeType: 'application/pdf',
-          dialogTitle: `Share Receipt - ${businessName}`,
+          dialogTitle: `Share Receipt PDF - ${businessName}`,
           UTI: '.pdf',
         });
       } else {
@@ -367,15 +423,8 @@ function TaxiReceiptScreen() {
         });
       }
     } catch (error) {
-      console.error('Error sharing receipt:', error);
-      try {
-        await Share.share({
-          title: `Receipt - ${businessName}`,
-          message: `Taxi Receipt: ${businessName}\nTaxi: ${taxiNumber}\nRoute: ${pickup} to ${dropoff}\nAmount: $${formattedWithComma}.${decimalPart} AUD\nDate: 21 Sep 2026, 09:41 AM\nPayment ID: ${paymentId}`,
-        });
-      } catch {
-        Alert.alert('Share Receipt', 'Could not open share menu. Please try again.');
-      }
+      console.error('Error sharing receipt PDF:', error);
+      Alert.alert('Share Receipt', 'Could not open share menu. Please try again.');
     } finally {
       setIsSharing(false);
     }
@@ -385,7 +434,7 @@ function TaxiReceiptScreen() {
   const handlePrint = async () => {
     try {
       setIsPrinting(true);
-      const html = generateReceiptHtml();
+      const html = await generateReceiptHtml(false);
       await Print.printAsync({ html });
     } catch (error) {
       console.error('Error printing receipt:', error);
@@ -409,7 +458,7 @@ function TaxiReceiptScreen() {
         rightAction={
           <TouchableOpacity
             style={styles.headerBtn}
-            onPress={handleShare}
+            onPress={handleOpenShareMenu}
             activeOpacity={0.6}
             disabled={isSharing}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
@@ -550,7 +599,7 @@ function TaxiReceiptScreen() {
               <Text style={styles.poweredByText}>POWERED BY</Text>
 
               <Image
-                source={require('../../../assets/se_pay_brand_logo.png')}
+                source={require('../../../assets/SE-pay-logo-gif.gif')}
                 style={styles.sePayLogo}
                 resizeMode="contain"
               />
@@ -575,7 +624,7 @@ function TaxiReceiptScreen() {
 
             <TouchableOpacity
               style={styles.shareBtn}
-              onPress={handleShare}
+              onPress={handleOpenShareMenu}
               disabled={isSharing}
               activeOpacity={0.85}
             >
@@ -589,6 +638,95 @@ function TaxiReceiptScreen() {
           </View>
         </ScrollView>
       </View>
+
+      {/* ── SHARE FORMAT SELECTION MODAL (Photo Card or PDF) ── */}
+      <Modal
+        visible={isShareModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsShareModalVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setIsShareModalVisible(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback onPress={() => { }}>
+              <View style={[styles.modalSheet, { paddingBottom: Math.max(insets.bottom, 20) + 12 }]}>
+                {/* Drag pill handle */}
+                <View style={styles.modalHandle} />
+
+                {/* Modal Title */}
+                <View style={styles.modalHeaderRow}>
+                  <View>
+                    <Text style={styles.modalTitle}>Share Receipt</Text>
+                    <Text style={styles.modalSubtitle}>Select your preferred format to share</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.modalCloseBtn}
+                    onPress={() => setIsShareModalVisible(false)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Feather name="x" size={20} color="#64748B" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Option 1: Card Photo with Animated Logo */}
+                <TouchableOpacity
+                  style={styles.modalOptionCard}
+                  activeOpacity={0.75}
+                  onPress={handleSharePhoto}
+                >
+                  <View style={[styles.modalOptionIconBox, { backgroundColor: '#FEF3C7' }]}>
+                    <Ionicons name="image-outline" size={24} color="#D97706" />
+                  </View>
+                  <View style={styles.modalOptionTextWrap}>
+                    <View style={styles.modalOptionTitleRow}>
+                      <Text style={styles.modalOptionTitle}>Share as Card Photo</Text>
+                      <View style={styles.gifBadge}>
+                        <Text style={styles.gifBadgeText}>GIF LOGO</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.modalOptionDesc}>
+                      Card-sized receipt featuring your SE PAY animated GIF logo
+                    </Text>
+                  </View>
+                  <Feather name="chevron-right" size={18} color="#94A3B8" />
+                </TouchableOpacity>
+
+                {/* Option 2: PDF Document */}
+                <TouchableOpacity
+                  style={styles.modalOptionCard}
+                  activeOpacity={0.75}
+                  onPress={handleSharePdf}
+                >
+                  <View style={[styles.modalOptionIconBox, { backgroundColor: '#EFF6FF' }]}>
+                    <Ionicons name="document-text-outline" size={24} color="#2563EB" />
+                  </View>
+                  <View style={styles.modalOptionTextWrap}>
+                    <View style={styles.modalOptionTitleRow}>
+                      <Text style={styles.modalOptionTitle}>Share as PDF Document</Text>
+                      <View style={styles.pdfBadge}>
+                        <Text style={styles.pdfBadgeText}>PDF</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.modalOptionDesc}>
+                      Formal A4 printable digital PDF document with full breakdown
+                    </Text>
+                  </View>
+                  <Feather name="chevron-right" size={18} color="#94A3B8" />
+                </TouchableOpacity>
+
+                {/* Cancel Button */}
+                <TouchableOpacity
+                  style={styles.modalCancelBtn}
+                  onPress={() => setIsShareModalVisible(false)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </View>
   );
 }
@@ -820,8 +958,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   sePayLogo: {
-    width: 96,
-    height: 26,
+    height: 70,
   },
   actions: {
     gap: 10,
@@ -858,6 +995,135 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     fontSize: 13,
     fontWeight: '700',
+  },
+
+  /* ── Share Modal Styles ── */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 3,
+    letterSpacing: -0.2,
+  },
+  modalSubtitle: {
+    fontSize: 12.5,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  modalCloseBtn: {
+    padding: 4,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 20,
+  },
+  modalOptionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 12,
+  },
+  modalOptionIconBox: {
+    width: 46,
+    height: 46,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  modalOptionTextWrap: {
+    flex: 1,
+    marginRight: 6,
+  },
+  modalOptionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 3,
+    gap: 8,
+  },
+  modalOptionTitle: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  gifBadge: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+  },
+  gifBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#B45309',
+    letterSpacing: 0.5,
+  },
+  pdfBadge: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+  },
+  pdfBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#1D4ED8',
+    letterSpacing: 0.5,
+  },
+  modalOptionDesc: {
+    fontSize: 11.5,
+    color: '#64748B',
+    lineHeight: 16,
+  },
+  modalCancelBtn: {
+    marginTop: 8,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+  },
+  modalCancelText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#475569',
   },
 });
 

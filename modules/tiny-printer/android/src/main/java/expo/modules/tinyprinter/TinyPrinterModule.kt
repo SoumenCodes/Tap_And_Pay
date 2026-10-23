@@ -5,6 +5,7 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
+import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -205,12 +206,27 @@ class TinyPrinterModule : Module() {
           Log.w("TinyPrinter", "Vendor scanDevice notice: ${e.message}")
         }
 
-        // 2. Concurrently run direct native Android BluetoothLeScanner
+        // 2. Concurrently check bonded devices & run direct native Android BluetoothLeScanner
         try {
           val context = appContext.reactContext?.applicationContext
             ?: appContext.currentActivity?.applicationContext
           val btManager = context?.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
           val btAdapter = btManager?.adapter ?: BluetoothAdapter.getDefaultAdapter()
+
+          // A. Immediately report any already-paired / bonded devices
+          try {
+            btAdapter?.bondedDevices?.forEach { bondedDev ->
+              val name = bondedDev.name ?: ""
+              val address = bondedDev.address ?: ""
+              if (name.isNotBlank() && address.isNotBlank()) {
+                handleDiscoveredDevice(address, name, BleDevice(bondedDev))
+              }
+            }
+          } catch (e: Exception) {
+            Log.w("TinyPrinter", "Bonded devices check notice: ${e.message}")
+          }
+
+          // B. Start high-priority low-latency active radio scan
           val scanner = btAdapter?.bluetoothLeScanner
           if (scanner != null && btAdapter.isEnabled) {
             nativeScanCallback?.let {
@@ -245,7 +261,11 @@ class TinyPrinterModule : Module() {
               }
             }
             nativeScanCallback = cb
-            scanner.startScan(cb)
+
+            val settings = ScanSettings.Builder()
+              .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+              .build()
+            scanner.startScan(null, settings, cb)
           }
         } catch (e: Exception) {
           Log.w("TinyPrinter", "Native BluetoothLeScanner notice: ${e.message}")

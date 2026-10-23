@@ -280,6 +280,17 @@ export default function LoginScreen() {
                 >
                   <Text style={styles.testChipText}>✂️Employee</Text>
                 </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.testChip, styles.printerTestChip]}
+                  activeOpacity={0.75}
+                  onPress={() => {
+                    router.push('/printer-demo');
+                  }}
+                >
+                  <Feather name="printer" size={13} color="#D97706" style={{ marginRight: 5 }} />
+                  <Text style={styles.printerTestChipText}>🖨️ Thermal Printer Test</Text>
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -491,6 +502,20 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#1E293B',
+  },
+  printerTestChip: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#F59E0B',
+    borderWidth: 1.5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    marginTop: 4,
+  },
+  printerTestChipText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#92400E',
   },
   versionWrap: {
     alignItems: 'center',

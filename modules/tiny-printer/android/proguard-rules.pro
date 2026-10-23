@@ -1,0 +1,5 @@
+-keep class com.ble.** { *; }
+-keep class cn.com.heaton.blelibrary.** { *; }
+-keep class org.opencv.** { *; }
+-keep class com.blankj.utilcode.** { *; }
+-keep class com.lzy.okgo.** { *; }

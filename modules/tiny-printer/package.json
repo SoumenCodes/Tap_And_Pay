@@ -1,0 +1,7 @@
+{
+  "name": "tiny-printer",
+  "version": "1.0.0",
+  "description": "Tiny Print Bluetooth Thermal Printer SDK Bridge",
+  "main": "index.ts",
+  "types": "index.ts"
+}

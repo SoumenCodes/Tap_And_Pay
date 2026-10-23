@@ -1,0 +1,57 @@
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+
+group = 'expo.modules.tinyprinter'
+version = '1.0.0'
+
+def safeExtGet(prop, fallback) {
+    rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
+}
+
+android {
+    compileSdkVersion safeExtGet('compileSdkVersion', 35)
+    namespace "expo.modules.tinyprinter"
+
+    defaultConfig {
+        minSdkVersion safeExtGet('minSdkVersion', 24)
+        targetSdkVersion safeExtGet('targetSdkVersion', 35)
+        versionCode 1
+        versionName '1.0'
+        consumerProguardFiles 'proguard-rules.pro'
+    }
+
+    lintOptions {
+        abortOnError false
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+}
+
+repositories {
+    mavenCentral()
+    google()
+    maven { url 'https://jitpack.io' }
+    flatDir {
+        dirs 'libs'
+    }
+}
+
+dependencies {
+    implementation project(':expo-modules-core')
+
+    // Vendor JAR libraries
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+
+    // Dependencies required by bleLib1 & bleLib2
+    implementation 'com.blankj:utilcodex:1.30.6'
+    implementation 'com.google.code.gson:gson:2.8.5'
+    implementation 'com.alibaba:fastjson:1.2.72'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+}

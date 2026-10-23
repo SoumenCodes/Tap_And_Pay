@@ -56,7 +56,17 @@
           "android": {
             "minSdkVersion": 30,
             "compileSdkVersion": 36,
-            "targetSdkVersion": 35
+            "targetSdkVersion": 35,
+            "buildArchs": ["arm64-v8a", "armeabi-v7a"],
+            "usesCleartextTraffic": true,
+            "extraMavenRepos": ["https://jitpack.io"],
+            "packagingOptions": {
+              "pickFirst": [
+                "**/libopencv_java*.so",
+                "**/libc++_shared.so"
+              ]
+            },
+            "extraProguardRules": "-keep class com.ble.** { *; }\n-keep class cn.com.heaton.blelibrary.** { *; }\n-keep class org.opencv.** { *; }\n-keep class com.blankj.utilcode.** { *; }\n-keep class com.lzy.okgo.** { *; }"
           }
         }
       ],

@@ -96,19 +96,45 @@ export interface ProfileApiResponse {
   data: ProfileResponseData;
 }
 
-export interface BankDetailsData {
-  has_bank_details: boolean;
+export interface DraftBankDetails {
   bank_account_name?: string;
   bsb?: string;
   account_number?: string;
   masked_account_number?: string;
   bank_name?: string;
   bank_badge?: string;
+  submitted_ts?: string;
+}
+
+export interface BankDetailsData {
+  has_bank_details?: boolean;
+  bank_account_name?: string;
+  bsb?: string;
+  account_number?: string;
+  masked_account_number?: string;
+  bank_name?: string;
+  bank_badge?: string;
+  approval_status?: string;
   is_verified?: boolean;
   payout_payment_method?: string;
+  has_pending_approval?: boolean;
+  draft_bank_details?: DraftBankDetails | null;
 }
 
 export interface BankDetailsApiResponse {
+  status: boolean;
+  message: string;
+  data: BankDetailsData;
+}
+
+export interface UpdateBankDetailsPayload {
+  account_name: string;
+  bsb: string;
+  account_number: string;
+  bank_name: string;
+}
+
+export interface UpdateBankDetailsResponse {
   status: boolean;
   message: string;
   data: BankDetailsData;
@@ -134,5 +160,19 @@ export const profileService = {
   getBankDetails: async (): Promise<BankDetailsData> => {
     const response = await apiClient.get<BankDetailsApiResponse>('/api/user/bank-details');
     return response.data.data;
+  },
+
+  /**
+   * Submit bank details update for approval
+   * POST /api/user/update-bank-details
+   */
+  updateBankDetails: async (
+    payload: UpdateBankDetailsPayload
+  ): Promise<UpdateBankDetailsResponse> => {
+    const response = await apiClient.post<UpdateBankDetailsResponse>(
+      '/api/user/update-bank-details',
+      payload
+    );
+    return response.data;
   },
 };

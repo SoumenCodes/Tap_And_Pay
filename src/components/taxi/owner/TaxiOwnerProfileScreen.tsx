@@ -23,6 +23,7 @@ import {
   ProfileResponseData,
   BankDetailsData,
 } from '../../../services/profileService';
+import { formatSubmittedDate } from '../../../utils/dateUtils';
 
 export default function TaxiOwnerProfileScreen() {
   const router = useRouter();
@@ -52,6 +53,8 @@ export default function TaxiOwnerProfileScreen() {
   const [editAccountName, setEditAccountName] = useState('');
   const [editBsb, setEditBsb] = useState('');
   const [editAccountNumber, setEditAccountNumber] = useState('');
+  const [editBankName, setEditBankName] = useState('');
+  const [isSubmittingBank, setIsSubmittingBank] = useState(false);
 
   // Helper to apply profile data to local state
   const applyProfileData = (data: ProfileResponseData) => {
@@ -66,6 +69,9 @@ export default function TaxiOwnerProfileScreen() {
       if (bd.bsb) {
         setBsbNumber(bd.bsb);
         setEditBsb(bd.bsb);
+      }
+      if (bd.bank_name) {
+        setEditBankName(bd.bank_name);
       }
       if (bd.masked_account_number) {
         setAccountNumber(bd.masked_account_number);
@@ -127,16 +133,28 @@ export default function TaxiOwnerProfileScreen() {
       if (data) {
         if (data.bank_account_name) {
           setAccountName(data.bank_account_name);
-          setEditAccountName(data.bank_account_name);
         }
         if (data.bsb) {
           setBsbNumber(data.bsb);
-          setEditBsb(data.bsb);
         }
         if (data.masked_account_number) {
           setAccountNumber(data.masked_account_number);
         } else if (data.account_number) {
           setAccountNumber(`••••  ••••  ${data.account_number.slice(-4)}`);
+        }
+
+        // If an update is pending, prefill inputs with draft_bank_details so user can edit & re-submit
+        if (data.has_pending_approval && data.draft_bank_details) {
+          const draft = data.draft_bank_details;
+          setEditAccountName(draft.bank_account_name || '');
+          setEditBsb(draft.bsb || '');
+          setEditAccountNumber(draft.account_number || '');
+          setEditBankName(draft.bank_name || '');
+        } else {
+          setEditAccountName(data.bank_account_name || '');
+          setEditBsb(data.bsb || '');
+          setEditAccountNumber(data.account_number || '');
+          setEditBankName(data.bank_name || '');
         }
       }
     } catch (err: any) {
@@ -222,22 +240,62 @@ export default function TaxiOwnerProfileScreen() {
     }
   };
 
-  const handleConfirmBankUpdate = () => {
-    setIsUpdateBankModalVisible(false);
-    Alert.alert(
-      'Bank Update Requested',
-      'Your request to update bank account details has been submitted for fleet administrator approval. Daily payouts will pause until verified.',
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            setAccountName(editAccountName);
-            setBsbNumber(editBsb);
-            setAccountNumber(`••••  ••••  ${editAccountNumber.slice(-4)}`);
+  const handleConfirmBankUpdate = async () => {
+    const trimmedName = editAccountName.trim();
+    const trimmedBsb = editBsb.trim();
+    const trimmedAcc = editAccountNumber.trim();
+    const trimmedBank = editBankName.trim();
+
+    if (!trimmedName || !trimmedBsb || !trimmedAcc || !trimmedBank) {
+      Alert.alert(
+        'Required Fields',
+        'Please enter Account Name, BSB, Account Number, and Bank Name.'
+      );
+      return;
+    }
+
+    try {
+      setIsSubmittingBank(true);
+      const response = await profileService.updateBankDetails({
+        account_name: trimmedName,
+        bsb: trimmedBsb,
+        account_number: trimmedAcc,
+        bank_name: trimmedBank,
+      });
+
+      const updated = response.data;
+      if (updated) {
+        setBankData((prev) => ({
+          ...prev,
+          has_pending_approval: true,
+          approval_status: updated.approval_status || 'pending',
+          draft_bank_details: {
+            bank_account_name: updated.bank_account_name || trimmedName,
+            bsb: updated.bsb || trimmedBsb,
+            account_number: updated.account_number || trimmedAcc,
+            masked_account_number:
+              updated.masked_account_number || `••••  ••••  ${trimmedAcc.slice(-4)}`,
+            bank_name: trimmedBank,
+            bank_badge: updated.bank_badge || prev?.bank_badge || 'NAB',
+            submitted_ts: new Date().toISOString().replace('T', ' ').substring(0, 19),
           },
-        },
-      ]
-    );
+        }));
+      }
+
+      setIsUpdateBankModalVisible(false);
+      Alert.alert(
+        'Bank Details Submitted',
+        response.message || 'Bank details submitted for approval successfully.'
+      );
+    } catch (err: any) {
+      console.log('Failed to update bank details:', err.message || err);
+      Alert.alert(
+        'Update Failed',
+        err.message || 'Could not submit bank details for approval. Please try again.'
+      );
+    } finally {
+      setIsSubmittingBank(false);
+    }
   };
 
   const handleLogout = () => {
@@ -504,28 +562,35 @@ export default function TaxiOwnerProfileScreen() {
               <View style={styles.bankTitleCol}>
                 <View style={styles.bankTitleVerifiedRow}>
                   <Text style={styles.bankSheetTitle}>Bank Details</Text>
-                  <View
-                    style={[
-                      styles.verifiedPill,
-                      !(bankData?.is_verified ?? u?.is_verified ?? true) && {
-                        backgroundColor: '#F1F5F9',
-                        borderColor: '#E2E8F0',
-                      },
-                    ]}
-                  >
-                    <Text
+                  {bankData?.has_pending_approval ? (
+                    <View style={styles.pendingBadgePill}>
+                      <Ionicons name="time-outline" size={11} color="#B45309" style={{ marginRight: 3 }} />
+                      <Text style={styles.pendingBadgePillText}>Pending</Text>
+                    </View>
+                  ) : (
+                    <View
                       style={[
-                        styles.verifiedPillText,
+                        styles.verifiedPill,
                         !(bankData?.is_verified ?? u?.is_verified ?? true) && {
-                          color: '#64748B',
+                          backgroundColor: '#F1F5F9',
+                          borderColor: '#E2E8F0',
                         },
                       ]}
                     >
-                      {(bankData?.is_verified ?? u?.is_verified ?? true)
-                        ? 'Verified'
-                        : 'Pending'}
-                    </Text>
-                  </View>
+                      <Text
+                        style={[
+                          styles.verifiedPillText,
+                          !(bankData?.is_verified ?? u?.is_verified ?? true) && {
+                            color: '#64748B',
+                          },
+                        ]}
+                      >
+                        {(bankData?.is_verified ?? u?.is_verified ?? true)
+                          ? 'Verified'
+                          : 'Pending'}
+                      </Text>
+                    </View>
+                  )}
                 </View>
                 <Text style={styles.bankSheetSubtitle}>Register account for payouts</Text>
               </View>
@@ -543,6 +608,60 @@ export default function TaxiOwnerProfileScreen() {
             {isBankLoading && !bankData && (
               <View style={{ paddingVertical: 14, alignItems: 'center' }}>
                 <ActivityIndicator size="small" color="#D97706" />
+              </View>
+            )}
+
+            {/* Pending Draft Details Card (shown when an update request is pending approval) */}
+            {bankData?.has_pending_approval && Boolean(bankData?.draft_bank_details) && (
+              <View style={styles.pendingReviewCard}>
+                <View style={styles.pendingReviewHeader}>
+                  <View style={styles.pendingReviewIconWrap}>
+                    <Ionicons name="time" size={14} color="#B45309" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.pendingReviewTitle}>Pending Update Under Review</Text>
+                    {Boolean(bankData.draft_bank_details?.submitted_ts) && (
+                      <Text style={styles.pendingReviewSub}>
+                        Submitted {formatSubmittedDate(bankData.draft_bank_details?.submitted_ts)}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+
+                <View style={styles.draftDetailsDivider} />
+
+                <View style={styles.draftDetailRow}>
+                  <Text style={styles.draftDetailLabel}>New Account Name</Text>
+                  <Text style={styles.draftDetailValue}>
+                    {bankData.draft_bank_details?.bank_account_name || '--'}
+                  </Text>
+                </View>
+
+                {Boolean(bankData.draft_bank_details?.bank_name) && (
+                  <View style={styles.draftDetailRow}>
+                    <Text style={styles.draftDetailLabel}>New Bank Name</Text>
+                    <Text style={styles.draftDetailValue}>
+                      {bankData.draft_bank_details?.bank_name}
+                    </Text>
+                  </View>
+                )}
+
+                <View style={styles.draftDetailRow}>
+                  <Text style={styles.draftDetailLabel}>New BSB</Text>
+                  <Text style={styles.draftDetailValue}>
+                    {bankData.draft_bank_details?.bsb || '--'}
+                  </Text>
+                </View>
+
+                <View style={styles.draftDetailRow}>
+                  <Text style={styles.draftDetailLabel}>New Account Number</Text>
+                  <Text style={styles.draftDetailValue}>
+                    {bankData.draft_bank_details?.masked_account_number ||
+                      (bankData.draft_bank_details?.account_number
+                        ? `•••• •••• ${bankData.draft_bank_details.account_number.slice(-4)}`
+                        : '--')}
+                  </Text>
+                </View>
               </View>
             )}
 
@@ -618,6 +737,17 @@ export default function TaxiOwnerProfileScreen() {
                   </Text>
                 </View>
               )}
+
+              {Boolean(bankData?.approval_status) && (
+                <View style={styles.bankInfoRow}>
+                  <Text style={styles.bankInfoLabel}>Approval Status</Text>
+                  <View style={styles.statusPillPending}>
+                    <Text style={styles.statusTextPending}>
+                      {bankData?.approval_status?.toUpperCase()}
+                    </Text>
+                  </View>
+                </View>
+              )}
             </View>
 
             {/* Update Bank Account Action */}
@@ -625,12 +755,28 @@ export default function TaxiOwnerProfileScreen() {
               style={styles.updateBankRow}
               activeOpacity={0.8}
               onPress={() => {
+                if (bankData?.has_pending_approval && bankData?.draft_bank_details) {
+                  const draft = bankData.draft_bank_details;
+                  setEditAccountName(draft.bank_account_name || '');
+                  setEditBsb(draft.bsb || '');
+                  setEditAccountNumber(draft.account_number || '');
+                  setEditBankName(draft.bank_name || '');
+                } else {
+                  setEditAccountName(bankData?.bank_account_name || accountName || '');
+                  setEditBsb(bankData?.bsb || bsbNumber || '');
+                  setEditAccountNumber(bankData?.account_number || '');
+                  setEditBankName(bankData?.bank_name || u?.bank_details?.bank_name || '');
+                }
                 setIsBankModalVisible(false);
                 setIsUpdateBankModalVisible(true);
               }}
             >
               <Ionicons name="create-outline" size={18} color="#D97706" style={{ marginRight: 6 }} />
-              <Text style={styles.updateBankText}>Update Bank Account</Text>
+              <Text style={styles.updateBankText}>
+                {bankData?.has_pending_approval
+                  ? 'Edit & Re-Submit Pending Details'
+                  : 'Update Bank Account'}
+              </Text>
             </TouchableOpacity>
           </Pressable>
         </Pressable>
@@ -650,19 +796,45 @@ export default function TaxiOwnerProfileScreen() {
           <Pressable style={styles.updateModalSheet} onPress={(e) => e.stopPropagation()}>
             <View style={styles.modalDragHandle} />
 
-            {/* Warning Icon Badge */}
-            <View style={styles.warningIconCircle}>
-              <Ionicons name="warning-outline" size={26} color="#D97706" />
+            {/* Warning / Sync Icon Badge */}
+            <View
+              style={[
+                styles.warningIconCircle,
+                bankData?.has_pending_approval && {
+                  backgroundColor: '#FEF3C7',
+                  borderColor: '#FDE68A',
+                },
+              ]}
+            >
+              <Ionicons
+                name={bankData?.has_pending_approval ? 'sync-outline' : 'warning-outline'}
+                size={26}
+                color="#D97706"
+              />
             </View>
 
-            <Text style={styles.updateModalTitle}>Request Bank Details Update?</Text>
+            <Text style={styles.updateModalTitle}>
+              {bankData?.has_pending_approval
+                ? 'Modify Pending Bank Update'
+                : 'Request Bank Details Update?'}
+            </Text>
             <Text style={styles.updateModalDesc}>
-              To protect your payouts, changing bank account details requires approval from your fleet administrator. Once submitted, current daily payouts will pause until the new account is verified.
+              {bankData?.has_pending_approval
+                ? `You have a pending update request submitted${
+                    bankData.draft_bank_details?.submitted_ts
+                      ? ` on ${formatSubmittedDate(bankData.draft_bank_details.submitted_ts)}`
+                      : ''
+                  }. You can make adjustments to the draft details below and re-submit for approval.`
+                : 'To protect your payouts, changing bank account details requires approval from your fleet administrator. Once submitted, current daily payouts will pause until the new account is verified.'}
             </Text>
 
             {/* New Account Details Box with gold border */}
             <View style={styles.newAccountCard}>
-              <Text style={styles.newAccountHeading}>NEW ACCOUNT DETAILS</Text>
+              <Text style={styles.newAccountHeading}>
+                {bankData?.has_pending_approval
+                  ? 'PENDING DRAFT DETAILS (EDIT & RE-SUBMIT)'
+                  : 'NEW ACCOUNT DETAILS'}
+              </Text>
               <View style={styles.newAccountDivider} />
 
               <View style={styles.sheetInputGroup}>
@@ -672,6 +844,17 @@ export default function TaxiOwnerProfileScreen() {
                   value={editAccountName}
                   onChangeText={setEditAccountName}
                   placeholder="Account Name"
+                  placeholderTextColor="#94A3B8"
+                />
+              </View>
+
+              <View style={styles.sheetInputGroup}>
+                <Text style={styles.sheetInputLabel}>BANK NAME</Text>
+                <TextInput
+                  style={styles.sheetInput}
+                  value={editBankName}
+                  onChangeText={setEditBankName}
+                  placeholder="e.g. National Australia Bank"
                   placeholderTextColor="#94A3B8"
                 />
               </View>
@@ -704,17 +887,29 @@ export default function TaxiOwnerProfileScreen() {
 
             {/* Action Buttons: Black with gold text, and Cancel */}
             <TouchableOpacity
-              style={styles.confirmSubmitBtn}
+              style={[styles.confirmSubmitBtn, isSubmittingBank && { opacity: 0.7 }]}
               onPress={handleConfirmBankUpdate}
+              disabled={isSubmittingBank}
               activeOpacity={0.88}
             >
-              <Text style={styles.confirmSubmitBtnText}>Confirm & Submit</Text>
-              <Ionicons name="arrow-forward" size={17} color="#FBBF24" style={{ marginLeft: 8 }} />
+              {isSubmittingBank ? (
+                <ActivityIndicator size="small" color="#FBBF24" />
+              ) : (
+                <>
+                  <Text style={styles.confirmSubmitBtnText}>
+                    {bankData?.has_pending_approval
+                      ? 'Update & Re-Submit'
+                      : 'Confirm & Submit'}
+                  </Text>
+                  <Ionicons name="arrow-forward" size={17} color="#FBBF24" style={{ marginLeft: 8 }} />
+                </>
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.updateCancelBtn}
               onPress={() => setIsUpdateBankModalVisible(false)}
+              disabled={isSubmittingBank}
               activeOpacity={0.7}
             >
               <Text style={styles.updateCancelBtnText}>Cancel</Text>
@@ -1194,6 +1389,90 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: '#2563EB',
+  },
+  pendingBadgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginLeft: 8,
+  },
+  pendingBadgePillText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#B45309',
+  },
+  pendingReviewCard: {
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 14,
+    padding: 14,
+    marginVertical: 10,
+  },
+  pendingReviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  pendingReviewIconWrap: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  pendingReviewTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  pendingReviewSub: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#B45309',
+    marginTop: 1,
+  },
+  draftDetailsDivider: {
+    height: 1,
+    backgroundColor: '#FDE68A',
+    marginVertical: 10,
+  },
+  draftDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 3,
+  },
+  draftDetailLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#78350F',
+  },
+  draftDetailValue: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  statusPillPending: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    alignSelf: 'flex-start',
+  },
+  statusTextPending: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#B45309',
+    letterSpacing: 0.5,
   },
   bankSheetSubtitle: {
     fontSize: 11,

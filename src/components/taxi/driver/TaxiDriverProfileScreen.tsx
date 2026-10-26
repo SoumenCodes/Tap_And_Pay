@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,26 +7,218 @@ import {
   TouchableOpacity,
   Image,
   Alert,
+  Modal,
+  Pressable,
+  TextInput,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../../context/AuthContext';
 import HeaderBar from '../../common/HeaderBar';
+import {
+  profileService,
+  ProfileResponseData,
+  BankDetailsData,
+} from '../../../services/profileService';
+import { formatSubmittedDate } from '../../../utils/dateUtils';
 
 export default function TaxiDriverProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
-  const [isOnShift, setIsOnShift] = useState(true);
 
-  const businessName = user.businessName || 'Elite Taxi Service';
-  const userName = user.name || 'Harpreet Singh';
-  const taxiNumber = user.taxiNumber || 'M6022';
-  const dcNumber = '58745896';
-  const abn = '62 458 123 800';
-  const phone = '0400 555 320';
-  const email = 'harpreet_singh@testmail.com.au';
-  const activeShiftId = `26102026/${taxiNumber}/537384`;
+  // Profile API State
+  const [profileData, setProfileData] = useState<ProfileResponseData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Dedicated Bank Details API State
+  const [bankData, setBankData] = useState<BankDetailsData | null>(null);
+  const [isBankLoading, setIsBankLoading] = useState(false);
+  const [isSubmittingBank, setIsSubmittingBank] = useState(false);
+
+  const [isOnShift, setIsOnShift] = useState(false);
+
+  // Bank Modals State
+  const [isBankModalVisible, setIsBankModalVisible] = useState(false);
+  const [isUpdateBankModalVisible, setIsUpdateBankModalVisible] = useState(false);
+
+  // Current Bank Account Information
+  const [accountName, setAccountName] = useState('');
+  const [bsbNumber, setBsbNumber] = useState('');
+  const [accountNumber, setAccountNumber] = useState('');
+
+  // Form Inputs for Update Modal
+  const [editAccountName, setEditAccountName] = useState('');
+  const [editBankName, setEditBankName] = useState('');
+  const [editBsb, setEditBsb] = useState('');
+  const [editAccountNumber, setEditAccountNumber] = useState('');
+
+  const applyProfileData = (data: ProfileResponseData) => {
+    setProfileData(data);
+
+    if (data.user?.bank_details) {
+      const bd = data.user.bank_details;
+      if (bd.bank_account_name) {
+        setAccountName(bd.bank_account_name);
+        setEditAccountName(bd.bank_account_name);
+      }
+      if (bd.bsb) {
+        setBsbNumber(bd.bsb);
+        setEditBsb(bd.bsb);
+      }
+      if (bd.bank_name) {
+        setEditBankName(bd.bank_name);
+      }
+      if (bd.masked_account_number) {
+        setAccountNumber(bd.masked_account_number);
+      } else if (bd.account_number) {
+        setAccountNumber(`••••  ••••  ${bd.account_number.slice(-4)}`);
+      }
+    }
+
+    if (data.current_session) {
+      setIsOnShift(Boolean(data.current_session.has_active_session));
+    }
+  };
+
+  // Initial load via GET /api/user/profile
+  useEffect(() => {
+    let isMounted = true;
+
+    profileService
+      .getProfile()
+      .then((data) => {
+        if (!isMounted) return;
+        applyProfileData(data);
+      })
+      .catch((err) => {
+        console.log('Failed to fetch taxi driver profile:', err.message || err);
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Pull-to-refresh handler
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      const data = await profileService.getProfile();
+      applyProfileData(data);
+    } catch (err: any) {
+      console.log('Failed to refresh taxi driver profile:', err.message || err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Dedicated Bank Details Fetcher: GET /api/user/bank-details
+  const handleOpenBankModal = async () => {
+    setIsBankModalVisible(true);
+    setIsBankLoading(true);
+    try {
+      const data = await profileService.getBankDetails();
+      setBankData(data);
+
+      if (data) {
+        if (data.bank_account_name) {
+          setAccountName(data.bank_account_name);
+        }
+        if (data.bsb) {
+          setBsbNumber(data.bsb);
+        }
+        if (data.masked_account_number) {
+          setAccountNumber(data.masked_account_number);
+        } else if (data.account_number) {
+          setAccountNumber(`••••  ••••  ${data.account_number.slice(-4)}`);
+        }
+
+        // If an update is pending, prefill inputs with draft_bank_details so user can edit & re-submit
+        if (data.has_pending_approval && data.draft_bank_details) {
+          const draft = data.draft_bank_details;
+          setEditAccountName(draft.bank_account_name || '');
+          setEditBsb(draft.bsb || '');
+          setEditAccountNumber(draft.account_number || '');
+          setEditBankName(draft.bank_name || '');
+        } else {
+          setEditAccountName(data.bank_account_name || '');
+          setEditBsb(data.bsb || '');
+          setEditAccountNumber(data.account_number || '');
+          setEditBankName(data.bank_name || '');
+        }
+      }
+    } catch (err: any) {
+      console.log('Failed to fetch bank details from API:', err.message || err);
+    } finally {
+      setIsBankLoading(false);
+    }
+  };
+
+  const u = profileData?.user;
+  const session = profileData?.current_session;
+
+  const headerBizCategory =
+    u?.user_type_label ||
+    u?.header_business_name ||
+    u?.business_name ||
+    user.businessName ||
+    '';
+
+  const displayName =
+    u?.display_name ||
+    `${u?.first_name || ''} ${u?.last_name || ''}`.trim() ||
+    u?.business_name ||
+    user.name ||
+    '';
+
+  const taxiNumber = u?.taxi_no || u?.employee_code || user.taxiNumber || '';
+  const dcNumber = u?.dc_number || '';
+  const abn = u?.abn || '';
+  const phone = u?.phone_no || '';
+  const email = u?.email || '';
+  const activeShiftId = session?.display_shift_id || session?.shift_id || '--';
+
+  const avatarUri = u?.profile_photo_url || u?.logo_url;
+
+  const shiftStatusText =
+    session?.status_badge || (isOnShift ? 'Active • On Shift' : 'Active • Off Shift');
+  const shiftStartTimeText = session?.started_at_formatted
+    ? `Started ${session.started_at_formatted}${session.duration ? ` (${session.duration})` : ''}`
+    : 'No active shift session';
+
+  // Revenue values
+  const rev = session?.revenue;
+  const totalAmount = rev?.total_amount ?? 0;
+  const integerPart = Math.floor(totalAmount).toLocaleString();
+  const decimalPart = (totalAmount % 1).toFixed(2).split('.')[1] || '00';
+  const transactionLabel = rev?.transaction_label || '0 Trips';
+
+  const cardAmountVal =
+    rev?.card?.amount != null ? Math.floor(rev.card.amount).toString() : '0';
+  const cardAmountDec =
+    rev?.card?.amount != null
+      ? `.${(rev.card.amount % 1).toFixed(2).split('.')[1] || '00'}`
+      : '.00';
+  const cardCountText = rev?.card?.count_formatted || '0 Txns';
+
+  const tapAmountVal =
+    rev?.tap_and_go?.amount != null
+      ? Math.floor(rev.tap_and_go.amount).toString()
+      : '0';
+  const tapAmountDec =
+    rev?.tap_and_go?.amount != null
+      ? `.${(rev.tap_and_go.amount % 1).toFixed(2).split('.')[1] || '00'}`
+      : '.00';
+  const tapCountText = rev?.tap_and_go?.count_formatted || '0 Txns';
 
   const handleCopyShiftId = () => {
     Alert.alert('Active Shift ID', `${activeShiftId}\nCopied to clipboard.`);
@@ -52,6 +244,64 @@ export default function TaxiDriverProfileScreen() {
     } else {
       setIsOnShift(true);
       Alert.alert('Shift Started', `Logged into vehicle ${taxiNumber}. Active on shift.`);
+    }
+  };
+
+  const handleConfirmBankUpdate = async () => {
+    const trimmedName = editAccountName.trim();
+    const trimmedBsb = editBsb.trim();
+    const trimmedAcc = editAccountNumber.trim();
+    const trimmedBank = editBankName.trim();
+
+    if (!trimmedName || !trimmedBsb || !trimmedAcc || !trimmedBank) {
+      Alert.alert(
+        'Required Fields',
+        'Please enter Account Name, BSB, Account Number, and Bank Name.'
+      );
+      return;
+    }
+
+    try {
+      setIsSubmittingBank(true);
+      const response = await profileService.updateBankDetails({
+        account_name: trimmedName,
+        bsb: trimmedBsb,
+        account_number: trimmedAcc,
+        bank_name: trimmedBank,
+      });
+
+      const updated = response.data;
+      if (updated) {
+        setBankData((prev) => ({
+          ...prev,
+          has_pending_approval: true,
+          approval_status: updated.approval_status || 'pending',
+          draft_bank_details: {
+            bank_account_name: updated.bank_account_name || trimmedName,
+            bsb: updated.bsb || trimmedBsb,
+            account_number: updated.account_number || trimmedAcc,
+            masked_account_number:
+              updated.masked_account_number || `••••  ••••  ${trimmedAcc.slice(-4)}`,
+            bank_name: trimmedBank,
+            bank_badge: updated.bank_badge || prev?.bank_badge || 'NAB',
+            submitted_ts: new Date().toISOString().replace('T', ' ').substring(0, 19),
+          },
+        }));
+      }
+
+      setIsUpdateBankModalVisible(false);
+      Alert.alert(
+        'Bank Details Submitted',
+        response.message || 'Bank details submitted for approval successfully.'
+      );
+    } catch (err: any) {
+      console.log('Failed to update bank details:', err.message || err);
+      Alert.alert(
+        'Update Failed',
+        err.message || 'Could not submit bank details for approval. Please try again.'
+      );
+    } finally {
+      setIsSubmittingBank(false);
     }
   };
 
@@ -84,13 +334,32 @@ export default function TaxiDriverProfileScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            colors={['#D97706']}
+            tintColor="#D97706"
+          />
+        }
       >
+        {/* Loading Indicator for Initial Fetch */}
+        {isLoading && !profileData && (
+          <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+            <ActivityIndicator size="small" color="#D97706" />
+          </View>
+        )}
+
         {/* ── MAIN PROFILE CARD ── */}
         <View style={styles.profileCard}>
           {/* Avatar with Overlapping Taxi Emblem Badge */}
           <View style={styles.avatarContainer}>
             <Image
-              source={require('../../../../assets/emp_avatar_2.png')}
+              source={
+                avatarUri
+                  ? { uri: avatarUri }
+                  : require('../../../../assets/emp_avatar_2.png')
+              }
               style={styles.avatarImage}
             />
             <View style={styles.taxiEmblemBadge}>
@@ -103,37 +372,67 @@ export default function TaxiDriverProfileScreen() {
           </View>
 
           {/* Business & Driver Name */}
-          <Text style={styles.bizCategoryText}>
-            {businessName.toUpperCase()}
-          </Text>
-          <Text style={styles.driverNameText}>{userName}</Text>
+          {Boolean(headerBizCategory) && (
+            <Text style={styles.bizCategoryText}>
+              {headerBizCategory.toUpperCase()}
+            </Text>
+          )}
+          {Boolean(displayName) && (
+            <Text style={styles.driverNameText}>{displayName}</Text>
+          )}
 
           {/* ABN & Contact Meta */}
-          <Text style={styles.metaLine}>
-            ABN: {abn} • PH: {phone}
-          </Text>
-          <Text style={styles.metaLine}>
-            TAXI NO.: <Text style={styles.metaBold}>{taxiNumber}</Text>
-            {'   '}DC: <Text style={styles.metaBold}>{dcNumber}</Text>
-          </Text>
-          <Text style={styles.emailLine}>{email}</Text>
+          {(Boolean(abn) || Boolean(phone)) && (
+            <Text style={styles.metaLine}>
+              {Boolean(abn) && `ABN: ${abn}`}
+              {Boolean(abn && phone) && ' • '}
+              {Boolean(phone) && `PH: ${phone}`}
+            </Text>
+          )}
+
+          {(Boolean(taxiNumber) || Boolean(dcNumber)) && (
+            <Text style={styles.metaLine}>
+              {Boolean(taxiNumber) && (
+                <>
+                  TAXI NO.: <Text style={styles.metaBold}>{taxiNumber}</Text>
+                </>
+              )}
+              {Boolean(taxiNumber && dcNumber) && '   '}
+              {Boolean(dcNumber) && (
+                <>
+                  DC: <Text style={styles.metaBold}>{dcNumber}</Text>
+                </>
+              )}
+              {Boolean(u?.dl_number) && (
+                <>
+                  {'   '}DL: <Text style={styles.metaBold}>{u?.dl_number}</Text>
+                </>
+              )}
+            </Text>
+          )}
+
+          {Boolean(email) && <Text style={styles.emailLine}>{email}</Text>}
+
+          {Boolean(u?.formatted_address || u?.address?.formatted) && (
+            <Text style={styles.addressLine} numberOfLines={1}>
+              {u?.formatted_address || u?.address?.formatted}
+            </Text>
+          )}
 
           {/* Shift Status Badge */}
           {isOnShift ? (
             <View style={styles.statusPillActive}>
               <View style={styles.statusDotActive} />
-              <Text style={styles.statusTextActive}>Active • On Shift</Text>
+              <Text style={styles.statusTextActive}>{shiftStatusText}</Text>
             </View>
           ) : (
             <View style={styles.statusPillInactive}>
               <View style={styles.statusDotInactive} />
-              <Text style={styles.statusTextInactive}>Off Shift</Text>
+              <Text style={styles.statusTextInactive}>{shiftStatusText}</Text>
             </View>
           )}
 
-          <Text style={styles.shiftStartTimeText}>
-            Started 26 Oct 2026 | 07:30 AM (8h 45m)
-          </Text>
+          <Text style={styles.shiftStartTimeText}>{shiftStartTimeText}</Text>
 
           {/* ── Active Shift ID Box ── */}
           <View style={styles.shiftIdBox}>
@@ -158,15 +457,15 @@ export default function TaxiDriverProfileScreen() {
               <Text style={styles.txnsLabel}>Active Shift Txns</Text>
               <View style={styles.tripsBadge}>
                 <Ionicons name="checkmark-circle-outline" size={14} color="#059669" />
-                <Text style={styles.tripsBadgeText}>14 Trips</Text>
+                <Text style={styles.tripsBadgeText}>{transactionLabel}</Text>
               </View>
             </View>
 
             {/* Total Fare Row */}
             <View style={styles.fareAmountRow}>
               <Text style={styles.fareDollar}>$ </Text>
-              <Text style={styles.fareInteger}>485</Text>
-              <Text style={styles.fareDec}>.00</Text>
+              <Text style={styles.fareInteger}>{integerPart}</Text>
+              <Text style={styles.fareDec}>.{decimalPart}</Text>
             </View>
 
             <View style={styles.cardInnerDivider} />
@@ -180,10 +479,10 @@ export default function TaxiDriverProfileScreen() {
                 </View>
                 <View style={styles.breakdownAmountRow}>
                   <Text style={styles.breakdownDollarBlue}>$</Text>
-                  <Text style={styles.breakdownAmountVal}>320</Text>
-                  <Text style={styles.breakdownDec}>.00</Text>
+                  <Text style={styles.breakdownAmountVal}>{cardAmountVal}</Text>
+                  <Text style={styles.breakdownDec}>{cardAmountDec}</Text>
                 </View>
-                <Text style={styles.breakdownSub}>9 Txns</Text>
+                <Text style={styles.breakdownSub}>{cardCountText}</Text>
               </View>
 
               <View style={styles.verticalColDivider} />
@@ -195,15 +494,15 @@ export default function TaxiDriverProfileScreen() {
                 </View>
                 <View style={styles.breakdownAmountRow}>
                   <Text style={styles.breakdownDollarAmber}>$</Text>
-                  <Text style={styles.breakdownAmountVal}>165</Text>
-                  <Text style={styles.breakdownDec}>.00</Text>
+                  <Text style={styles.breakdownAmountVal}>{tapAmountVal}</Text>
+                  <Text style={styles.breakdownDec}>{tapAmountDec}</Text>
                 </View>
-                <Text style={styles.breakdownSub}>5 Txns</Text>
+                <Text style={styles.breakdownSub}>{tapCountText}</Text>
               </View>
             </View>
           </View>
 
-          {/* ── End Shift Button (Black) ── */}
+          {/* ── End / Start Shift Button (Black) ── */}
           <TouchableOpacity
             style={[
               styles.endShiftBtn,
@@ -219,26 +518,49 @@ export default function TaxiDriverProfileScreen() {
               style={{ marginRight: 8 }}
             />
             <Text style={styles.endShiftBtnText}>
-              {isOnShift ? 'End Shift' : 'Start Shift'}
+              {session?.end_button_title || (isOnShift ? 'End Shift' : 'Start Shift')}
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* ── ACTION CARD: Past Shift Records ── */}
-        <TouchableOpacity
-          style={styles.pastRecordsCard}
-          activeOpacity={0.75}
-          onPress={() => router.push('/(tabs)/transactions')}
-        >
-          <View style={styles.pastRecordsIconWrap}>
-            <Ionicons name="swap-horizontal" size={20} color="#D97706" />
-          </View>
-          <View style={styles.pastRecordsTextCol}>
-            <Text style={styles.pastRecordsTitle}>Past Shift Records</Text>
-            <Text style={styles.pastRecordsSub}>View your previous shift history</Text>
-          </View>
-          <Feather name="chevron-right" size={18} color="#94A3B8" />
-        </TouchableOpacity>
+        {/* ── DYNAMIC MENU OPTIONS (from API data.menu_options) ── */}
+        <View style={styles.menuGroup}>
+          {(profileData?.menu_options || []).map((item) => (
+            <TouchableOpacity
+              key={item.key}
+              style={styles.pastRecordsCard}
+              activeOpacity={0.75}
+              onPress={() => {
+                if (item.action === 'navigate_bank_details' || item.key === 'bank_details') {
+                  handleOpenBankModal();
+                } else if (item.action === 'navigate_manage_drivers' || item.key === 'manage_staff') {
+                  router.push('/manage-driver');
+                } else {
+                  router.push('/(tabs)/transactions');
+                }
+              }}
+            >
+              <View style={styles.pastRecordsIconWrap}>
+                <Ionicons
+                  name={
+                    item.key === 'bank_details'
+                      ? 'business-outline'
+                      : item.key === 'manage_staff'
+                      ? 'people-outline'
+                      : 'swap-horizontal'
+                  }
+                  size={20}
+                  color="#D97706"
+                />
+              </View>
+              <View style={styles.pastRecordsTextCol}>
+                <Text style={styles.pastRecordsTitle}>{item.title}</Text>
+                <Text style={styles.pastRecordsSub}>{item.subtitle}</Text>
+              </View>
+              <Feather name="chevron-right" size={18} color="#94A3B8" />
+            </TouchableOpacity>
+          ))}
+        </View>
 
         {/* ── LOG OUT ACCOUNT BUTTON ── */}
         <TouchableOpacity
@@ -262,6 +584,385 @@ export default function TaxiDriverProfileScreen() {
 
         <View style={{ height: 24 }} />
       </ScrollView>
+
+      {/* ── 1. BANK DETAILS BOTTOM SHEET ── */}
+      <Modal
+        visible={isBankModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsBankModalVisible(false)}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setIsBankModalVisible(false)}
+        >
+          <Pressable style={styles.bankModalSheet} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalDragHandle} />
+
+            {/* Header: Bank Badge + Verified + Close Button */}
+            <View style={styles.bankHeaderRow}>
+              <View style={styles.bankIconBadge}>
+                <Ionicons name="business-outline" size={22} color="#B45309" />
+              </View>
+
+              <View style={styles.bankTitleCol}>
+                <View style={styles.bankTitleVerifiedRow}>
+                  <Text style={styles.bankSheetTitle}>Bank Details</Text>
+                  {bankData?.has_pending_approval ? (
+                    <View style={styles.pendingBadgePill}>
+                      <Ionicons name="time-outline" size={11} color="#B45309" style={{ marginRight: 3 }} />
+                      <Text style={styles.pendingBadgePillText}>Pending</Text>
+                    </View>
+                  ) : (
+                    <View
+                      style={[
+                        styles.verifiedPill,
+                        !(bankData?.is_verified ?? u?.is_verified ?? true) && {
+                          backgroundColor: '#F1F5F9',
+                          borderColor: '#E2E8F0',
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.verifiedPillText,
+                          !(bankData?.is_verified ?? u?.is_verified ?? true) && {
+                            color: '#64748B',
+                          },
+                        ]}
+                      >
+                        {(bankData?.is_verified ?? u?.is_verified ?? true)
+                          ? 'Verified'
+                          : 'Pending'}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.bankSheetSubtitle}>Register account for payouts</Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.closeBtnCircle}
+                onPress={() => setIsBankModalVisible(false)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="close" size={18} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Loading Indicator for Bank Details */}
+            {isBankLoading && !bankData && (
+              <View style={{ paddingVertical: 14, alignItems: 'center' }}>
+                <ActivityIndicator size="small" color="#D97706" />
+              </View>
+            )}
+
+            {/* Pending Draft Details Card (shown when an update request is pending approval) */}
+            {bankData?.has_pending_approval && Boolean(bankData?.draft_bank_details) && (
+              <View style={styles.pendingReviewCard}>
+                <View style={styles.pendingReviewHeader}>
+                  <View style={styles.pendingReviewIconWrap}>
+                    <Ionicons name="time" size={14} color="#B45309" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.pendingReviewTitle}>Pending Update Under Review</Text>
+                    {Boolean(bankData.draft_bank_details?.submitted_ts) && (
+                      <Text style={styles.pendingReviewSub}>
+                        Submitted {formatSubmittedDate(bankData.draft_bank_details?.submitted_ts)}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+
+                <View style={styles.draftDetailsDivider} />
+
+                <View style={styles.draftDetailRow}>
+                  <Text style={styles.draftDetailLabel}>New Account Name</Text>
+                  <Text style={styles.draftDetailValue}>
+                    {bankData.draft_bank_details?.bank_account_name || '--'}
+                  </Text>
+                </View>
+
+                {Boolean(bankData.draft_bank_details?.bank_name) && (
+                  <View style={styles.draftDetailRow}>
+                    <Text style={styles.draftDetailLabel}>New Bank Name</Text>
+                    <Text style={styles.draftDetailValue}>
+                      {bankData.draft_bank_details?.bank_name}
+                    </Text>
+                  </View>
+                )}
+
+                <View style={styles.draftDetailRow}>
+                  <Text style={styles.draftDetailLabel}>New BSB</Text>
+                  <Text style={styles.draftDetailValue}>
+                    {bankData.draft_bank_details?.bsb || '--'}
+                  </Text>
+                </View>
+
+                <View style={styles.draftDetailRow}>
+                  <Text style={styles.draftDetailLabel}>New Account Number</Text>
+                  <Text style={styles.draftDetailValue}>
+                    {bankData.draft_bank_details?.masked_account_number ||
+                      (bankData.draft_bank_details?.account_number
+                        ? `•••• •••• ${bankData.draft_bank_details.account_number.slice(-4)}`
+                        : '--')}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Bank Account Information Card */}
+            <View style={styles.bankInfoBox}>
+              <Text style={styles.bankInfoHeading}>BANK ACCOUNT INFORMATION</Text>
+              <View style={styles.bankInfoDivider} />
+
+              <View style={styles.bankInfoRow}>
+                <Text style={styles.bankInfoLabel}>Account Name</Text>
+                <Text style={styles.bankInfoValue}>
+                  {bankData?.bank_account_name || accountName || '--'}
+                </Text>
+              </View>
+
+              {Boolean(bankData?.bank_name || u?.bank_details?.bank_name) && (
+                <View style={styles.bankInfoRow}>
+                  <Text style={styles.bankInfoLabel}>Bank Name</Text>
+                  <Text style={styles.bankInfoValue}>
+                    {bankData?.bank_name || u?.bank_details?.bank_name}
+                  </Text>
+                </View>
+              )}
+
+              <View style={styles.bankInfoRow}>
+                <Text style={styles.bankInfoLabel}>BSB Number</Text>
+                <View style={styles.bsbRow}>
+                  <Text style={styles.bankInfoValue}>
+                    {bankData?.bsb || bsbNumber || '--'}
+                  </Text>
+                  {Boolean(
+                    bankData?.bank_badge ||
+                      (bankData?.bank_name || u?.bank_details?.bank_name)
+                  ) && (
+                    <View style={styles.nabBadge}>
+                      <Text style={styles.nabBadgeText}>
+                        {bankData?.bank_badge ||
+                          ((bankData?.bank_name || u?.bank_details?.bank_name)?.includes(
+                            'National Australia Bank'
+                          ) ||
+                          (bankData?.bank_name || u?.bank_details?.bank_name)?.includes('NAB')
+                            ? 'NAB'
+                            : (bankData?.bank_name || u?.bank_details?.bank_name)
+                                ?.slice(0, 4)
+                                ?.toUpperCase())}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              <View style={styles.bankInfoRow}>
+                <Text style={styles.bankInfoLabel}>Account Number</Text>
+                <Text style={styles.bankInfoValue}>
+                  {bankData?.masked_account_number ||
+                    (bankData?.account_number
+                      ? `••••  ••••  ${bankData.account_number.slice(-4)}`
+                      : null) ||
+                    accountNumber ||
+                    '--'}
+                </Text>
+              </View>
+
+              {Boolean(
+                bankData?.payout_payment_method || u?.bank_details?.payout_payment_method
+              )}
+              {(bankData?.payout_payment_method || u?.bank_details?.payout_payment_method) && (
+                <View style={styles.bankInfoRow}>
+                  <Text style={styles.bankInfoLabel}>Payout Method</Text>
+                  <Text style={[styles.bankInfoValue, { textTransform: 'capitalize' }]}>
+                    {bankData?.payout_payment_method ||
+                      u?.bank_details?.payout_payment_method}
+                  </Text>
+                </View>
+              )}
+
+              {Boolean(bankData?.approval_status) && (
+                <View style={styles.bankInfoRow}>
+                  <Text style={styles.bankInfoLabel}>Approval Status</Text>
+                  <View style={styles.statusPillPending}>
+                    <Text style={styles.statusTextPending}>
+                      {bankData?.approval_status?.toUpperCase()}
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </View>
+
+            {/* Update Bank Account Action */}
+            <TouchableOpacity
+              style={styles.updateBankRow}
+              activeOpacity={0.8}
+              onPress={() => {
+                if (bankData?.has_pending_approval && bankData?.draft_bank_details) {
+                  const draft = bankData.draft_bank_details;
+                  setEditAccountName(draft.bank_account_name || '');
+                  setEditBsb(draft.bsb || '');
+                  setEditAccountNumber(draft.account_number || '');
+                  setEditBankName(draft.bank_name || '');
+                } else {
+                  setEditAccountName(bankData?.bank_account_name || accountName || '');
+                  setEditBsb(bankData?.bsb || bsbNumber || '');
+                  setEditAccountNumber(bankData?.account_number || '');
+                  setEditBankName(bankData?.bank_name || u?.bank_details?.bank_name || '');
+                }
+                setIsBankModalVisible(false);
+                setIsUpdateBankModalVisible(true);
+              }}
+            >
+              <Ionicons name="create-outline" size={18} color="#D97706" style={{ marginRight: 6 }} />
+              <Text style={styles.updateBankText}>
+                {bankData?.has_pending_approval
+                  ? 'Edit & Re-Submit Pending Details'
+                  : 'Update Bank Account'}
+              </Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* ── 2. REQUEST BANK DETAILS UPDATE SHEET ── */}
+      <Modal
+        visible={isUpdateBankModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsUpdateBankModalVisible(false)}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setIsUpdateBankModalVisible(false)}
+        >
+          <Pressable style={styles.updateModalSheet} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalDragHandle} />
+
+            {/* Warning / Sync Icon Badge */}
+            <View
+              style={[
+                styles.warningIconCircle,
+                bankData?.has_pending_approval && {
+                  backgroundColor: '#FEF3C7',
+                  borderColor: '#FDE68A',
+                },
+              ]}
+            >
+              <Ionicons
+                name={bankData?.has_pending_approval ? 'sync-outline' : 'warning-outline'}
+                size={26}
+                color="#D97706"
+              />
+            </View>
+
+            <Text style={styles.updateModalTitle}>
+              {bankData?.has_pending_approval
+                ? 'Modify Pending Bank Update'
+                : 'Request Bank Details Update?'}
+            </Text>
+            <Text style={styles.updateModalDesc}>
+              {bankData?.has_pending_approval
+                ? `You have a pending update request submitted${
+                    bankData.draft_bank_details?.submitted_ts
+                      ? ` on ${formatSubmittedDate(bankData.draft_bank_details.submitted_ts)}`
+                      : ''
+                  }. You can make adjustments to the draft details below and re-submit for approval.`
+                : 'To protect your payouts, changing bank account details requires approval from your fleet administrator. Once submitted, current daily payouts will pause until the new account is verified.'}
+            </Text>
+
+            {/* New Account Details Box with gold border */}
+            <View style={styles.newAccountCard}>
+              <Text style={styles.newAccountHeading}>
+                {bankData?.has_pending_approval
+                  ? 'PENDING DRAFT DETAILS (EDIT & RE-SUBMIT)'
+                  : 'NEW ACCOUNT DETAILS'}
+              </Text>
+              <View style={styles.newAccountDivider} />
+
+              <View style={styles.sheetInputGroup}>
+                <Text style={styles.sheetInputLabel}>ACCOUNT NAME</Text>
+                <TextInput
+                  style={styles.sheetInput}
+                  value={editAccountName}
+                  onChangeText={setEditAccountName}
+                  placeholder="Account Name"
+                  placeholderTextColor="#94A3B8"
+                />
+              </View>
+
+              <View style={styles.sheetInputGroup}>
+                <Text style={styles.sheetInputLabel}>BANK NAME</Text>
+                <TextInput
+                  style={styles.sheetInput}
+                  value={editBankName}
+                  onChangeText={setEditBankName}
+                  placeholder="e.g. National Australia Bank"
+                  placeholderTextColor="#94A3B8"
+                />
+              </View>
+
+              <View style={styles.splitSheetRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.sheetInputLabel}>BSB</Text>
+                  <TextInput
+                    style={styles.sheetInput}
+                    value={editBsb}
+                    onChangeText={setEditBsb}
+                    placeholder="000-000"
+                    placeholderTextColor="#94A3B8"
+                  />
+                </View>
+
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.sheetInputLabel}>ACCOUNT NUMBER</Text>
+                  <TextInput
+                    style={styles.sheetInput}
+                    value={editAccountNumber}
+                    onChangeText={setEditAccountNumber}
+                    placeholder="Account Number"
+                    placeholderTextColor="#94A3B8"
+                    keyboardType="numeric"
+                  />
+                </View>
+              </View>
+            </View>
+
+            {/* Action Buttons: Black with gold text, and Cancel */}
+            <TouchableOpacity
+              style={[styles.confirmSubmitBtn, isSubmittingBank && { opacity: 0.7 }]}
+              onPress={handleConfirmBankUpdate}
+              disabled={isSubmittingBank}
+              activeOpacity={0.88}
+            >
+              {isSubmittingBank ? (
+                <ActivityIndicator size="small" color="#FBBF24" />
+              ) : (
+                <>
+                  <Text style={styles.confirmSubmitBtnText}>
+                    {bankData?.has_pending_approval
+                      ? 'Update & Re-Submit'
+                      : 'Confirm & Submit'}
+                  </Text>
+                  <Ionicons name="arrow-forward" size={17} color="#FBBF24" style={{ marginLeft: 8 }} />
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.updateCancelBtn}
+              onPress={() => setIsUpdateBankModalVisible(false)}
+              disabled={isSubmittingBank}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.updateCancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -356,6 +1057,13 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#64748B',
     fontWeight: '500',
+    marginBottom: 4,
+  },
+  addressLine: {
+    fontSize: 10.5,
+    color: '#94A3B8',
+    fontWeight: '500',
+    textAlign: 'center',
     marginBottom: 8,
   },
 
@@ -603,7 +1311,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  /* Past Shift Records Card */
+  /* Dynamic Menu Options */
+  menuGroup: {
+    gap: 10,
+    marginTop: 14,
+  },
   pastRecordsCard: {
     backgroundColor: '#FFFDF7',
     borderWidth: 1,
@@ -613,7 +1325,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 14,
     shadowColor: '#F59E0B',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
@@ -683,5 +1394,347 @@ const styles = StyleSheet.create({
   sePayFooterLogo: {
     width: 80,
     height: 24,
+  },
+
+  /* Modal Backdrop */
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalDragHandle: {
+    width: 38,
+    height: 4,
+    backgroundColor: '#CBD5E1',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 14,
+  },
+
+  /* ── 1. Bank Details Sheet Styles ── */
+  bankModalSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 32,
+  },
+  bankHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  bankIconBadge: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: '#FEF9C3',
+    borderWidth: 1,
+    borderColor: '#FDE047',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  bankTitleCol: {
+    flex: 1,
+  },
+  bankTitleVerifiedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  bankSheetTitle: {
+    fontSize: 15.5,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  verifiedPill: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginLeft: 8,
+  },
+  verifiedPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+  pendingBadgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginLeft: 8,
+  },
+  pendingBadgePillText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#B45309',
+  },
+  pendingReviewCard: {
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 14,
+    padding: 14,
+    marginVertical: 10,
+  },
+  pendingReviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  pendingReviewIconWrap: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  pendingReviewTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  pendingReviewSub: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#B45309',
+    marginTop: 1,
+  },
+  draftDetailsDivider: {
+    height: 1,
+    backgroundColor: '#FDE68A',
+    marginVertical: 10,
+  },
+  draftDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 3,
+  },
+  draftDetailLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#78350F',
+  },
+  draftDetailValue: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  statusPillPending: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    alignSelf: 'flex-start',
+  },
+  statusTextPending: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#B45309',
+    letterSpacing: 0.5,
+  },
+  bankSheetSubtitle: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  closeBtnCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bankInfoBox: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 16,
+    padding: 16,
+    marginVertical: 10,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  bankInfoHeading: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: 0.6,
+  },
+  bankInfoDivider: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginVertical: 12,
+  },
+  bankInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 5,
+  },
+  bankInfoLabel: {
+    fontSize: 11.5,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  bankInfoValue: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  bsbRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  nabBadge: {
+    backgroundColor: '#F1F5F9',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginLeft: 6,
+  },
+  nabBadgeText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#64748B',
+  },
+  updateBankRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    paddingVertical: 6,
+  },
+  updateBankText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#D97706',
+  },
+
+  /* ── 2. Request Bank Details Update Sheet Styles ── */
+  updateModalSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 32,
+  },
+  warningIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FEF9C3',
+    borderWidth: 1,
+    borderColor: '#FDE047',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginTop: 6,
+  },
+  updateModalTitle: {
+    fontSize: 15.5,
+    fontWeight: '800',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginTop: 12,
+  },
+  updateModalDesc: {
+    fontSize: 11,
+    color: '#64748B',
+    lineHeight: 17,
+    textAlign: 'center',
+    marginTop: 8,
+    paddingHorizontal: 4,
+  },
+  newAccountCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.2,
+    borderColor: '#FDE047',
+    borderRadius: 16,
+    padding: 14,
+    marginVertical: 14,
+  },
+  newAccountHeading: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#B45309',
+    letterSpacing: 0.6,
+  },
+  newAccountDivider: {
+    height: 1,
+    backgroundColor: '#FEF08A',
+    marginVertical: 10,
+  },
+  sheetInputGroup: {
+    marginBottom: 10,
+  },
+  sheetInputLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+    marginBottom: 4,
+  },
+  sheetInput: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    height: 44,
+    paddingHorizontal: 12,
+    fontSize: 12.5,
+    color: '#0F172A',
+    fontWeight: '700',
+  },
+  splitSheetRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  confirmSubmitBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0F172A',
+    borderRadius: 14,
+    height: 48,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  confirmSubmitBtnText: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#FBBF24',
+  },
+  updateCancelBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 14,
+    height: 48,
+    marginTop: 10,
+  },
+  updateCancelBtnText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#0F172A',
   },
 });

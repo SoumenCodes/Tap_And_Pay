@@ -21,26 +21,31 @@ export interface ProfileBankDetails {
 
 export interface ProfileUser {
   id: number | string;
+  role_id?: number | string;
   user_type_key: string;
+  user_type_label?: string;
   is_taxi_service?: boolean;
   is_verified?: boolean;
   registration_status?: string;
   header_business_name?: string;
   display_name?: string;
-  first_name?: string;
+  first_name?: string | null;
   middle_name?: string | null;
-  last_name?: string;
+  last_name?: string | null;
   business_name?: string;
   business_type?: string;
-  driver_type?: string;
+  driver_type?: string | null;
   email?: string;
   phone_no?: string;
   abn?: string;
   taxi_no?: string;
-  dc_number?: string;
-  dl_number?: string;
+  emp_id?: string | null;
+  employee_code?: string;
+  dc_number?: string | null;
+  dl_number?: string | null;
   logo_url?: string | null;
   profile_photo_url?: string | null;
+  formatted_address?: string;
   address?: ProfileAddress;
   parent_business?: any;
   bank_details?: ProfileBankDetails;

@@ -375,9 +375,9 @@ export default function TaxiOwnerProfileScreen() {
             {Boolean(u?.dl_number) && <>   DL: <Text style={styles.metaBold}>{u?.dl_number}</Text></>}
           </Text>
           {Boolean(email) && <Text style={styles.emailLine}>{email}</Text>}
-          {Boolean(u?.address?.formatted) && (
+          {Boolean(u?.formatted_address || u?.address?.formatted) && (
             <Text style={styles.addressLine} numberOfLines={1}>
-              {u?.address?.formatted}
+              {u?.formatted_address || u?.address?.formatted}
             </Text>
           )}
 
@@ -496,6 +496,8 @@ export default function TaxiOwnerProfileScreen() {
             onPress={() => {
               if (item.action === 'navigate_bank_details' || item.key === 'bank_details') {
                 handleOpenBankModal();
+              } else if (item.action === 'navigate_manage_drivers' || item.key === 'manage_staff') {
+                router.push('/manage-driver');
               } else {
                 router.push('/(tabs)/transactions');
               }
@@ -503,7 +505,13 @@ export default function TaxiOwnerProfileScreen() {
           >
             <View style={styles.actionIconWrap}>
               <Ionicons
-                name={item.key === 'bank_details' ? 'business-outline' : 'swap-horizontal'}
+                name={
+                  item.key === 'bank_details'
+                    ? 'business-outline'
+                    : item.key === 'manage_staff'
+                    ? 'people-outline'
+                    : 'swap-horizontal'
+                }
                 size={20}
                 color="#D97706"
               />

@@ -14,6 +14,8 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.util.Base64
 import android.util.Log
@@ -43,7 +45,7 @@ class TinyPrinterModule : Module() {
   private var nativeScanCallback: ScanCallback? = null
 
   private val knownModels = listOf(
-    "X5", "X5h", "X", "PR", "GT", "GB", "LY", "58P5", "S101", "X16", "X6", "X8", "M01", "Audio Print"
+    "X5h", "X5", "X16", "X6", "X8", "X", "PR", "GT", "GB", "LY", "58P5", "S101", "M01", "Audio Print"
   )
 
   override fun definition() = ModuleDefinition {
@@ -289,47 +291,103 @@ class TinyPrinterModule : Module() {
 
     AsyncFunction("connect") { address: String, name: String, promise: Promise ->
       try {
+        Log.i("TinyPrinter", "Connect requested for: $name ($address)")
         bleOrderUtils.stopScan()
         stopNativeScanner()
+
+        // Give the Bluetooth radio a moment to stop scanning before initiating central connection
+        try { Thread.sleep(250) } catch (e: Exception) {}
 
         // Guarantee authorization for this device in SPUtils before connecting
         dynamicallyAuthorizeDevice(name, address)
 
+        // Pre-validate model check
+        val isModelValid = try {
+          com.ble.order.DeviceUtils.checkValidModel(name)
+        } catch (e: Exception) {
+          Log.w("TinyPrinter", "checkValidModel evaluation: ${e.message}")
+          true
+        }
+        Log.i("TinyPrinter", "DeviceUtils.checkValidModel('$name') = $isModelValid")
+
         val deviceToConnect = discoveredDevices[address] ?: BleDevice(address, name)
+
+        var isResolved = false
+        val mainHandler = Handler(Looper.getMainLooper())
+        val timeoutRunnable = Runnable {
+          if (!isResolved) {
+            isResolved = true
+            Log.e("TinyPrinter", "Connection watchdog timeout for $name ($address)")
+            sendEvent("onConnectionChange", mapOf(
+              "status" to "timeout",
+              "address" to address,
+              "name" to name
+            ))
+            promise.reject("ERR_CONNECT_TIMEOUT", "Connection timed out after 15s. Please ensure the printer is turned on and close to the phone.", null)
+          }
+        }
+        mainHandler.postDelayed(timeoutRunnable, 15000L)
 
         bleOrderUtils.bleConnect(address, name, object : BleConnectCallBack() {
           override fun onConnectionChanged(device: BleDevice?) {
-            connectedBleDevice = device ?: deviceToConnect
-            sendEvent("onConnectionChange", mapOf(
-              "status" to "connected",
-              "address" to address,
-              "name" to name
-            ))
-            promise.resolve(mapOf(
-              "connected" to true,
-              "address" to address,
-              "name" to name
-            ))
+            val isConnected = device?.isConnected == true || device?.connectionState == 2505
+            Log.i("TinyPrinter", "onConnectionChanged: state=${device?.connectionState}, isConnected=${device?.isConnected}")
+
+            if (isConnected) {
+              mainHandler.removeCallbacks(timeoutRunnable)
+              connectedBleDevice = device ?: deviceToConnect
+              sendEvent("onConnectionChange", mapOf(
+                "status" to "connected",
+                "address" to address,
+                "name" to name
+              ))
+              if (!isResolved) {
+                isResolved = true
+                promise.resolve(mapOf(
+                  "connected" to true,
+                  "address" to address,
+                  "name" to name
+                ))
+              }
+            } else if (device?.connectionState == 2503 || device?.isConnected == false) {
+              connectedBleDevice = null
+              sendEvent("onConnectionChange", mapOf(
+                "status" to "disconnected",
+                "address" to address,
+                "name" to name
+              ))
+            }
           }
 
           override fun onConnectException(device: BleDevice?, errorCode: Int) {
+            Log.e("TinyPrinter", "onConnectException: $errorCode for $name ($address)")
+            mainHandler.removeCallbacks(timeoutRunnable)
             sendEvent("onConnectionChange", mapOf(
               "status" to "failed",
               "errorCode" to errorCode,
               "address" to address
             ))
-            promise.reject("ERR_CONNECT_EXCEPTION", "Connection error code: $errorCode", null)
+            if (!isResolved) {
+              isResolved = true
+              promise.reject("ERR_CONNECT_EXCEPTION", "Connection error code: $errorCode", null)
+            }
           }
 
           override fun onConnectTimeOut(device: BleDevice?) {
+            Log.e("TinyPrinter", "onConnectTimeOut SDK callback for $name ($address)")
+            mainHandler.removeCallbacks(timeoutRunnable)
             sendEvent("onConnectionChange", mapOf(
               "status" to "timeout",
               "address" to address
             ))
-            promise.reject("ERR_CONNECT_TIMEOUT", "Connection timed out", null)
+            if (!isResolved) {
+              isResolved = true
+              promise.reject("ERR_CONNECT_TIMEOUT", "Connection timed out", null)
+            }
           }
         })
       } catch (e: Exception) {
+        Log.e("TinyPrinter", "connect exception: ${e.message}", e)
         promise.reject("ERR_CONNECT", e.message ?: "Connect error", e)
       }
     }
@@ -540,25 +598,44 @@ class TinyPrinterModule : Module() {
       val sp = SPUtils.getInstance()
       val userId = sp.getString(Code.bleUserId, "QDX").ifBlank { "QDX" }
 
-      sp.put(Code.USERRIGHT + name, true)
-      sp.put(Code.DEVTYPELIST + userId + name, true)
-      sp.put("userRight$name", true)
-      sp.put("devTypeList$userId$name", true)
-
+      val keysToAuthorize = mutableSetOf(
+        name,
+        "X5h",
+        "X5",
+        "X5-",
+        "X5h-",
+        "X16",
+        "Audio Print"
+      )
       val prefix = name.substringBefore("-").trim()
       if (prefix.isNotEmpty()) {
-        sp.put(Code.USERRIGHT + prefix, true)
-        sp.put(Code.DEVTYPELIST + userId + prefix, true)
-        sp.put("userRight$prefix", true)
-        sp.put("devTypeList$userId$prefix", true)
+        keysToAuthorize.add(prefix)
+        keysToAuthorize.add("$prefix-")
       }
 
+      for (k in keysToAuthorize) {
+        sp.put(Code.USERRIGHT + k, true)
+        sp.put(Code.DEVTYPELIST + userId + k, true)
+        sp.put("userRight$k", true)
+        sp.put("devTypeList$userId$k", true)
+        sp.put("devTypeList$k", true)
+      }
+
+      sp.put(Code.DEVICETYPE, name)
+      sp.put("BleSdkdeviceType", name)
       sp.put(Code.DEFDIVICENAME, name)
+      sp.put("BleSddefDeviceName", name)
       if (address.isNotBlank()) {
         sp.put(Code.DEF_DEVICE_ADDRESS, address)
+        sp.put("BleSdkdefDeviceAddress", address)
       }
       sp.put(Code.CANPRINT, true)
       sp.put(Code.active, true)
+      sp.put(Code.COMPRESS, true)
+      sp.put(Code.SOUTi, true)
+      sp.put("canPrint", true)
+      sp.put("active", true)
+      sp.put("compress", true)
     } catch (e: Exception) {
       Log.e("TinyPrinter", "Failed to dynamically authorize device: ${e.message}")
     }

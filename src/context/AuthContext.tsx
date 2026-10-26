@@ -27,30 +27,30 @@ export const MOCK_ACCOUNTS: Record<
   { username: string; passwords: string[]; user: UserProfile }
 > = {
   taxi_owner: {
-    username: 'taxi_owner',
-    passwords: ['owner123', '123456'],
+    username: 'DC750001',
+    passwords: ['Zafar@1986', 'owner123', '123456'],
     user: {
-      id: 'usr_taxi_owner_01',
-      username: 'taxi_owner',
-      name: 'Harpreet Singh',
+      id: '5',
+      username: 'DC750001',
+      name: 'Zafar Ansari',
       loginType: 'taxi_owner',
       roleLabel: 'Taxi Owner',
-      businessName: 'Harpreet Singh Taxi Service',
-      taxiNumber: 'M6022',
+      businessName: 'Zafar Taxi Company',
+      taxiNumber: 'EMP2026100720200630',
       sessionStartTime: '7:30 AM',
     },
   },
   taxi_business: {
-    username: 'taxi_business',
-    passwords: ['fleet123', '123456'],
+    username: 'zafar.dnk3@gmail.com',
+    passwords: ['Zafar@1986', 'fleet123', '123456'],
     user: {
-      id: 'usr_taxi_biz_02',
-      username: 'taxi_business',
-      name: 'Lovedeep Khangura',
+      id: '3',
+      username: 'zafar.dnk3@gmail.com',
+      name: 'Elite Taxi Service',
       loginType: 'taxi_business',
-      roleLabel: 'Taxi Fleet Business',
+      roleLabel: 'Taxi Company (Taxi)',
       businessName: 'Elite Taxi Service',
-      taxiNumber: 'M6061',
+      taxiNumber: 'EMP2026100720013735',
       sessionStartTime: '7:30 AM',
     },
   },
@@ -166,6 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // 1. Taxi Owner
     if (
+      lowerUser === 'dc750001' ||
       lowerUser === 'taxi_owner' ||
       lowerUser === 'owner' ||
       lowerUser === 'owner@taxi.com'
@@ -176,11 +177,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await tokenStorage.saveUser(MOCK_ACCOUNTS.taxi_owner.user);
         return { success: true };
       }
-      return { success: false, error: 'Invalid password. Use "owner123" or "123456".' };
+      return { success: false, error: 'Invalid password. Use "Zafar@1986" or "owner123".' };
     }
 
     // 2. Taxi Business
     if (
+      lowerUser === 'zafar.dnk3@gmail.com' ||
       lowerUser === 'taxi_business' ||
       lowerUser === 'fleet' ||
       lowerUser === 'operator' ||
@@ -192,7 +194,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await tokenStorage.saveUser(MOCK_ACCOUNTS.taxi_business.user);
         return { success: true };
       }
-      return { success: false, error: 'Invalid password. Use "fleet123" or "123456".' };
+      return { success: false, error: 'Invalid password. Use "Zafar@1986" or "fleet123".' };
     }
 
     // 3. Taxi Business Driver

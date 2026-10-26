@@ -61,6 +61,44 @@ export default function LoginScreen() {
     }
   };
 
+  const handleQuickCredentialLogin = async (
+    userVal: string,
+    passVal: string,
+    roleFallback?:
+      | 'taxi_business'
+      | 'taxi_owner'
+      | 'taxi_business_driver'
+      | 'other_business'
+      | 'other_business_employee'
+  ) => {
+    setUsername(userVal);
+    setPassword(passVal);
+    setErrorMessage('');
+    setIsLoading(true);
+
+    try {
+      const result = await login(userVal, passVal);
+      if (result.success) {
+        setErrorMessage('');
+        router.replace('/(tabs)');
+      } else if (roleFallback) {
+        quickLogin(roleFallback);
+        router.replace('/(tabs)');
+      } else {
+        setErrorMessage(result.error || 'Login failed. Please check credentials.');
+      }
+    } catch (err: any) {
+      if (roleFallback) {
+        quickLogin(roleFallback);
+        router.replace('/(tabs)');
+      } else {
+        setErrorMessage(err.message || 'Login failed.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <View style={styles.root}>
@@ -229,21 +267,19 @@ export default function LoginScreen() {
                 <TouchableOpacity
                   style={styles.testChip}
                   activeOpacity={0.75}
-                  onPress={() => {
-                    quickLogin('taxi_owner');
-                    router.replace('/(tabs)');
-                  }}
+                  onPress={() =>
+                    handleQuickCredentialLogin('DC750001', 'Zafar@1986', 'taxi_owner')
+                  }
                 >
-                  <Text style={styles.testChipText}>🚕 Owner Driver</Text>
+                  <Text style={styles.testChipText}>🚕 Taxi Owner</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={styles.testChip}
                   activeOpacity={0.75}
-                  onPress={() => {
-                    quickLogin('taxi_business');
-                    router.replace('/(tabs)');
-                  }}
+                  onPress={() =>
+                    handleQuickCredentialLogin('zafar.dnk3@gmail.com', 'Zafar@1986', 'taxi_business')
+                  }
                 >
                   <Text style={styles.testChipText}>🏢 Taxi Company</Text>
                 </TouchableOpacity>
@@ -251,21 +287,19 @@ export default function LoginScreen() {
                 <TouchableOpacity
                   style={styles.testChip}
                   activeOpacity={0.75}
-                  onPress={() => {
-                    quickLogin('taxi_business_driver');
-                    router.replace('/(tabs)');
-                  }}
+                  onPress={() =>
+                    handleQuickCredentialLogin('taxi_driver', 'driver123', 'taxi_business_driver')
+                  }
                 >
-                  <Text style={styles.testChipText}>🚖Driver</Text>
+                  <Text style={styles.testChipText}>🚖 Driver</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={styles.testChip}
                   activeOpacity={0.75}
-                  onPress={() => {
-                    quickLogin('other_business');
-                    router.replace('/(tabs)');
-                  }}
+                  onPress={() =>
+                    handleQuickCredentialLogin('other_business', 'business123', 'other_business')
+                  }
                 >
                   <Text style={styles.testChipText}>💈 Other Business</Text>
                 </TouchableOpacity>
@@ -273,12 +307,11 @@ export default function LoginScreen() {
                 <TouchableOpacity
                   style={styles.testChip}
                   activeOpacity={0.75}
-                  onPress={() => {
-                    quickLogin('other_business_employee');
-                    router.replace('/(tabs)');
-                  }}
+                  onPress={() =>
+                    handleQuickCredentialLogin('other_employee', 'staff123', 'other_business_employee')
+                  }
                 >
-                  <Text style={styles.testChipText}>✂️Employee</Text>
+                  <Text style={styles.testChipText}>✂️ Employee</Text>
                 </TouchableOpacity>
               </View>
             </View>

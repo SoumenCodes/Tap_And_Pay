@@ -31,6 +31,7 @@ apiClient.interceptors.request.use(
 
     console.log('\n================== 🚀 API REQUEST ==================');
     console.log(`[HTTP ${method}] ${fullUrl}`);
+    console.log(`Authorization Token: ${token ? `Bearer ${token}` : 'None'}`);
     if (reqConfig.params) {
       console.log('Query Params:', JSON.stringify(reqConfig.params, null, 2));
     }
@@ -56,9 +57,11 @@ apiClient.interceptors.response.use(
   (response: AxiosResponse) => {
     const fullUrl = `${response.config.baseURL || ''}${response.config.url || ''}`;
     const method = (response.config.method || 'GET').toUpperCase();
+    const token = tokenStorage.getAccessToken();
 
     console.log('\n================== ✅ API RESPONSE ==================');
     console.log(`[STATUS ${response.status}] [${method}] ${fullUrl}`);
+    console.log(`Authorization Token: ${token ? `Bearer ${token}` : 'None'}`);
     console.log('Response Data:', JSON.stringify(response.data, null, 2));
     console.log('=====================================================\n');
 
@@ -68,9 +71,11 @@ apiClient.interceptors.response.use(
     const fullUrl = error.config ? `${error.config.baseURL || ''}${error.config.url || ''}` : 'UNKNOWN_URL';
     const method = error.config?.method?.toUpperCase() || 'HTTP';
     const status = error.response?.status || 'NO_RESPONSE';
+    const token = tokenStorage.getAccessToken();
 
     console.log('\n================== ❌ API ERROR ===================');
     console.log(`[STATUS ${status}] [${method}] ${fullUrl}`);
+    console.log(`Authorization Token: ${token ? `Bearer ${token}` : 'None'}`);
     if (error.response?.data) {
       console.log('Error Data:', JSON.stringify(error.response.data, null, 2));
     } else {

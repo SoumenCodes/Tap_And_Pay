@@ -147,6 +147,8 @@ export const authService = {
     const accessToken = resData.access_token || resData.token;
     if (accessToken) {
       await tokenStorage.setTokens(accessToken, resData.refresh_token);
+      console.log('🔑 [AuthService] Successfully Received & Saved JWT Token:');
+      console.log(`Bearer ${accessToken}\n`);
     }
 
     const u = resData.user;

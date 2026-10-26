@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,39 +10,190 @@ import {
   Modal,
   Pressable,
   TextInput,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../../context/AuthContext';
 import HeaderBar from '../../common/HeaderBar';
+import {
+  profileService,
+  ProfileResponseData,
+  BankDetailsData,
+} from '../../../services/profileService';
 
 export default function TaxiOwnerProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
-  const [isOnShift, setIsOnShift] = useState(true);
+
+  // Profile API State
+  const [profileData, setProfileData] = useState<ProfileResponseData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Dedicated Bank Details API State
+  const [bankData, setBankData] = useState<BankDetailsData | null>(null);
+  const [isBankLoading, setIsBankLoading] = useState(false);
+
+  const [isOnShift, setIsOnShift] = useState(false);
 
   // Bank Modals State
   const [isBankModalVisible, setIsBankModalVisible] = useState(false);
   const [isUpdateBankModalVisible, setIsUpdateBankModalVisible] = useState(false);
 
   // Current Bank Account Information
-  const [accountName, setAccountName] = useState('Harpreet Singh');
-  const [bsbNumber, setBsbNumber] = useState('083 - 004');
-  const [accountNumber, setAccountNumber] = useState('••••  ••••  4821');
+  const [accountName, setAccountName] = useState('');
+  const [bsbNumber, setBsbNumber] = useState('');
+  const [accountNumber, setAccountNumber] = useState('');
 
   // New Account Inputs for Update Modal
-  const [editAccountName, setEditAccountName] = useState('Harpreet Singh');
-  const [editBsb, setEditBsb] = useState('063-123');
-  const [editAccountNumber, setEditAccountNumber] = useState('1098 7654');
+  const [editAccountName, setEditAccountName] = useState('');
+  const [editBsb, setEditBsb] = useState('');
+  const [editAccountNumber, setEditAccountNumber] = useState('');
 
-  const userName = user.name || 'Harpreet Singh';
-  const taxiNumber = user.taxiNumber || 'M6022';
-  const dcNumber = '58745896';
-  const abn = '62 458 123 800';
-  const phone = '0400 555 320';
-  const email = 'harpreet_singh@testmail.com';
-  const activeShiftId = `26102026/${taxiNumber}/537384`;
+  // Helper to apply profile data to local state
+  const applyProfileData = (data: ProfileResponseData) => {
+    setProfileData(data);
+
+    if (data.user?.bank_details) {
+      const bd = data.user.bank_details;
+      if (bd.bank_account_name) {
+        setAccountName(bd.bank_account_name);
+        setEditAccountName(bd.bank_account_name);
+      }
+      if (bd.bsb) {
+        setBsbNumber(bd.bsb);
+        setEditBsb(bd.bsb);
+      }
+      if (bd.masked_account_number) {
+        setAccountNumber(bd.masked_account_number);
+      } else if (bd.account_number) {
+        setAccountNumber(`••••  ••••  ${bd.account_number.slice(-4)}`);
+      }
+    }
+
+    if (data.current_session) {
+      setIsOnShift(Boolean(data.current_session.has_active_session));
+    }
+  };
+
+  // Initial load via GET /api/user/profile
+  useEffect(() => {
+    let isMounted = true;
+
+    profileService
+      .getProfile()
+      .then((data) => {
+        if (!isMounted) return;
+        applyProfileData(data);
+      })
+      .catch((err) => {
+        console.log('Failed to fetch taxi owner profile:', err.message || err);
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Pull-to-refresh handler
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      const data = await profileService.getProfile();
+      applyProfileData(data);
+    } catch (err: any) {
+      console.log('Failed to refresh taxi owner profile:', err.message || err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Dedicated Bank Details Fetcher: GET /api/user/bank-details
+  const handleOpenBankModal = async () => {
+    setIsBankModalVisible(true);
+    setIsBankLoading(true);
+    try {
+      const data = await profileService.getBankDetails();
+      setBankData(data);
+
+      if (data) {
+        if (data.bank_account_name) {
+          setAccountName(data.bank_account_name);
+          setEditAccountName(data.bank_account_name);
+        }
+        if (data.bsb) {
+          setBsbNumber(data.bsb);
+          setEditBsb(data.bsb);
+        }
+        if (data.masked_account_number) {
+          setAccountNumber(data.masked_account_number);
+        } else if (data.account_number) {
+          setAccountNumber(`••••  ••••  ${data.account_number.slice(-4)}`);
+        }
+      }
+    } catch (err: any) {
+      console.log('Failed to fetch bank details from API:', err.message || err);
+    } finally {
+      setIsBankLoading(false);
+    }
+  };
+
+  const u = profileData?.user;
+  const session = profileData?.current_session;
+
+  const userName =
+    u?.display_name ||
+    `${u?.first_name || ''} ${u?.last_name || ''}`.trim() ||
+    user.name ||
+    '';
+  const taxiNumber = u?.taxi_no || user.taxiNumber || '';
+  const dcNumber = u?.dc_number || '';
+  const abn = u?.abn || '';
+  const phone = u?.phone_no || '';
+  const email = u?.email || '';
+  const activeShiftId =
+    session?.display_shift_id ||
+    session?.shift_id ||
+    '--';
+
+  const shiftStatusText =
+    session?.status_badge || (isOnShift ? 'Active • On Shift' : 'Active • Off Shift');
+  const shiftStartTimeText = session?.started_at_formatted
+    ? `Started ${session.started_at_formatted}${session.duration ? ` (${session.duration})` : ''}`
+    : 'No active shift session';
+
+  // Revenue values
+  const rev = session?.revenue;
+  const totalAmount = rev?.total_amount ?? 0;
+  const integerPart = Math.floor(totalAmount).toLocaleString();
+  const decimalPart = (totalAmount % 1).toFixed(2).split('.')[1] || '00';
+  const transactionLabel = rev?.transaction_label || '0 Trips';
+
+  const cardAmountVal =
+    rev?.card?.amount != null ? Math.floor(rev.card.amount).toString() : '0';
+  const cardAmountDec =
+    rev?.card?.amount != null
+      ? `.${(rev.card.amount % 1).toFixed(2).split('.')[1] || '00'}`
+      : '.00';
+  const cardCountText = rev?.card?.count_formatted || '0 Txns';
+
+  const tapAmountVal =
+    rev?.tap_and_go?.amount != null
+      ? Math.floor(rev.tap_and_go.amount).toString()
+      : '0';
+  const tapAmountDec =
+    rev?.tap_and_go?.amount != null
+      ? `.${(rev.tap_and_go.amount % 1).toFixed(2).split('.')[1] || '00'}`
+      : '.00';
+  const tapCountText = rev?.tap_and_go?.count_formatted || '0 Txns';
 
   const handleCopyShiftId = () => {
     Alert.alert('Active Shift ID', `${activeShiftId}\nCopied to clipboard.`);
@@ -118,46 +269,74 @@ export default function TaxiOwnerProfileScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            colors={['#D97706']}
+            tintColor="#D97706"
+          />
+        }
       >
+        {/* Loading Indicator for Initial Fetch */}
+        {isLoading && !profileData && (
+          <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+            <ActivityIndicator size="small" color="#D97706" />
+          </View>
+        )}
+
         {/* ── MAIN GOLDEN-BORDERED PROFILE CARD ── */}
         <View style={styles.profileCard}>
           {/* Driver Avatar with Gold Border (No Emblem Badge) */}
           <View style={styles.avatarContainer}>
             <Image
-              source={require('../../../../assets/emp_avatar_2.png')}
+              source={
+                u?.profile_photo_url || u?.logo_url
+                  ? { uri: u.profile_photo_url || u.logo_url }
+                  : require('../../../../assets/emp_avatar_2.png')
+              }
               style={styles.avatarImage}
             />
           </View>
 
           {/* Owner/Driver Name */}
-          <Text style={styles.driverNameText}>{userName}</Text>
+          <Text style={styles.driverNameText}>{userName || '--'}</Text>
+
+          {/* Business Name from API */}
+          {Boolean(u?.business_name) && (
+            <Text style={styles.bizNameText}>{u?.business_name}</Text>
+          )}
 
           {/* ABN & Contact Meta */}
           <Text style={styles.metaLine}>
-            ABN: {abn} • PH: {phone}
+            ABN: {abn || '--'} • PH: {phone || '--'}
           </Text>
           <Text style={styles.metaLine}>
-            TAXI NO.: <Text style={styles.metaBold}>{taxiNumber}</Text>
-            {'   '}DC: <Text style={styles.metaBold}>{dcNumber}</Text>
+            TAXI NO.: <Text style={styles.metaBold}>{taxiNumber || '--'}</Text>
+            {Boolean(dcNumber) && <>   DC: <Text style={styles.metaBold}>{dcNumber}</Text></>}
+            {Boolean(u?.dl_number) && <>   DL: <Text style={styles.metaBold}>{u?.dl_number}</Text></>}
           </Text>
-          <Text style={styles.emailLine}>{email}</Text>
+          {Boolean(email) && <Text style={styles.emailLine}>{email}</Text>}
+          {Boolean(u?.address?.formatted) && (
+            <Text style={styles.addressLine} numberOfLines={1}>
+              {u?.address?.formatted}
+            </Text>
+          )}
 
           {/* Shift Status Badge */}
           {isOnShift ? (
             <View style={styles.statusPillActive}>
               <View style={styles.statusDotActive} />
-              <Text style={styles.statusTextActive}>Active • On Shift</Text>
+              <Text style={styles.statusTextActive}>{shiftStatusText}</Text>
             </View>
           ) : (
             <View style={styles.statusPillInactive}>
               <View style={styles.statusDotInactive} />
-              <Text style={styles.statusTextInactive}>Off Shift</Text>
+              <Text style={styles.statusTextInactive}>{shiftStatusText}</Text>
             </View>
           )}
 
-          <Text style={styles.shiftStartTimeText}>
-            Started 26 Oct 2026 | 07:30 AM (8h 45m)
-          </Text>
+          <Text style={styles.shiftStartTimeText}>{shiftStartTimeText}</Text>
 
           {/* ── Active Shift ID Box ── */}
           <View style={styles.shiftIdBox}>
@@ -179,18 +358,20 @@ export default function TaxiOwnerProfileScreen() {
           {/* ── Active Shift Txns Box ── */}
           <View style={styles.shiftTxnsBox}>
             <View style={styles.txnsHeaderRow}>
-              <Text style={styles.txnsLabel}>Active Shift Txns</Text>
+              <Text style={styles.txnsLabel}>
+                {session?.revenue_title || 'Active Shift Txns'}
+              </Text>
               <View style={styles.tripsBadge}>
                 <Ionicons name="checkmark-circle-outline" size={14} color="#059669" />
-                <Text style={styles.tripsBadgeText}>14 Trips</Text>
+                <Text style={styles.tripsBadgeText}>{transactionLabel}</Text>
               </View>
             </View>
 
             {/* Total Fare Row */}
             <View style={styles.fareAmountRow}>
               <Text style={styles.fareDollar}>$ </Text>
-              <Text style={styles.fareInteger}>485</Text>
-              <Text style={styles.fareDec}>.00</Text>
+              <Text style={styles.fareInteger}>{integerPart}</Text>
+              <Text style={styles.fareDec}>.{decimalPart}</Text>
             </View>
 
             <View style={styles.cardInnerDivider} />
@@ -204,10 +385,10 @@ export default function TaxiOwnerProfileScreen() {
                 </View>
                 <View style={styles.breakdownAmountRow}>
                   <Text style={styles.breakdownDollarBlue}>$</Text>
-                  <Text style={styles.breakdownAmountVal}>320</Text>
-                  <Text style={styles.breakdownDec}>.00</Text>
+                  <Text style={styles.breakdownAmountVal}>{cardAmountVal}</Text>
+                  <Text style={styles.breakdownDec}>{cardAmountDec}</Text>
                 </View>
-                <Text style={styles.breakdownSub}>9 Txns</Text>
+                <Text style={styles.breakdownSub}>{cardCountText}</Text>
               </View>
 
               <View style={styles.verticalColDivider} />
@@ -219,15 +400,15 @@ export default function TaxiOwnerProfileScreen() {
                 </View>
                 <View style={styles.breakdownAmountRow}>
                   <Text style={styles.breakdownDollarAmber}>$</Text>
-                  <Text style={styles.breakdownAmountVal}>165</Text>
-                  <Text style={styles.breakdownDec}>.00</Text>
+                  <Text style={styles.breakdownAmountVal}>{tapAmountVal}</Text>
+                  <Text style={styles.breakdownDec}>{tapAmountDec}</Text>
                 </View>
-                <Text style={styles.breakdownSub}>5 Txns</Text>
+                <Text style={styles.breakdownSub}>{tapCountText}</Text>
               </View>
             </View>
           </View>
 
-          {/* ── End Shift Button (Black) ── */}
+          {/* ── End/Start Shift Button (Black) ── */}
           <TouchableOpacity
             style={[
               styles.endShiftBtn,
@@ -243,42 +424,39 @@ export default function TaxiOwnerProfileScreen() {
               style={{ marginRight: 8 }}
             />
             <Text style={styles.endShiftBtnText}>
-              {isOnShift ? 'End Shift' : 'Start Shift'}
+              {session?.end_button_title || (isOnShift ? 'End Shift' : 'Start Shift')}
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* ── ACTION CARD 1: Past Shift Records ── */}
-        <TouchableOpacity
-          style={styles.actionCard}
-          activeOpacity={0.75}
-          onPress={() => router.push('/(tabs)/transactions')}
-        >
-          <View style={styles.actionIconWrap}>
-            <Ionicons name="swap-horizontal" size={20} color="#D97706" />
-          </View>
-          <View style={styles.actionTextCol}>
-            <Text style={styles.actionTitle}>Past Shift Records</Text>
-            <Text style={styles.actionSub}>View your previous shift history</Text>
-          </View>
-          <Feather name="chevron-right" size={18} color="#94A3B8" />
-        </TouchableOpacity>
-
-        {/* ── ACTION CARD 2: Bank Details (Matching Taxi Business Owner) ── */}
-        <TouchableOpacity
-          style={styles.actionCard}
-          activeOpacity={0.75}
-          onPress={() => setIsBankModalVisible(true)}
-        >
-          <View style={styles.actionIconWrap}>
-            <Ionicons name="business-outline" size={20} color="#D97706" />
-          </View>
-          <View style={styles.actionTextCol}>
-            <Text style={styles.actionTitle}>Bank Details</Text>
-            <Text style={styles.actionSub}>Manage your bank account details</Text>
-          </View>
-          <Feather name="chevron-right" size={18} color="#94A3B8" />
-        </TouchableOpacity>
+        {/* ── DYNAMIC MENU OPTIONS (from API data.menu_options) ── */}
+        {(profileData?.menu_options || []).map((item) => (
+          <TouchableOpacity
+            key={item.key}
+            style={styles.actionCard}
+            activeOpacity={0.75}
+            onPress={() => {
+              if (item.action === 'navigate_bank_details' || item.key === 'bank_details') {
+                handleOpenBankModal();
+              } else {
+                router.push('/(tabs)/transactions');
+              }
+            }}
+          >
+            <View style={styles.actionIconWrap}>
+              <Ionicons
+                name={item.key === 'bank_details' ? 'business-outline' : 'swap-horizontal'}
+                size={20}
+                color="#D97706"
+              />
+            </View>
+            <View style={styles.actionTextCol}>
+              <Text style={styles.actionTitle}>{item.title}</Text>
+              <Text style={styles.actionSub}>{item.subtitle}</Text>
+            </View>
+            <Feather name="chevron-right" size={18} color="#94A3B8" />
+          </TouchableOpacity>
+        ))}
 
         {/* ── LOG OUT ACCOUNT BUTTON ── */}
         <TouchableOpacity
@@ -326,8 +504,27 @@ export default function TaxiOwnerProfileScreen() {
               <View style={styles.bankTitleCol}>
                 <View style={styles.bankTitleVerifiedRow}>
                   <Text style={styles.bankSheetTitle}>Bank Details</Text>
-                  <View style={styles.verifiedPill}>
-                    <Text style={styles.verifiedPillText}>Verified</Text>
+                  <View
+                    style={[
+                      styles.verifiedPill,
+                      !(bankData?.is_verified ?? u?.is_verified ?? true) && {
+                        backgroundColor: '#F1F5F9',
+                        borderColor: '#E2E8F0',
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.verifiedPillText,
+                        !(bankData?.is_verified ?? u?.is_verified ?? true) && {
+                          color: '#64748B',
+                        },
+                      ]}
+                    >
+                      {(bankData?.is_verified ?? u?.is_verified ?? true)
+                        ? 'Verified'
+                        : 'Pending'}
+                    </Text>
                   </View>
                 </View>
                 <Text style={styles.bankSheetSubtitle}>Register account for payouts</Text>
@@ -342,6 +539,13 @@ export default function TaxiOwnerProfileScreen() {
               </TouchableOpacity>
             </View>
 
+            {/* Loading Indicator for Bank Details */}
+            {isBankLoading && !bankData && (
+              <View style={{ paddingVertical: 14, alignItems: 'center' }}>
+                <ActivityIndicator size="small" color="#D97706" />
+              </View>
+            )}
+
             {/* Bank Account Information Card */}
             <View style={styles.bankInfoBox}>
               <Text style={styles.bankInfoHeading}>BANK ACCOUNT INFORMATION</Text>
@@ -349,23 +553,71 @@ export default function TaxiOwnerProfileScreen() {
 
               <View style={styles.bankInfoRow}>
                 <Text style={styles.bankInfoLabel}>Account Name</Text>
-                <Text style={styles.bankInfoValue}>{accountName}</Text>
+                <Text style={styles.bankInfoValue}>
+                  {bankData?.bank_account_name || accountName || '--'}
+                </Text>
               </View>
+
+              {Boolean(bankData?.bank_name || u?.bank_details?.bank_name) && (
+                <View style={styles.bankInfoRow}>
+                  <Text style={styles.bankInfoLabel}>Bank Name</Text>
+                  <Text style={styles.bankInfoValue}>
+                    {bankData?.bank_name || u?.bank_details?.bank_name}
+                  </Text>
+                </View>
+              )}
 
               <View style={styles.bankInfoRow}>
                 <Text style={styles.bankInfoLabel}>BSB Number</Text>
                 <View style={styles.bsbRow}>
-                  <Text style={styles.bankInfoValue}>{bsbNumber}</Text>
-                  <View style={styles.nabBadge}>
-                    <Text style={styles.nabBadgeText}>NAB</Text>
-                  </View>
+                  <Text style={styles.bankInfoValue}>
+                    {bankData?.bsb || bsbNumber || '--'}
+                  </Text>
+                  {Boolean(
+                    bankData?.bank_badge ||
+                      (bankData?.bank_name || u?.bank_details?.bank_name)
+                  ) && (
+                    <View style={styles.nabBadge}>
+                      <Text style={styles.nabBadgeText}>
+                        {bankData?.bank_badge ||
+                          ((bankData?.bank_name || u?.bank_details?.bank_name)?.includes(
+                            'National Australia Bank'
+                          ) ||
+                          (bankData?.bank_name || u?.bank_details?.bank_name)?.includes('NAB')
+                            ? 'NAB'
+                            : (bankData?.bank_name || u?.bank_details?.bank_name)
+                                ?.slice(0, 4)
+                                ?.toUpperCase())}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               </View>
 
               <View style={styles.bankInfoRow}>
                 <Text style={styles.bankInfoLabel}>Account Number</Text>
-                <Text style={styles.bankInfoValue}>{accountNumber}</Text>
+                <Text style={styles.bankInfoValue}>
+                  {bankData?.masked_account_number ||
+                    (bankData?.account_number
+                      ? `••••  ••••  ${bankData.account_number.slice(-4)}`
+                      : null) ||
+                    accountNumber ||
+                    '--'}
+                </Text>
               </View>
+
+              {Boolean(
+                bankData?.payout_payment_method || u?.bank_details?.payout_payment_method
+              )}
+              {(bankData?.payout_payment_method || u?.bank_details?.payout_payment_method) && (
+                <View style={styles.bankInfoRow}>
+                  <Text style={styles.bankInfoLabel}>Payout Method</Text>
+                  <Text style={[styles.bankInfoValue, { textTransform: 'capitalize' }]}>
+                    {bankData?.payout_payment_method ||
+                      u?.bank_details?.payout_payment_method}
+                  </Text>
+                </View>
+              )}
             </View>
 
             {/* Update Bank Account Action */}
@@ -419,7 +671,7 @@ export default function TaxiOwnerProfileScreen() {
                   style={styles.sheetInput}
                   value={editAccountName}
                   onChangeText={setEditAccountName}
-                  placeholder="Harpreet Singh"
+                  placeholder="Account Name"
                   placeholderTextColor="#94A3B8"
                 />
               </View>
@@ -431,7 +683,7 @@ export default function TaxiOwnerProfileScreen() {
                     style={styles.sheetInput}
                     value={editBsb}
                     onChangeText={setEditBsb}
-                    placeholder="063-123"
+                    placeholder="000-000"
                     placeholderTextColor="#94A3B8"
                   />
                 </View>
@@ -442,7 +694,7 @@ export default function TaxiOwnerProfileScreen() {
                     style={styles.sheetInput}
                     value={editAccountNumber}
                     onChangeText={setEditAccountNumber}
-                    placeholder="1098 7654"
+                    placeholder="Account Number"
                     placeholderTextColor="#94A3B8"
                     keyboardType="numeric"
                   />
@@ -520,7 +772,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     color: '#0F172A',
-    marginBottom: 5,
+    marginBottom: 2,
+  },
+  bizNameText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#D97706',
+    marginBottom: 6,
   },
   metaLine: {
     fontSize: 11,
@@ -536,7 +794,15 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#64748B',
     fontWeight: '500',
+    marginBottom: 3,
+  },
+  addressLine: {
+    fontSize: 10.5,
+    color: '#94A3B8',
+    fontWeight: '500',
     marginBottom: 10,
+    textAlign: 'center',
+    paddingHorizontal: 8,
   },
 
   /* Shift Status Pills */

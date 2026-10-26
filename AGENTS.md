@@ -39,3 +39,11 @@ Docs: https://docs.expo.dev/eas/index.md
 - If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
 - Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
 - Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
+
+## API Integration Rules
+
+- **Complete Schema Mapping**: For every integrated API endpoint, inspect the entire JSON response contract. Ensure all returned parameters are strictly typed in TypeScript interfaces. Proactively report to the user if any returned parameter is missing or unused.
+- **Zero Hardcoded Fallbacks**: Never use hardcoded mock or dummy values (e.g., fake user names, dummy amounts, hardcoded bank account numbers, or mock shift IDs) as fallback values in screens or state.
+- **Clean State Initialization**: Initialize component states with empty primitives (`''`, `null`, `0`, `[]`).
+- **Graceful Empty Rendering**: When data is loading or fields are nullable/empty, display clean empty states (e.g., `'--'` or conditional rendering), never synthetic mockup text.
+- **Dynamic Arrays**: Lists (e.g., `menu_options`, transaction logs) must render strictly from the backend response array without fallback hardcoded mock arrays.

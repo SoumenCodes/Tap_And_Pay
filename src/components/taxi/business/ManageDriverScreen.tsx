@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import HeaderBar from '../../common/HeaderBar';
 import {
   driverService,
@@ -30,6 +30,8 @@ export default function ManageDriverScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  const prevSearchRef = useRef<string>(searchQuery);
 
   // Fetch Drivers from API (GET /api/drivers/list or /api/drivers/list?search=...)
   const fetchDrivers = useCallback(async (query?: string) => {
@@ -47,10 +49,30 @@ export default function ManageDriverScreen() {
     }
   }, []);
 
+  // Auto-refresh when screen comes into focus (e.g. returning from Add Driver)
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
+      const timer = setTimeout(() => {
+        if (!isMounted) return;
+        fetchDrivers(searchQuery);
+      }, 0);
+
+      return () => {
+        isMounted = false;
+        clearTimeout(timer);
+      };
+    }, [fetchDrivers, searchQuery])
+  );
+
   // Search Debounce (350ms)
   useEffect(() => {
-    let isMounted = true;
+    if (prevSearchRef.current === searchQuery) {
+      return;
+    }
+    prevSearchRef.current = searchQuery;
 
+    let isMounted = true;
     const timer = setTimeout(() => {
       if (!isMounted) return;
       setIsLoading(true);

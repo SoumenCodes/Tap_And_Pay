@@ -10,98 +10,177 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
+  Image,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons, Feather } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import HeaderBar from '../../common/HeaderBar';
-import { useEmployees } from '../../../context/EmployeeContext';
+import { employeeService } from '../../../services/employeeService';
 
 export default function AddEmployeeScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ employeeId?: string }>();
-  const { employees, addEmployee, updateEmployee } = useEmployees();
 
-  // Find existing employee if employeeId is passed
-  const existingEmployee = React.useMemo(() => {
-    if (params.employeeId) {
-      return employees.find((e) => e.id === params.employeeId) || null;
+  // Form State (Clean Primitives with Zero Hardcoded Mock Fallbacks)
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [empId, setEmpId] = useState('');
+  const [isActive, setIsActive] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Dynamic Profile Photo State
+  const [profilePhoto, setProfilePhoto] = useState<{
+    uri: string;
+    name: string;
+    type: string;
+  } | null>(null);
+
+  const pickFromCamera = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Required',
+          'Camera access is required to take an employee profile photo.'
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const filename = asset.fileName || asset.uri.split('/').pop() || 'profile_photo.jpg';
+        const match = /\.(\w+)$/.exec(filename);
+        const type = asset.mimeType || (match ? `image/${match[1]}` : 'image/jpeg');
+
+        setProfilePhoto({
+          uri: asset.uri,
+          name: filename,
+          type,
+        });
+      }
+    } catch (err: any) {
+      Alert.alert('Camera Error', err.message || 'Could not open camera.');
     }
-    return null;
-  }, [params.employeeId, employees]);
-
-  const [firstName, setFirstName] = useState(existingEmployee?.firstName || 'Liam');
-  const [lastName, setLastName] = useState(existingEmployee?.lastName || 'Hemsworth');
-  const [phone, setPhone] = useState(existingEmployee?.phone || '0400 555 320');
-  const [email, setEmail] = useState(existingEmployee?.email || '');
-  const [empId, setEmpId] = useState(existingEmployee?.empId || '93822048');
-  const [isActive, setIsActive] = useState(
-    existingEmployee ? existingEmployee.status === 'active' : true
-  );
-
-  const handleUploadPhoto = () => {
-    Alert.alert(
-      'Upload Employee Photo',
-      'Select a photo source for the employee:',
-      [
-        { text: 'Camera', onPress: () => Alert.alert('Camera selected') },
-        { text: 'Photo Gallery', onPress: () => Alert.alert('Gallery selected') },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
   };
 
-  const handleSave = () => {
+  const pickFromGallery = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Required',
+          'Photo library access is required to select an employee profile photo.'
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const filename = asset.fileName || asset.uri.split('/').pop() || 'profile_photo.jpg';
+        const match = /\.(\w+)$/.exec(filename);
+        const type = asset.mimeType || (match ? `image/${match[1]}` : 'image/jpeg');
+
+        setProfilePhoto({
+          uri: asset.uri,
+          name: filename,
+          type,
+        });
+      }
+    } catch (err: any) {
+      Alert.alert('Gallery Error', err.message || 'Could not open photo library.');
+    }
+  };
+
+  const handleUploadPhoto = () => {
+    const options: { text: string; onPress?: () => void; style?: 'cancel' | 'destructive' }[] = [
+      { text: 'Take Photo (Camera)', onPress: pickFromCamera },
+      { text: 'Choose from Gallery', onPress: pickFromGallery },
+    ];
+
+    if (profilePhoto) {
+      options.push({
+        text: 'Remove Photo',
+        style: 'destructive',
+        onPress: () => setProfilePhoto(null),
+      });
+    }
+
+    options.push({ text: 'Cancel', style: 'cancel' });
+
+    Alert.alert('Upload Employee Photo', 'Select a photo source:', options);
+  };
+
+  const handleSave = async () => {
     if (!firstName.trim() || !lastName.trim()) {
-      Alert.alert('Required Fields', 'Please provide both First Name and Last Name.');
+      Alert.alert('Required Fields', 'Please enter First Name and Last Name.');
       return;
     }
     if (!phone.trim()) {
       Alert.alert('Required Field', 'Please enter a contact phone number.');
       return;
     }
+    if (!empId.trim()) {
+      Alert.alert('Required Field', 'Please enter an Employee ID.');
+      return;
+    }
 
-    if (existingEmployee) {
-      updateEmployee(existingEmployee.id, {
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        phone: phone.trim(),
-        email: email.trim() || undefined,
-        empId: empId.trim() || existingEmployee.empId,
-        status: isActive ? 'active' : 'inactive',
-      });
+    setIsSubmitting(true);
+    try {
+      const formData = new FormData();
+      formData.append('first_name', firstName.trim());
+      formData.append('last_name', lastName.trim());
+      formData.append('phone_number', phone.trim());
+      formData.append('email_id', email.trim());
+      formData.append('employee_id', empId.trim());
 
-      Alert.alert(
-        'Employee Saved',
-        `${firstName} ${lastName}'s profile has been updated successfully.`,
-        [
-          {
-            text: 'OK',
-            onPress: () => router.back(),
-          },
-        ]
-      );
-    } else {
-      addEmployee({
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        phone: phone.trim(),
-        email: email.trim() || undefined,
-        empId: empId.trim() || `${Math.floor(10000000 + Math.random() * 90000000)}`,
-        status: isActive ? 'active' : 'inactive',
-        avatarLocal: require('../../../../assets/emp_avatar_2.png'),
-      });
+      // Append dynamic profile photo file
+      if (profilePhoto) {
+        formData.append('profile_photo', {
+          uri: profilePhoto.uri,
+          name: profilePhoto.name,
+          type: profilePhoto.type,
+        } as any);
+      }
 
-      Alert.alert(
-        'Employee Added',
-        `${firstName} ${lastName} has been added successfully to your staff records.`,
-        [
-          {
-            text: 'OK',
-            onPress: () => router.back(),
-          },
-        ]
-      );
+      const res = await employeeService.addEmployee(formData);
+      const created = res.data?.employee;
+      let msg = res.message || 'Employee added successfully and waiting for admin approval.';
+      if (created?.temporary_password) {
+        msg += `\n\nTemporary Password: ${created.temporary_password}\n(Please share this credential with the employee)`;
+      }
+
+      Alert.alert('Success', msg, [
+        {
+          text: 'OK',
+          onPress: () => router.back(),
+        },
+      ]);
+    } catch (err: any) {
+      const errorMsg =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Failed to add employee. Please check details and try again.';
+      Alert.alert('Error', errorMsg);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -113,8 +192,12 @@ export default function AddEmployeeScreen() {
     <View style={styles.root}>
       <StatusBar style="dark" />
 
-      {/* Standard Common Header */}
-      <HeaderBar title="Add Employee" showBack={true} />
+      {/* Header Bar */}
+      <HeaderBar
+        title="Add Employee"
+        showBack={true}
+        onBack={() => router.back()}
+      />
 
       <KeyboardAvoidingView
         style={styles.keyboardContainer}
@@ -142,17 +225,42 @@ export default function AddEmployeeScreen() {
               onPress={handleUploadPhoto}
               activeOpacity={0.7}
             >
-              <View style={styles.cameraIconWrap}>
-                <Feather name="camera" size={20} color="#2563EB" />
-              </View>
-              <Text style={styles.uploadPrompt}>Tap to upload</Text>
-              <Text style={styles.uploadSubtext}>JPEG or PNG, max 5MB</Text>
+              {profilePhoto ? (
+                <View style={styles.previewContainer}>
+                  <Image source={{ uri: profilePhoto.uri }} style={styles.previewImage} />
+                  <View style={styles.previewInfo}>
+                    <Text style={styles.uploadPrompt}>Photo Selected</Text>
+                    <Text style={styles.uploadSubtext} numberOfLines={1}>
+                      {profilePhoto.name}
+                    </Text>
+                    <Text style={styles.changePrompt}>Tap to change</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.removePhotoBtn}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      setProfilePhoto(null);
+                    }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <>
+                  <View style={styles.cameraIconWrap}>
+                    <Feather name="camera" size={20} color="#2563EB" />
+                  </View>
+                  <Text style={styles.uploadPrompt}>Tap to upload</Text>
+                  <Text style={styles.uploadSubtext}>JPEG or PNG, max 5MB</Text>
+                </>
+              )}
             </TouchableOpacity>
           </View>
 
           {/* Field: First Name */}
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>First Name</Text>
+            <Text style={styles.fieldLabel}>First Name *</Text>
             <TextInput
               style={styles.textInput}
               placeholder="First name"
@@ -165,7 +273,7 @@ export default function AddEmployeeScreen() {
 
           {/* Field: Last Name */}
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Last Name</Text>
+            <Text style={styles.fieldLabel}>Last Name *</Text>
             <TextInput
               style={styles.textInput}
               placeholder="Last name"
@@ -178,14 +286,14 @@ export default function AddEmployeeScreen() {
 
           {/* Field: Phone Number */}
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Phone Number</Text>
+            <Text style={styles.fieldLabel}>Phone Number *</Text>
             <View style={styles.phoneRow}>
               <View style={styles.countryCodeBox}>
                 <Text style={styles.countryCodeText}>+61</Text>
               </View>
               <TextInput
                 style={[styles.textInput, styles.phoneInput]}
-                placeholder="0400 555 320"
+                placeholder="e.g. 0400 555 320"
                 placeholderTextColor="#94A3B8"
                 value={phone}
                 onChangeText={setPhone}
@@ -199,7 +307,7 @@ export default function AddEmployeeScreen() {
             <Text style={styles.fieldLabel}>Email ID</Text>
             <TextInput
               style={styles.textInput}
-              placeholder="Type email ID"
+              placeholder="e.g. employee@business.com"
               placeholderTextColor="#94A3B8"
               value={email}
               onChangeText={setEmail}
@@ -211,14 +319,14 @@ export default function AddEmployeeScreen() {
 
           {/* Field: Employee ID */}
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Employee ID</Text>
+            <Text style={styles.fieldLabel}>Employee ID *</Text>
             <TextInput
               style={styles.textInput}
-              placeholder="84920048"
+              placeholder="e.g. EMP321045"
               placeholderTextColor="#94A3B8"
               value={empId}
               onChangeText={setEmpId}
-              keyboardType="number-pad"
+              autoCapitalize="characters"
             />
           </View>
 
@@ -249,22 +357,30 @@ export default function AddEmployeeScreen() {
           {/* Action CTAs */}
           <View style={styles.actionGroup}>
             <TouchableOpacity
-              style={styles.saveButton}
+              style={[styles.saveButton, isSubmitting && { opacity: 0.7 }]}
               onPress={handleSave}
+              disabled={isSubmitting}
               activeOpacity={0.85}
             >
-              <Ionicons
-                name="checkmark-circle"
-                size={18}
-                color="#FFFFFF"
-                style={styles.buttonIcon}
-              />
-              <Text style={styles.saveButtonText}>Save Employee</Text>
+              {isSubmitting ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={18}
+                    color="#FFFFFF"
+                    style={styles.buttonIcon}
+                  />
+                  <Text style={styles.saveButtonText}>Save Employee</Text>
+                </>
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.cancelButton}
               onPress={handleCancel}
+              disabled={isSubmitting}
               activeOpacity={0.7}
             >
               <Text style={styles.cancelButtonText}>Cancel</Text>
@@ -296,115 +412,144 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 20,
+    gap: 10,
   },
   headerIconBadge: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: '#FFFBEB',
-    borderWidth: 1,
-    borderColor: '#FDE68A',
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#FEF3C7',
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerCardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
     color: '#0F172A',
-    marginLeft: 12,
   },
   fieldGroup: {
     marginBottom: 16,
   },
   fieldLabel: {
-    fontSize: 12.5,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
     color: '#64748B',
     marginBottom: 6,
+    letterSpacing: 0.2,
   },
   textInput: {
     height: 48,
     borderRadius: 12,
     backgroundColor: '#F1F5F9',
-    paddingHorizontal: 16,
-    fontSize: 14,
-    fontWeight: '500',
+    paddingHorizontal: 14,
+    fontSize: 13,
     color: '#0F172A',
-  },
-  uploadBox: {
-    height: 116,
-    borderRadius: 14,
-    backgroundColor: '#F0F7FF',
-    borderWidth: 1.5,
-    borderColor: '#93C5FD',
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-  },
-  cameraIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#EFF6FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 6,
-  },
-  uploadPrompt: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#1E293B',
-    marginBottom: 2,
-  },
-  uploadSubtext: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: '#94A3B8',
+    fontWeight: '600',
   },
   phoneRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
   countryCodeBox: {
-    width: 68,
+    width: 60,
     height: 48,
     borderRadius: 12,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
   },
   countryCodeText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: '#0F172A',
   },
   phoneInput: {
     flex: 1,
   },
+  uploadBox: {
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: '#93C5FD',
+    borderRadius: 14,
+    backgroundColor: '#EFF6FF',
+    minHeight: 110,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+  },
+  cameraIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#DBEAFE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  uploadPrompt: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  uploadSubtext: {
+    fontSize: 10,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  changePrompt: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#2563EB',
+    marginTop: 3,
+  },
+  previewContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    width: '100%',
+  },
+  previewImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 12,
+    backgroundColor: '#E2E8F0',
+  },
+  previewInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  removePhotoBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   statusBox: {
     height: 48,
     borderRadius: 12,
     backgroundColor: '#F1F5F9',
-    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 14,
   },
   statusLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
   },
   statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 8,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   statusLabelText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
     color: '#0F172A',
   },
   actionGroup: {
@@ -415,9 +560,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 50,
-    borderRadius: 12,
     backgroundColor: '#0F172A',
+    height: 48,
+    borderRadius: 12,
     shadowColor: '#0F172A',
     shadowOpacity: 0.25,
     shadowRadius: 6,
@@ -425,25 +570,23 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   buttonIcon: {
-    marginRight: 8,
+    marginRight: 6,
   },
   saveButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
     color: '#FFFFFF',
-    letterSpacing: 0.2,
   },
   cancelButton: {
-    height: 50,
+    height: 48,
     borderRadius: 12,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#334155',
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
   },
 });
-

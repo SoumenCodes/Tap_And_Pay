@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,149 +8,102 @@ import {
   Image,
   Switch,
   Alert,
-  Linking,
+  ActivityIndicator,
+  RefreshControl,
+  Modal,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import HeaderBar from '../../common/HeaderBar';
-import { DriverItem } from '../../../services/driverService';
-
-interface DriverFullProfile {
-  id: string;
-  name: string;
-  dcNumber: string;
-  taxiNo: string;
-  phone: string;
-  email: string;
-  abn: string;
-  address: string;
-  bankAccountName: string;
-  bsb: string;
-  accountNumber: string;
-  isActive: boolean;
-  avatar?: any;
-}
-
-const DRIVERS_DB: Record<string, DriverFullProfile> = {
-  drv_01: {
-    id: 'drv_01',
-    name: 'Lovedeep Khangura',
-    dcNumber: '93821048',
-    taxiNo: 'M6061',
-    phone: '+61 0400 555 320',
-    email: 'driver.khangura@mailtest.com.au',
-    abn: '98 765 423 101',
-    address: '120 Collins St, Melbourne VIC 3000',
-    bankAccountName: 'Lovedeep Singh Khangura',
-    bsb: '063-123',
-    accountNumber: '1098 7654',
-    isActive: true,
-    avatar: require('../../../../assets/emp_avatar_1.png'),
-  },
-  drv_02: {
-    id: 'drv_02',
-    name: 'Harpreet Singh',
-    dcNumber: '58745896',
-    taxiNo: 'M6022',
-    phone: '+61 0400 555 321',
-    email: 'harpreet.singh@mailtest.com.au',
-    abn: '98 765 423 102',
-    address: '45 Bourke St, Melbourne VIC 3000',
-    bankAccountName: 'Harpreet Singh',
-    bsb: '063-123',
-    accountNumber: '1098 7655',
-    isActive: false,
-    avatar: require('../../../../assets/emp_avatar_2.png'),
-  },
-  drv_03: {
-    id: 'drv_03',
-    name: 'David Miller',
-    dcNumber: '59187425',
-    taxiNo: 'M6088',
-    phone: '+61 0400 555 322',
-    email: 'david.miller@mailtest.com.au',
-    abn: '98 765 423 103',
-    address: '88 Flinders St, Melbourne VIC 3000',
-    bankAccountName: 'David Miller',
-    bsb: '083-004',
-    accountNumber: '4821 9923',
-    isActive: true,
-    avatar: require('../../../../assets/emp_avatar_3.png'),
-  },
-  drv_04: {
-    id: 'drv_04',
-    name: 'Gurpreet Deol',
-    dcNumber: '32587412',
-    taxiNo: 'M6090',
-    phone: '+61 0400 555 323',
-    email: 'gurpreet.deol@mailtest.com.au',
-    abn: '98 765 423 104',
-    address: '15 King St, Melbourne VIC 3000',
-    bankAccountName: 'Gurpreet Deol',
-    bsb: '063-123',
-    accountNumber: '1098 7656',
-    isActive: true,
-  },
-};
+import { driverService, DriverDetail, DriverDocumentDetail } from '../../../services/driverService';
 
 export default function DriverDetailsScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ driverId?: string; driverData?: string }>();
+  const params = useLocalSearchParams<{ driverId?: string; id?: string }>();
 
-  let liveDriver: DriverItem | null = null;
-  if (params?.driverData) {
+  const targetId = params?.driverId || params?.id;
+
+  const [driver, setDriver] = useState<DriverDetail | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isActive, setIsActive] = useState<boolean>(false);
+
+  // In-app Document Viewer Modal State
+  const [previewDoc, setPreviewDoc] = useState<{ title: string; url: string } | null>(null);
+  const [isImageLoading, setIsImageLoading] = useState<boolean>(false);
+
+  const fetchDriverDetail = useCallback(async () => {
+    if (!targetId) {
+      setErrorMessage('No driver ID specified');
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      liveDriver = JSON.parse(params.driverData);
-    } catch {}
-  }
+      setErrorMessage(null);
+      const detail = await driverService.getDriverDetail(targetId);
+      setDriver(detail);
+      setIsActive(Boolean(detail?.driver_status?.is_active ?? detail?.is_active));
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Unable to load driver details.';
+      setErrorMessage(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [targetId]);
 
-  const driverId = params?.driverId || 'drv_01';
-  const fallbackDriver = DRIVERS_DB[driverId] || DRIVERS_DB.drv_01;
+  useEffect(() => {
+    let isMounted = true;
+    const timer = setTimeout(() => {
+      if (!isMounted) return;
+      fetchDriverDetail();
+    }, 0);
 
-  const driverName =
-    liveDriver?.full_name ||
-    `${liveDriver?.first_name || ''} ${liveDriver?.last_name || ''}`.trim() ||
-    fallbackDriver.name;
-  const dcNumber = liveDriver?.dc_number || fallbackDriver.dcNumber;
-  const taxiNo = liveDriver?.assigned_taxi_no || fallbackDriver.taxiNo;
-  const phone = liveDriver?.phone_no || fallbackDriver.phone;
-  const email = liveDriver?.email || fallbackDriver.email;
-  const abn = liveDriver?.abn || fallbackDriver.abn;
-  const photoUrl = liveDriver?.profile_photo_url;
-  const initials =
-    liveDriver?.initials ||
-    driverName
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .slice(0, 2)
-      .toUpperCase();
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [fetchDriverDetail]);
 
-  const [isActive, setIsActive] = useState<boolean>(
-    liveDriver ? liveDriver.is_active === 1 : fallbackDriver.isActive
-  );
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchDriverDetail();
+    setIsRefreshing(false);
+  };
+
+  const handleDocumentPress = (docTitle: string, doc?: DriverDocumentDetail) => {
+    if (doc?.url) {
+      setIsImageLoading(true);
+      setPreviewDoc({
+        title: doc.title || docTitle,
+        url: doc.url,
+      });
+    } else {
+      Alert.alert(
+        docTitle,
+        doc?.exists
+          ? `${docTitle} is verified on file.`
+          : `${docTitle} has not been uploaded yet.`
+      );
+    }
+  };
 
   const handleEditProfile = () => {
     router.push('/add-driver');
   };
 
-  const handleDocumentPress = (docTitle: string) => {
-    let docUrl: string | null | undefined = null;
-    if (docTitle.includes('Front')) {
-      docUrl = liveDriver?.dl_front_image_url;
-    } else if (docTitle.includes('Rear')) {
-      docUrl = liveDriver?.dl_rear_image_url || liveDriver?.dc_photo_rear_url;
-    }
-
-    if (docUrl) {
-      Linking.openURL(docUrl).catch(() => {
-        Alert.alert(docTitle, `${docTitle} is verified and active.`);
-      });
-    } else {
-      Alert.alert(docTitle, `${docTitle} is verified and active.`);
-    }
-  };
+  // Safe primitives for rendering (zero mock fallbacks)
+  const driverName = driver?.full_name || '--';
+  const dcText = driver?.dc_display || (driver?.dc_number ? `DC ${driver.dc_number}` : '--');
+  const taxiText = driver?.taxi_no_display || (driver?.assigned_taxi_no ? `Taxi No. ${driver.assigned_taxi_no}` : '--');
+  const initials = driver?.initials || (driver?.full_name ? driver.full_name.slice(0, 2).toUpperCase() : '--');
+  const statusLabel = driver?.driver_status?.status_label || (isActive ? 'Active' : 'Inactive');
+  const isStatusWarning = driver?.driver_status?.status_badge === 'warning';
 
   return (
     <View style={styles.root}>
@@ -169,211 +122,330 @@ export default function DriverDetailsScreen() {
         }}
       />
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ── DRIVER TOP CARD ── */}
-        <View style={styles.topDriverCard}>
-          {photoUrl ? (
-            <Image source={{ uri: photoUrl }} style={styles.driverAvatar} />
-          ) : fallbackDriver.avatar && !liveDriver ? (
-            <Image source={fallbackDriver.avatar} style={styles.driverAvatar} />
-          ) : (
-            <View style={styles.initialsAvatar}>
-              <Text style={styles.initialsText}>{initials}</Text>
+      {isLoading ? (
+        <View style={styles.centerLoading}>
+          <ActivityIndicator size="large" color="#D97706" />
+          <Text style={styles.loadingText}>Loading driver details...</Text>
+        </View>
+      ) : errorMessage && !driver ? (
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={44} color="#EF4444" />
+          <Text style={styles.errorTitle}>Failed to Load Driver</Text>
+          <Text style={styles.errorSub}>{errorMessage}</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={() => {
+              setIsLoading(true);
+              fetchDriverDetail();
+            }}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              tintColor="#D97706"
+              colors={['#D97706']}
+            />
+          }
+        >
+          {/* ── DRIVER TOP CARD ── */}
+          <View style={styles.topDriverCard}>
+            {driver?.profile_photo_url ? (
+              <Image
+                source={{ uri: driver.profile_photo_url }}
+                style={styles.driverAvatar}
+              />
+            ) : (
+              <View style={styles.initialsAvatar}>
+                <Text style={styles.initialsText}>{initials}</Text>
+              </View>
+            )}
+
+            <View style={styles.topDriverInfo}>
+              <Text style={styles.nameAndDcRow}>
+                <Text style={styles.driverNameText}>{driverName}</Text>
+                {Boolean(dcText) && (
+                  <Text style={styles.dcText}> | {dcText}</Text>
+                )}
+              </Text>
+
+              <View style={styles.subMetaRow}>
+                <View style={styles.taxiBadge}>
+                  <Ionicons
+                    name="car"
+                    size={13}
+                    color="#D97706"
+                    style={{ marginRight: 4 }}
+                  />
+                  <Text style={styles.taxiText}>{taxiText}</Text>
+                </View>
+
+                <View style={styles.statusDotRow}>
+                  <View
+                    style={[
+                      styles.statusIndicatorDot,
+                      {
+                        backgroundColor: isStatusWarning
+                          ? '#F59E0B'
+                          : isActive
+                          ? '#10B981'
+                          : '#94A3B8',
+                      },
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      styles.statusIndicatorText,
+                      {
+                        color: isStatusWarning
+                          ? '#D97706'
+                          : isActive
+                          ? '#059669'
+                          : '#64748B',
+                      },
+                    ]}
+                  >
+                    {statusLabel}
+                  </Text>
+                </View>
+              </View>
             </View>
-          )}
+          </View>
 
-          <View style={styles.topDriverInfo}>
-            <Text style={styles.nameAndDcRow}>
-              <Text style={styles.driverNameText}>{driverName}</Text>
-              {Boolean(dcNumber) && <Text style={styles.dcText}> | DC {dcNumber}</Text>}
-            </Text>
-
-            <View style={styles.subMetaRow}>
-              <View style={styles.taxiBadge}>
+          {/* ── DC DOCUMENTS SECTION ── */}
+          <Text style={styles.sectionTitle}>DC DOCUMENTS</Text>
+          <View style={styles.docsRow}>
+            {/* License Front */}
+            <TouchableOpacity
+              style={styles.docCard}
+              onPress={() =>
+                handleDocumentPress('Driving License Front', driver?.documents?.dl_front)
+              }
+              activeOpacity={0.8}
+            >
+              <View style={styles.docIconBadge}>
                 <Ionicons
-                  name="car"
-                  size={13}
-                  color="#D97706"
-                  style={{ marginRight: 4 }}
+                  name={driver?.documents?.dl_front?.exists ? 'checkmark-circle' : 'image-outline'}
+                  size={20}
+                  color={driver?.documents?.dl_front?.exists ? '#059669' : '#0284C7'}
                 />
-                <Text style={styles.taxiText}>Taxi No. {taxiNo || '--'}</Text>
+              </View>
+              <Text style={styles.docCardText}>
+                {driver?.documents?.dl_front?.title || 'Driving License Front'}
+              </Text>
+              <Text style={styles.docSubStatus}>
+                {driver?.documents?.dl_front?.exists ? 'Available' : 'Not Uploaded'}
+              </Text>
+            </TouchableOpacity>
+
+            {/* License Rear */}
+            <TouchableOpacity
+              style={styles.docCard}
+              onPress={() =>
+                handleDocumentPress('Driving License Rear', driver?.documents?.dl_rear)
+              }
+              activeOpacity={0.8}
+            >
+              <View style={styles.docIconBadge}>
+                <Ionicons
+                  name={driver?.documents?.dl_rear?.exists ? 'checkmark-circle' : 'image-outline'}
+                  size={20}
+                  color={driver?.documents?.dl_rear?.exists ? '#059669' : '#0284C7'}
+                />
+              </View>
+              <Text style={styles.docCardText}>
+                {driver?.documents?.dl_rear?.title || 'Driving License Rear'}
+              </Text>
+              <Text style={styles.docSubStatus}>
+                {driver?.documents?.dl_rear?.exists ? 'Available' : 'Not Uploaded'}
+              </Text>
+            </TouchableOpacity>
+
+            {/* DC Image */}
+            {Boolean(driver?.documents?.dc_image) && (
+              <TouchableOpacity
+                style={styles.docCard}
+                onPress={() =>
+                  handleDocumentPress('DC Document Front', driver?.documents?.dc_image)
+                }
+                activeOpacity={0.8}
+              >
+                <View style={styles.docIconBadge}>
+                  <Ionicons
+                    name={driver?.documents?.dc_image?.exists ? 'checkmark-circle' : 'document-text-outline'}
+                    size={20}
+                    color={driver?.documents?.dc_image?.exists ? '#059669' : '#0284C7'}
+                  />
+                </View>
+                <Text style={styles.docCardText}>
+                  {driver?.documents?.dc_image?.title || 'DC Document Front'}
+                </Text>
+                <Text style={styles.docSubStatus}>
+                  {driver?.documents?.dc_image?.exists ? 'Available' : 'Not Uploaded'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* ── PERSONAL INFORMATION CARD ── */}
+          <View style={styles.cardContainer}>
+            <View style={styles.cardHeader}>
+              <View style={styles.amberIconBadge}>
+                <Ionicons name="person-outline" size={15} color="#D97706" />
+              </View>
+              <Text style={styles.cardHeaderText}>PERSONAL INFORMATION</Text>
+            </View>
+            <View style={styles.cardDivider} />
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Full Name</Text>
+              <Text style={styles.infoValue}>
+                {driver?.personal_information?.full_name || driverName}
+              </Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Phone Number</Text>
+              <Text style={[styles.infoValue, styles.goldValue]}>
+                {driver?.personal_information?.phone_number || '--'}
+              </Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>DC</Text>
+              <Text style={[styles.infoValue, styles.goldValue]}>
+                {driver?.personal_information?.dc || driver?.dc_number || '--'}
+              </Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Email</Text>
+              <Text style={styles.infoValue}>
+                {driver?.personal_information?.email || '--'}
+              </Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>ABN</Text>
+              <Text style={styles.infoValue}>
+                {driver?.personal_information?.abn || '--'}
+              </Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Address</Text>
+              <Text style={[styles.infoValue, styles.addressValue]}>
+                {driver?.personal_information?.address ||
+                  driver?.personal_information?.address_details?.address_line1 ||
+                  '--'}
+              </Text>
+            </View>
+          </View>
+
+          {/* ── BANK ACCOUNT CARD ── */}
+          <View style={styles.cardContainer}>
+            <View style={styles.cardHeader}>
+              <View style={styles.blueIconBadge}>
+                <Ionicons name="card-outline" size={15} color="#0284C7" />
+              </View>
+              <Text style={styles.cardHeaderText}>BANK ACCOUNT</Text>
+            </View>
+            <View style={styles.cardDivider} />
+
+            {/* Bank Name */}
+            <View style={styles.bankFieldBlock}>
+              <Text style={styles.bankFieldLabel}>Bank Name</Text>
+              <Text style={styles.bankFieldValue}>
+                {driver?.bank_account?.bank_name || '--'}
+              </Text>
+            </View>
+
+            {/* Account Name */}
+            <View style={styles.bankFieldBlock}>
+              <Text style={styles.bankFieldLabel}>Account Name</Text>
+              <Text style={styles.bankFieldValue}>
+                {driver?.bank_account?.account_name || '--'}
+              </Text>
+            </View>
+
+            {/* BSB & Account No */}
+            <View style={styles.bankFieldsSplitRow}>
+              <View style={[styles.bankFieldBlock, { flex: 1 }]}>
+                <Text style={styles.bankFieldLabel}>BSB</Text>
+                <Text style={styles.bankFieldValue}>
+                  {driver?.bank_account?.bsb || '--'}
+                </Text>
               </View>
 
-              <View style={styles.statusDotRow}>
-                <View
-                  style={[
-                    styles.statusIndicatorDot,
-                    { backgroundColor: isActive ? '#10B981' : '#94A3B8' },
-                  ]}
-                />
-                <Text
-                  style={[
-                    styles.statusIndicatorText,
-                    { color: isActive ? '#059669' : '#64748B' },
-                  ]}
-                >
-                  {isActive ? 'Active' : 'Inactive'}
+              <View style={[styles.bankFieldBlock, { flex: 1 }]}>
+                <Text style={styles.bankFieldLabel}>Account No.</Text>
+                <Text style={styles.bankFieldValue}>
+                  {driver?.bank_account?.masked_account_number ||
+                    driver?.bank_account?.account_number ||
+                    '--'}
                 </Text>
               </View>
             </View>
           </View>
-        </View>
 
-        {/* ── DC DOCUMENTS SECTION ── */}
-        <Text style={styles.sectionTitle}>DC DOCUMENTS</Text>
-        <View style={styles.docsRow}>
-          {/* License Front */}
-          <TouchableOpacity
-            style={styles.docCard}
-            onPress={() => handleDocumentPress('Driving License Front')}
-            activeOpacity={0.8}
-          >
-            <View style={styles.docIconBadge}>
-              <Ionicons name="image-outline" size={20} color="#0284C7" />
-            </View>
-            <Text style={styles.docCardText}>Driving License Front</Text>
-          </TouchableOpacity>
-
-          {/* License Rear */}
-          <TouchableOpacity
-            style={styles.docCard}
-            onPress={() => handleDocumentPress('Driving License Rear')}
-            activeOpacity={0.8}
-          >
-            <View style={styles.docIconBadge}>
-              <Ionicons name="image-outline" size={20} color="#0284C7" />
-            </View>
-            <Text style={styles.docCardText}>Driving License Rear</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* ── PERSONAL INFORMATION CARD ── */}
-        <View style={styles.cardContainer}>
-          <View style={styles.cardHeader}>
-            <View style={styles.amberIconBadge}>
-              <Ionicons name="person-outline" size={15} color="#D97706" />
-            </View>
-            <Text style={styles.cardHeaderText}>PERSONAL INFORMATION</Text>
-          </View>
-          <View style={styles.cardDivider} />
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Full Name</Text>
-            <Text style={styles.infoValue}>{driverName}</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Phone Number</Text>
-            <Text style={[styles.infoValue, styles.goldValue]}>{phone || '--'}</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>DC</Text>
-            <Text style={[styles.infoValue, styles.goldValue]}>{dcNumber || '--'}</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Email</Text>
-            <Text style={styles.infoValue}>{email || '--'}</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>ABN</Text>
-            <Text style={styles.infoValue}>{abn || '--'}</Text>
-          </View>
-
-          {Boolean(fallbackDriver.address && !liveDriver) && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Address</Text>
-              <Text style={[styles.infoValue, styles.addressValue]}>
-                {fallbackDriver.address}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* ── BANK ACCOUNT CARD ── */}
-        <View style={styles.cardContainer}>
-          <View style={styles.cardHeader}>
-            <View style={styles.blueIconBadge}>
-              <Ionicons name="card-outline" size={15} color="#0284C7" />
-            </View>
-            <Text style={styles.cardHeaderText}>BANK ACCOUNT</Text>
-          </View>
-          <View style={styles.cardDivider} />
-
-          {/* Account Name */}
-          <View style={styles.bankFieldBlock}>
-            <Text style={styles.bankFieldLabel}>Account Name</Text>
-            <Text style={styles.bankFieldValue}>
-              {liveDriver ? '--' : fallbackDriver.bankAccountName}
-            </Text>
-          </View>
-
-          {/* BSB & Account No */}
-          <View style={styles.bankFieldsSplitRow}>
-            <View style={[styles.bankFieldBlock, { flex: 1 }]}>
-              <Text style={styles.bankFieldLabel}>BSB</Text>
-              <Text style={styles.bankFieldValue}>
-                {liveDriver ? '--' : fallbackDriver.bsb}
-              </Text>
+          {/* ── DRIVER STATUS SWITCH ── */}
+          <Text style={styles.statusSectionLabel}>Driver Status</Text>
+          <View style={styles.driverStatusCard}>
+            <View style={styles.statusStatusLeft}>
+              <View
+                style={[
+                  styles.statusIndicatorDot,
+                  {
+                    backgroundColor: isStatusWarning
+                      ? '#F59E0B'
+                      : isActive
+                      ? '#10B981'
+                      : '#94A3B8',
+                  },
+                ]}
+              />
+              <Text style={styles.statusStateText}>{statusLabel}</Text>
             </View>
 
-            <View style={[styles.bankFieldBlock, { flex: 1 }]}>
-              <Text style={styles.bankFieldLabel}>Account No.</Text>
-              <Text style={styles.bankFieldValue}>
-                {liveDriver ? '--' : fallbackDriver.accountNumber}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* ── DRIVER STATUS SWITCH ── */}
-        <Text style={styles.statusSectionLabel}>Driver Status</Text>
-        <View style={styles.driverStatusCard}>
-          <View style={styles.statusStatusLeft}>
-            <View
-              style={[
-                styles.statusIndicatorDot,
-                { backgroundColor: isActive ? '#10B981' : '#94A3B8' },
-              ]}
+            <Switch
+              value={isActive}
+              onValueChange={setIsActive}
+              disabled={driver?.driver_status?.can_toggle === false}
+              trackColor={{ false: '#CBD5E1', true: '#10B981' }}
+              thumbColor="#FFFFFF"
             />
-            <Text style={styles.statusStateText}>
-              {isActive ? 'Active' : 'Inactive'}
-            </Text>
           </View>
 
-          <Switch
-            value={isActive}
-            onValueChange={setIsActive}
-            trackColor={{ false: '#CBD5E1', true: '#10B981' }}
-            thumbColor="#FFFFFF"
-          />
-        </View>
+          {/* ── EDIT DRIVER PROFILE BUTTON ── */}
+          {driver?.can_edit !== false && (
+            <TouchableOpacity
+              style={styles.editButton}
+              onPress={handleEditProfile}
+              activeOpacity={0.88}
+            >
+              <Ionicons
+                name="create-outline"
+                size={18}
+                color="#FFFFFF"
+                style={{ marginRight: 8 }}
+              />
+              <Text style={styles.editButtonText}>Edit Driver Profile</Text>
+            </TouchableOpacity>
+          )}
 
-        {/* ── EDIT DRIVER PROFILE BUTTON ── */}
-        <TouchableOpacity
-          style={styles.editButton}
-          onPress={handleEditProfile}
-          activeOpacity={0.88}
-        >
-          <Ionicons
-            name="create-outline"
-            size={18}
-            color="#FFFFFF"
-            style={{ marginRight: 8 }}
-          />
-          <Text style={styles.editButtonText}>Edit Driver Profile</Text>
-        </TouchableOpacity>
+          <View style={{ height: 24 }} />
+        </ScrollView>
+      )}
 
-        <View style={{ height: 24 }} />
-      </ScrollView>
-
-      {/* ── BOTTOM TAB NAVIGATION BAR (MATCHING SCREENSHOT) ── */}
+      {/* ── BOTTOM TAB NAVIGATION BAR ── */}
       <View style={styles.bottomTabNav}>
         <TouchableOpacity
           style={styles.bottomTabItem}
@@ -403,6 +475,49 @@ export default function DriverDetailsScreen() {
           <View style={styles.activeTabIndicator} />
         </TouchableOpacity>
       </View>
+
+      {/* ── IN-APP DOCUMENT VIEWER MODAL ── */}
+      <Modal
+        visible={Boolean(previewDoc)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPreviewDoc(null)}
+      >
+        <View style={styles.viewerModalContainer}>
+          <StatusBar style="light" />
+          {/* Header */}
+          <View style={styles.viewerHeader}>
+            <Text style={styles.viewerTitle} numberOfLines={1}>
+              {previewDoc?.title || 'Document Preview'}
+            </Text>
+            <TouchableOpacity
+              style={styles.viewerCloseButton}
+              onPress={() => setPreviewDoc(null)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="close" size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Image Content Container */}
+          <View style={styles.viewerBody}>
+            {isImageLoading && (
+              <View style={styles.viewerLoading}>
+                <ActivityIndicator size="large" color="#D97706" />
+              </View>
+            )}
+            {previewDoc?.url && (
+              <Image
+                source={{ uri: previewDoc.url }}
+                style={styles.viewerImage}
+                resizeMode="contain"
+                onLoadStart={() => setIsImageLoading(true)}
+                onLoadEnd={() => setIsImageLoading(false)}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -420,6 +535,48 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 24,
+  },
+  centerLoading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  errorContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  errorTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginTop: 12,
+    marginBottom: 6,
+  },
+  errorSub: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: '#D97706',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13,
   },
 
   /* Top Driver Card */
@@ -455,37 +612,43 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   initialsText: {
-    fontSize: 14.5,
+    fontSize: 15,
     fontWeight: '800',
-    color: '#92400E',
+    color: '#D97706',
   },
   topDriverInfo: {
     flex: 1,
   },
   nameAndDcRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 4,
   },
   driverNameText: {
-    fontSize: 13.5,
+    fontSize: 14,
     fontWeight: '800',
     color: '#0F172A',
   },
   dcText: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: '#64748B',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#D97706',
   },
   subMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'space-between',
   },
   taxiBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
   taxiText: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '700',
     color: '#D97706',
   },
@@ -501,169 +664,171 @@ const styles = StyleSheet.create({
   },
   statusIndicatorText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
   },
 
-  /* DC Documents */
+  /* Section Title */
   sectionTitle: {
-    fontSize: 11.5,
+    fontSize: 11,
     fontWeight: '800',
-    color: '#1E293B',
+    color: '#64748B',
+    marginBottom: 8,
     letterSpacing: 0.5,
-    marginBottom: 10,
   },
+
+  /* DC Documents Row */
   docsRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
     marginBottom: 16,
+    flexWrap: 'wrap',
   },
   docCard: {
     flex: 1,
+    minWidth: 100,
     backgroundColor: '#F8FAFC',
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    borderRadius: 14,
-    paddingVertical: 18,
-    paddingHorizontal: 8,
+    padding: 12,
     alignItems: 'center',
-    justifyContent: 'center',
   },
   docIconBadge: {
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: '#E0F2FE',
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   docCardText: {
-    fontSize: 10.5,
-    fontWeight: '600',
-    color: '#334155',
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#0F172A',
     textAlign: 'center',
+  },
+  docSubStatus: {
+    fontSize: 9,
+    color: '#64748B',
+    marginTop: 2,
   },
 
   /* Card Containers */
   cardContainer: {
     backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+    padding: 14,
+    marginBottom: 14,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
   },
   amberIconBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 7,
+    width: 24,
+    height: 24,
+    borderRadius: 6,
     backgroundColor: '#FEF3C7',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 8,
   },
   blueIconBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 7,
-    backgroundColor: '#E0F2FE',
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 8,
   },
   cardHeaderText: {
-    fontSize: 11.5,
+    fontSize: 11,
     fontWeight: '800',
-    color: '#1E293B',
+    color: '#0F172A',
     letterSpacing: 0.5,
   },
   cardDivider: {
     height: 1,
     backgroundColor: '#F1F5F9',
-    marginTop: 12,
-    marginBottom: 6,
+    marginBottom: 10,
   },
 
   /* Info Rows */
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 6,
   },
   infoLabel: {
     fontSize: 11.5,
-    fontWeight: '500',
-    color: '#94A3B8',
+    color: '#64748B',
+    fontWeight: '600',
   },
   infoValue: {
-    fontSize: 12.5,
+    fontSize: 11.5,
     fontWeight: '700',
     color: '#0F172A',
     textAlign: 'right',
+    flex: 1,
+    marginLeft: 16,
   },
   goldValue: {
     color: '#D97706',
   },
   addressValue: {
-    flexShrink: 1,
-    maxWidth: '65%',
+    fontSize: 10.5,
+    color: '#334155',
   },
 
-  /* Bank Account Fields */
+  /* Bank Fields */
   bankFieldBlock: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
     marginBottom: 10,
   },
   bankFieldLabel: {
-    fontSize: 10,
+    fontSize: 10.5,
+    color: '#64748B',
     fontWeight: '600',
-    color: '#94A3B8',
+    marginBottom: 4,
   },
   bankFieldValue: {
     fontSize: 12.5,
     fontWeight: '700',
     color: '#0F172A',
-    marginTop: 2,
   },
   bankFieldsSplitRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
   },
 
-  /* Driver Status Section */
+  /* Driver Status Card */
   statusSectionLabel: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '800',
     color: '#64748B',
     marginBottom: 6,
+    letterSpacing: 0.5,
   },
   driverStatusCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    backgroundColor: '#F1F5F9',
     borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    height: 50,
+    paddingHorizontal: 14,
     marginBottom: 18,
   },
   statusStatusLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   statusStateText: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '700',
     color: '#0F172A',
   },
@@ -674,7 +839,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#0F172A',
-    borderRadius: 14,
+    borderRadius: 12,
     height: 48,
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 3 },
@@ -690,38 +855,92 @@ const styles = StyleSheet.create({
 
   /* Bottom Tab Navigation Bar */
   bottomTabNav: {
-    flexDirection: 'row',
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 56,
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
-    paddingTop: 8,
-    paddingBottom: 22,
-    paddingHorizontal: 20,
-    justifyContent: 'space-around',
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingBottom: 2,
   },
   bottomTabItem: {
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 60,
+    flex: 1,
+    position: 'relative',
+    height: '100%',
   },
   bottomTabLabelInactive: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '600',
     color: '#64748B',
-    marginTop: 3,
+    marginTop: 2,
   },
   bottomTabLabelActive: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '700',
     color: '#D97706',
-    marginTop: 3,
+    marginTop: 2,
   },
   activeTabIndicator: {
-    width: 20,
+    position: 'absolute',
+    bottom: 0,
+    width: 24,
     height: 2.5,
-    borderRadius: 2,
     backgroundColor: '#D97706',
-    marginTop: 3,
+    borderTopLeftRadius: 2,
+    borderTopRightRadius: 2,
+  },
+
+  /* In-app Document Viewer Modal */
+  viewerModalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+    justifyContent: 'space-between',
+  },
+  viewerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 54,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  viewerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    flex: 1,
+    marginRight: 16,
+  },
+  viewerCloseButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewerBody: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    position: 'relative',
+  },
+  viewerLoading: {
+    position: 'absolute',
+    zIndex: 1,
+  },
+  viewerImage: {
+    width: '100%',
+    height: '100%',
   },
 });

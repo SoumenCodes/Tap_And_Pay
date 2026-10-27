@@ -8,43 +8,84 @@ import {
   TouchableOpacity,
   Switch,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import HeaderBar from '../../common/HeaderBar';
+import { driverService } from '../../../services/driverService';
 
 export default function AddDriverScreen() {
   const router = useRouter();
 
-  // Form Fields State
-  const [firstName, setFirstName] = useState('Harpreet');
-  const [lastName, setLastName] = useState('Singh');
-  const [phone, setPhone] = useState('0400 555 320');
-  const [dcNumber, setDcNumber] = useState('93821048');
+  // Form Fields State (initialized cleanly without hardcoded mock fallbacks)
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [dlNumber, setDlNumber] = useState('');
+  const [dcNumber, setDcNumber] = useState('');
+  const [assignedTaxiNo, setAssignedTaxiNo] = useState('');
   const [email, setEmail] = useState('');
-  const [abn, setAbn] = useState('98765423101');
+  const [abn, setAbn] = useState('');
   const [address, setAddress] = useState('');
-  const [accountName, setAccountName] = useState('Lovedeep Singh Khangura');
-  const [bsb, setBsb] = useState('063-123');
-  const [accountNo, setAccountNo] = useState('1096 7654');
-  const [assignedTaxiNo, setAssignedTaxiNo] = useState('M6061');
+  const [bankName, setBankName] = useState('');
+  const [accountName, setAccountName] = useState('');
+  const [bsb, setBsb] = useState('');
+  const [accountNo, setAccountNo] = useState('');
   const [isActive, setIsActive] = useState(true);
 
+  // Document selection states
   const [hasPhoto, setHasPhoto] = useState(false);
   const [hasLicenseFront, setHasLicenseFront] = useState(false);
   const [hasLicenseRear, setHasLicenseRear] = useState(false);
 
-  const handleSaveDriver = () => {
+  // Submission loading state
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSaveDriver = async () => {
     if (!firstName.trim() || !lastName.trim()) {
-      Alert.alert('Required', 'Please enter first name and last name.');
+      Alert.alert('Required Field', 'Please enter first name and last name.');
       return;
     }
 
-    Alert.alert(
-      'Driver Saved',
-      `${firstName} ${lastName} (Taxi No. ${assignedTaxiNo}) has been added to your fleet.`,
-      [
+    if (!phone.trim()) {
+      Alert.alert('Required Field', 'Please enter the driver phone number.');
+      return;
+    }
+
+    if (!dcNumber.trim()) {
+      Alert.alert('Required Field', 'Please enter the DC number.');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('first_name', firstName.trim());
+      formData.append('last_name', lastName.trim());
+      formData.append('email', email.trim());
+      formData.append('phone', phone.trim());
+      formData.append('dl_number', dlNumber.trim());
+      formData.append('dc_number', dcNumber.trim());
+      formData.append('assigned_taxi_no', assignedTaxiNo.trim());
+      formData.append('abn', abn.trim());
+      formData.append('address', address.trim());
+      formData.append('account_name', accountName.trim());
+      formData.append('bank_name', bankName.trim());
+      formData.append('bsb', bsb.trim());
+      formData.append('account_number', accountNo.trim());
+
+      const response = await driverService.addDriver(formData);
+
+      const created = response.data?.driver;
+      let successMsg = response.message || 'Driver added successfully.';
+      if (created?.temporary_password) {
+        successMsg += `\n\nTemporary Password: ${created.temporary_password}\n(Please share this with the driver)`;
+      }
+
+      Alert.alert('Success', successMsg, [
         {
           text: 'OK',
           onPress: () => {
@@ -55,8 +96,16 @@ export default function AddDriverScreen() {
             }
           },
         },
-      ]
-    );
+      ]);
+    } catch (err: any) {
+      const errorMsg =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Failed to add driver. Please verify all information and try again.';
+      Alert.alert('Error', errorMsg);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -97,7 +146,7 @@ export default function AddDriverScreen() {
             style={styles.photoUploadBox}
             onPress={() => {
               setHasPhoto((prev) => !prev);
-              Alert.alert('Photo', 'Driver photo uploaded.');
+              Alert.alert('Photo', 'Driver photo upload selected.');
             }}
             activeOpacity={0.8}
           >
@@ -109,7 +158,7 @@ export default function AddDriverScreen() {
               />
             </View>
             <Text style={styles.uploadTitle}>
-              {hasPhoto ? 'Photo Uploaded' : 'Tap to upload'}
+              {hasPhoto ? 'Photo Selected' : 'Tap to upload'}
             </Text>
             <Text style={styles.uploadSubtitle}>.JPEG or PNG, max 5MB</Text>
           </TouchableOpacity>
@@ -124,7 +173,7 @@ export default function AddDriverScreen() {
               style={styles.licenseUploadBox}
               onPress={() => {
                 setHasLicenseFront((prev) => !prev);
-                Alert.alert('License', 'Driving license front uploaded.');
+                Alert.alert('License', 'Driving license front selected.');
               }}
               activeOpacity={0.8}
             >
@@ -137,7 +186,7 @@ export default function AddDriverScreen() {
               </View>
               <Text style={styles.licenseBoxTitle}>Driving License Front</Text>
               <Text style={styles.licenseBoxSub}>
-                {hasLicenseFront ? 'Uploaded' : 'Tap to upload'}
+                {hasLicenseFront ? 'Selected' : 'Tap to upload'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -149,7 +198,7 @@ export default function AddDriverScreen() {
               style={styles.licenseUploadBox}
               onPress={() => {
                 setHasLicenseRear((prev) => !prev);
-                Alert.alert('License', 'Driving license rear uploaded.');
+                Alert.alert('License', 'Driving license rear selected.');
               }}
               activeOpacity={0.8}
             >
@@ -162,7 +211,7 @@ export default function AddDriverScreen() {
               </View>
               <Text style={styles.licenseBoxTitle}>Driving License Rear</Text>
               <Text style={styles.licenseBoxSub}>
-                {hasLicenseRear ? 'Uploaded' : 'Tap to upload'}
+                {hasLicenseRear ? 'Selected' : 'Tap to upload'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -171,7 +220,7 @@ export default function AddDriverScreen() {
         {/* ── FORM FIELDS ── */}
         {/* First Name */}
         <View style={styles.fieldWrap}>
-          <Text style={styles.fieldLabel}>First Name</Text>
+          <Text style={styles.fieldLabel}>First Name *</Text>
           <TextInput
             style={styles.input}
             value={firstName}
@@ -183,7 +232,7 @@ export default function AddDriverScreen() {
 
         {/* Last Name */}
         <View style={styles.fieldWrap}>
-          <Text style={styles.fieldLabel}>Last Name</Text>
+          <Text style={styles.fieldLabel}>Last Name *</Text>
           <TextInput
             style={styles.input}
             value={lastName}
@@ -195,7 +244,7 @@ export default function AddDriverScreen() {
 
         {/* Phone Number */}
         <View style={styles.fieldWrap}>
-          <Text style={styles.fieldLabel}>Phone Number</Text>
+          <Text style={styles.fieldLabel}>Phone Number *</Text>
           <View style={styles.phoneRow}>
             <View style={styles.countryCodeBox}>
               <Text style={styles.countryCodeText}>+61</Text>
@@ -204,23 +253,49 @@ export default function AddDriverScreen() {
               style={[styles.input, { flex: 1 }]}
               value={phone}
               onChangeText={setPhone}
-              placeholder="0400 555 320"
+              placeholder="e.g. 0400 555 320"
               placeholderTextColor="#94A3B8"
               keyboardType="phone-pad"
             />
           </View>
         </View>
 
+        {/* Driving License Number */}
+        <View style={styles.fieldWrap}>
+          <Text style={styles.fieldLabel}>Driving License Number</Text>
+          <TextInput
+            style={styles.input}
+            value={dlNumber}
+            onChangeText={setDlNumber}
+            placeholder="e.g. DL938210481"
+            placeholderTextColor="#94A3B8"
+            autoCapitalize="characters"
+          />
+        </View>
+
         {/* DC Number */}
         <View style={styles.fieldWrap}>
-          <Text style={styles.fieldLabel}>DC</Text>
+          <Text style={styles.fieldLabel}>DC Number *</Text>
           <TextInput
             style={styles.input}
             value={dcNumber}
             onChangeText={setDcNumber}
-            placeholder="Driver Certificate"
+            placeholder="Driver Certificate (e.g. 93821048)"
             placeholderTextColor="#94A3B8"
             keyboardType="numeric"
+          />
+        </View>
+
+        {/* Assigned Taxi No */}
+        <View style={styles.fieldWrap}>
+          <Text style={styles.fieldLabel}>Assigned Taxi No.</Text>
+          <TextInput
+            style={styles.input}
+            value={assignedTaxiNo}
+            onChangeText={setAssignedTaxiNo}
+            placeholder="e.g. M6061"
+            placeholderTextColor="#94A3B8"
+            autoCapitalize="characters"
           />
         </View>
 
@@ -231,7 +306,7 @@ export default function AddDriverScreen() {
             style={styles.input}
             value={email}
             onChangeText={setEmail}
-            placeholder="Type email ID"
+            placeholder="e.g. driver@email.com"
             placeholderTextColor="#94A3B8"
             keyboardType="email-address"
             autoCapitalize="none"
@@ -258,19 +333,31 @@ export default function AddDriverScreen() {
             style={styles.input}
             value={address}
             onChangeText={setAddress}
-            placeholder="Type Address Here"
+            placeholder="e.g. Suite 4, 120 Collins Street, Melbourne VIC"
             placeholderTextColor="#94A3B8"
           />
         </View>
 
-        {/* Account Name */}
+        {/* Bank Name */}
         <View style={styles.fieldWrap}>
-          <Text style={styles.fieldLabel}>Account Name</Text>
+          <Text style={styles.fieldLabel}>Bank Name</Text>
+          <TextInput
+            style={styles.input}
+            value={bankName}
+            onChangeText={setBankName}
+            placeholder="e.g. National Australia Bank"
+            placeholderTextColor="#94A3B8"
+          />
+        </View>
+
+        {/* Bank Account Name */}
+        <View style={styles.fieldWrap}>
+          <Text style={styles.fieldLabel}>Bank Account Name</Text>
           <TextInput
             style={styles.input}
             value={accountName}
             onChangeText={setAccountName}
-            placeholder="Bank Account Name"
+            placeholder="Name on bank account"
             placeholderTextColor="#94A3B8"
           />
         </View>
@@ -283,7 +370,7 @@ export default function AddDriverScreen() {
               style={styles.input}
               value={bsb}
               onChangeText={setBsb}
-              placeholder="063-123"
+              placeholder="e.g. 063-123"
               placeholderTextColor="#94A3B8"
             />
           </View>
@@ -294,24 +381,11 @@ export default function AddDriverScreen() {
               style={styles.input}
               value={accountNo}
               onChangeText={setAccountNo}
-              placeholder="1096 7654"
+              placeholder="e.g. 109876541"
               placeholderTextColor="#94A3B8"
               keyboardType="numeric"
             />
           </View>
-        </View>
-
-        {/* Assigned Taxi No */}
-        <View style={styles.fieldWrap}>
-          <Text style={styles.fieldLabel}>Assigned Taxi No.</Text>
-          <TextInput
-            style={styles.input}
-            value={assignedTaxiNo}
-            onChangeText={setAssignedTaxiNo}
-            placeholder="e.g. M6061"
-            placeholderTextColor="#94A3B8"
-            autoCapitalize="characters"
-          />
         </View>
 
         {/* Driver Status Switch */}
@@ -342,22 +416,30 @@ export default function AddDriverScreen() {
         {/* ── ACTION BUTTONS ── */}
         <View style={styles.buttonsWrap}>
           <TouchableOpacity
-            style={styles.saveBtn}
+            style={[styles.saveBtn, isSubmitting && { opacity: 0.7 }]}
             onPress={handleSaveDriver}
+            disabled={isSubmitting}
             activeOpacity={0.88}
           >
-            <Ionicons
-              name="checkmark-circle"
-              size={18}
-              color="#FFFFFF"
-              style={{ marginRight: 6 }}
-            />
-            <Text style={styles.saveBtnText}>Save Driver</Text>
+            {isSubmitting ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <Ionicons
+                  name="checkmark-circle"
+                  size={18}
+                  color="#FFFFFF"
+                  style={{ marginRight: 6 }}
+                />
+                <Text style={styles.saveBtnText}>Save Driver</Text>
+              </>
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.cancelBtn}
             onPress={() => router.back()}
+            disabled={isSubmitting}
             activeOpacity={0.7}
           >
             <Text style={styles.cancelBtnText}>Cancel</Text>

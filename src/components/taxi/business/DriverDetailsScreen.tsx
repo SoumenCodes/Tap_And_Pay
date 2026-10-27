@@ -8,11 +8,13 @@ import {
   Image,
   Switch,
   Alert,
+  Linking,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import HeaderBar from '../../common/HeaderBar';
+import { DriverItem } from '../../../services/driverService';
 
 interface DriverFullProfile {
   id: string;
@@ -94,19 +96,60 @@ const DRIVERS_DB: Record<string, DriverFullProfile> = {
 
 export default function DriverDetailsScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ driverId?: string }>();
+  const params = useLocalSearchParams<{ driverId?: string; driverData?: string }>();
+
+  let liveDriver: DriverItem | null = null;
+  if (params?.driverData) {
+    try {
+      liveDriver = JSON.parse(params.driverData);
+    } catch {}
+  }
 
   const driverId = params?.driverId || 'drv_01';
-  const driver = DRIVERS_DB[driverId] || DRIVERS_DB.drv_01;
+  const fallbackDriver = DRIVERS_DB[driverId] || DRIVERS_DB.drv_01;
 
-  const [isActive, setIsActive] = useState<boolean>(driver.isActive);
+  const driverName =
+    liveDriver?.full_name ||
+    `${liveDriver?.first_name || ''} ${liveDriver?.last_name || ''}`.trim() ||
+    fallbackDriver.name;
+  const dcNumber = liveDriver?.dc_number || fallbackDriver.dcNumber;
+  const taxiNo = liveDriver?.assigned_taxi_no || fallbackDriver.taxiNo;
+  const phone = liveDriver?.phone_no || fallbackDriver.phone;
+  const email = liveDriver?.email || fallbackDriver.email;
+  const abn = liveDriver?.abn || fallbackDriver.abn;
+  const photoUrl = liveDriver?.profile_photo_url;
+  const initials =
+    liveDriver?.initials ||
+    driverName
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase();
+
+  const [isActive, setIsActive] = useState<boolean>(
+    liveDriver ? liveDriver.is_active === 1 : fallbackDriver.isActive
+  );
 
   const handleEditProfile = () => {
     router.push('/add-driver');
   };
 
   const handleDocumentPress = (docTitle: string) => {
-    Alert.alert(docTitle, `${docTitle} is verified and active.`);
+    let docUrl: string | null | undefined = null;
+    if (docTitle.includes('Front')) {
+      docUrl = liveDriver?.dl_front_image_url;
+    } else if (docTitle.includes('Rear')) {
+      docUrl = liveDriver?.dl_rear_image_url || liveDriver?.dc_photo_rear_url;
+    }
+
+    if (docUrl) {
+      Linking.openURL(docUrl).catch(() => {
+        Alert.alert(docTitle, `${docTitle} is verified and active.`);
+      });
+    } else {
+      Alert.alert(docTitle, `${docTitle} is verified and active.`);
+    }
   };
 
   return (
@@ -133,24 +176,20 @@ export default function DriverDetailsScreen() {
       >
         {/* ── DRIVER TOP CARD ── */}
         <View style={styles.topDriverCard}>
-          {driver.avatar ? (
-            <Image source={driver.avatar} style={styles.driverAvatar} />
+          {photoUrl ? (
+            <Image source={{ uri: photoUrl }} style={styles.driverAvatar} />
+          ) : fallbackDriver.avatar && !liveDriver ? (
+            <Image source={fallbackDriver.avatar} style={styles.driverAvatar} />
           ) : (
             <View style={styles.initialsAvatar}>
-              <Text style={styles.initialsText}>
-                {driver.name
-                  .split(' ')
-                  .map((n) => n[0])
-                  .join('')
-                  .slice(0, 2)}
-              </Text>
+              <Text style={styles.initialsText}>{initials}</Text>
             </View>
           )}
 
           <View style={styles.topDriverInfo}>
             <Text style={styles.nameAndDcRow}>
-              <Text style={styles.driverNameText}>{driver.name}</Text>
-              <Text style={styles.dcText}> | DC {driver.dcNumber}</Text>
+              <Text style={styles.driverNameText}>{driverName}</Text>
+              {Boolean(dcNumber) && <Text style={styles.dcText}> | DC {dcNumber}</Text>}
             </Text>
 
             <View style={styles.subMetaRow}>
@@ -161,7 +200,7 @@ export default function DriverDetailsScreen() {
                   color="#D97706"
                   style={{ marginRight: 4 }}
                 />
-                <Text style={styles.taxiText}>Taxi No. {driver.taxiNo}</Text>
+                <Text style={styles.taxiText}>Taxi No. {taxiNo || '--'}</Text>
               </View>
 
               <View style={styles.statusDotRow}>
@@ -224,35 +263,37 @@ export default function DriverDetailsScreen() {
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Full Name</Text>
-            <Text style={styles.infoValue}>{driver.name}</Text>
+            <Text style={styles.infoValue}>{driverName}</Text>
           </View>
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Phone Number</Text>
-            <Text style={[styles.infoValue, styles.goldValue]}>{driver.phone}</Text>
+            <Text style={[styles.infoValue, styles.goldValue]}>{phone || '--'}</Text>
           </View>
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>DC</Text>
-            <Text style={[styles.infoValue, styles.goldValue]}>{driver.dcNumber}</Text>
+            <Text style={[styles.infoValue, styles.goldValue]}>{dcNumber || '--'}</Text>
           </View>
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Email</Text>
-            <Text style={styles.infoValue}>{driver.email}</Text>
+            <Text style={styles.infoValue}>{email || '--'}</Text>
           </View>
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>ABN</Text>
-            <Text style={styles.infoValue}>{driver.abn}</Text>
+            <Text style={styles.infoValue}>{abn || '--'}</Text>
           </View>
 
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Address</Text>
-            <Text style={[styles.infoValue, styles.addressValue]}>
-              {driver.address}
-            </Text>
-          </View>
+          {Boolean(fallbackDriver.address && !liveDriver) && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Address</Text>
+              <Text style={[styles.infoValue, styles.addressValue]}>
+                {fallbackDriver.address}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* ── BANK ACCOUNT CARD ── */}
@@ -268,19 +309,25 @@ export default function DriverDetailsScreen() {
           {/* Account Name */}
           <View style={styles.bankFieldBlock}>
             <Text style={styles.bankFieldLabel}>Account Name</Text>
-            <Text style={styles.bankFieldValue}>{driver.bankAccountName}</Text>
+            <Text style={styles.bankFieldValue}>
+              {liveDriver ? '--' : fallbackDriver.bankAccountName}
+            </Text>
           </View>
 
           {/* BSB & Account No */}
           <View style={styles.bankFieldsSplitRow}>
             <View style={[styles.bankFieldBlock, { flex: 1 }]}>
               <Text style={styles.bankFieldLabel}>BSB</Text>
-              <Text style={styles.bankFieldValue}>{driver.bsb}</Text>
+              <Text style={styles.bankFieldValue}>
+                {liveDriver ? '--' : fallbackDriver.bsb}
+              </Text>
             </View>
 
             <View style={[styles.bankFieldBlock, { flex: 1 }]}>
               <Text style={styles.bankFieldLabel}>Account No.</Text>
-              <Text style={styles.bankFieldValue}>{driver.accountNumber}</Text>
+              <Text style={styles.bankFieldValue}>
+                {liveDriver ? '--' : fallbackDriver.accountNumber}
+              </Text>
             </View>
           </View>
         </View>

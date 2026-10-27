@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,102 +9,89 @@ import {
   Image,
   Alert,
   Linking,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import HeaderBar from '../../common/HeaderBar';
-
-export interface DriverData {
-  id: string;
-  name: string;
-  dcNumber: string;
-  taxiNo: string;
-  phone: string;
-  status: 'active' | 'inactive' | 'pending';
-  avatar?: any;
-  initials?: string;
-}
-
-const DEFAULT_DRIVERS: DriverData[] = [
-  {
-    id: 'drv_01',
-    name: 'Lovedeep Khangura',
-    dcNumber: '93821048',
-    taxiNo: 'M6061',
-    phone: '0400 555 320',
-    status: 'active',
-    avatar: require('../../../../assets/emp_avatar_1.png'),
-  },
-  {
-    id: 'drv_02',
-    name: 'Harpreet Singh',
-    dcNumber: '58745896',
-    taxiNo: 'M6022',
-    phone: '0400 555 321',
-    status: 'inactive',
-    avatar: require('../../../../assets/emp_avatar_2.png'),
-  },
-  {
-    id: 'drv_03',
-    name: 'David Miller',
-    dcNumber: '59187425',
-    taxiNo: 'M6088',
-    phone: '0400 555 322',
-    status: 'active',
-    avatar: require('../../../../assets/emp_avatar_3.png'),
-  },
-  {
-    id: 'drv_04',
-    name: 'Gurpreet Deol',
-    dcNumber: '32587412',
-    taxiNo: 'M6090',
-    phone: '0400 555 323',
-    status: 'pending',
-    initials: 'GD',
-  },
-];
+import {
+  driverService,
+  DriverItem,
+  DriversSummary,
+} from '../../../services/driverService';
 
 export default function ManageDriverScreen() {
   const router = useRouter();
-  const [drivers, setDrivers] = useState<DriverData[]>(DEFAULT_DRIVERS);
+  const [drivers, setDrivers] = useState<DriverItem[]>([]);
+  const [summary, setSummary] = useState<DriversSummary | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const filteredDrivers = useMemo(() => {
-    if (!searchQuery.trim()) return drivers;
-    const q = searchQuery.toLowerCase().trim();
-    return drivers.filter(
-      (d) =>
-        d.name.toLowerCase().includes(q) ||
-        d.taxiNo.toLowerCase().includes(q) ||
-        d.dcNumber.toLowerCase().includes(q)
-    );
-  }, [drivers, searchQuery]);
+  // Fetch Drivers from API (GET /api/drivers/list or /api/drivers/list?search=...)
+  const fetchDrivers = useCallback(async (query?: string) => {
+    try {
+      setErrorMessage('');
+      const data = await driverService.getDriversList(query);
+      setDrivers(data?.drivers || []);
+      setSummary(data?.summary || null);
+    } catch (err: any) {
+      console.log('Failed to fetch drivers list from API:', err.message || err);
+      setErrorMessage(err.message || 'Failed to load drivers');
+      setDrivers([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
-  const handleCall = (driver: DriverData) => {
-    const url = `tel:${driver.phone.replace(/\s+/g, '')}`;
+  // Search Debounce (350ms)
+  useEffect(() => {
+    let isMounted = true;
+
+    const timer = setTimeout(() => {
+      if (!isMounted) return;
+      setIsLoading(true);
+      fetchDrivers(searchQuery);
+    }, 350);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [searchQuery, fetchDrivers]);
+
+  // Pull-to-refresh
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchDrivers(searchQuery);
+    setIsRefreshing(false);
+  };
+
+  const handleCall = (driver: DriverItem) => {
+    const phone = driver.phone_no;
+    if (!phone) {
+      Alert.alert(
+        'No Phone Number',
+        `${driver.full_name || 'Driver'} does not have a contact phone number registered.`
+      );
+      return;
+    }
+
+    const cleanPhone = phone.replace(/\s+/g, '');
+    const url = `tel:${cleanPhone}`;
     Linking.canOpenURL(url).then((supported) => {
       if (supported) {
         Linking.openURL(url);
       } else {
         Alert.alert(
-          `Contact ${driver.name}`,
-          `Phone: ${driver.phone}\nTaxi No: ${driver.taxiNo}\nDC: ${driver.dcNumber}`
+          `Contact ${driver.full_name || 'Driver'}`,
+          `Phone: ${phone}\n${driver.taxi_no_display || `Taxi No. ${driver.assigned_taxi_no || '--'}`}\n${driver.dc_display || `DC ${driver.dc_number || '--'}`}`
         );
       }
     });
-  };
-
-  const handleToggleStatus = (id: string) => {
-    setDrivers((prev) =>
-      prev.map((d) => {
-        if (d.id !== id) return d;
-        if (d.status === 'pending') {
-          return { ...d, status: 'active' };
-        }
-        return { ...d, status: d.status === 'active' ? 'inactive' : 'active' };
-      })
-    );
   };
 
   return (
@@ -129,10 +116,23 @@ export default function ManageDriverScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            colors={['#D97706']}
+            tintColor="#D97706"
+          />
+        }
       >
-        {/* Search Bar matching screenshot */}
+        {/* Search Bar matching backend (?search=...) */}
         <View style={styles.searchContainer}>
-          <Ionicons name="search-outline" size={18} color="#94A3B8" style={{ marginRight: 8 }} />
+          <Ionicons
+            name="search-outline"
+            size={18}
+            color="#94A3B8"
+            style={{ marginRight: 8 }}
+          />
           <TextInput
             style={styles.searchInput}
             placeholder="Search Driver or Taxi No..."
@@ -149,19 +149,76 @@ export default function ManageDriverScreen() {
           )}
         </View>
 
-        {/* Section Heading Row */}
+        {/* Section Heading Row with Total Registered Count */}
         <View style={styles.headingRow}>
           <Text style={styles.headingTitle}>Driver</Text>
-          <View style={styles.registeredBadge}>
-            <Text style={styles.registeredBadgeText}>{drivers.length} Registered</Text>
-          </View>
+          {summary ? (
+            <View style={styles.registeredBadge}>
+              <Text style={styles.registeredBadgeText}>
+                {summary.total_registered_label || `${summary.total_drivers} Registered`}
+              </Text>
+            </View>
+          ) : !isLoading ? (
+            <View style={styles.registeredBadge}>
+              <Text style={styles.registeredBadgeText}>{drivers.length} Registered</Text>
+            </View>
+          ) : null}
         </View>
 
-        {/* Driver Cards */}
-        {filteredDrivers.map((driver) => {
-          const isPending = driver.status === 'pending';
-          const isActive = driver.status === 'active';
-          const isManager = driver.id === 'drv_01'; // Lovedeep has no call button in design
+        {/* Error Banner */}
+        {Boolean(errorMessage) && (
+          <View style={styles.errorBanner}>
+            <Ionicons name="alert-circle-outline" size={16} color="#DC2626" style={{ marginRight: 6 }} />
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          </View>
+        )}
+
+        {/* Loading Indicator */}
+        {isLoading && !isRefreshing && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color="#D97706" />
+          </View>
+        )}
+
+        {/* Empty State */}
+        {!isLoading && drivers.length === 0 && (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="people-outline" size={44} color="#CBD5E1" />
+            <Text style={styles.emptyTitle}>
+              {searchQuery
+                ? `No drivers found matching "${searchQuery}"`
+                : 'No registered drivers found'}
+            </Text>
+            <Text style={styles.emptySub}>
+              {searchQuery
+                ? 'Try checking the name, DC number, or taxi number.'
+                : 'Tap the button below to register a new driver.'}
+            </Text>
+          </View>
+        )}
+
+        {/* Driver Cards (Strictly Rendered from API) */}
+        {drivers.map((driver) => {
+          const isPending =
+            Boolean(driver.is_pending_approval) ||
+            driver.registration_status === 'pending' ||
+            driver.status_badge === 'warning';
+          const isActive = driver.is_active === 1;
+
+          const driverName =
+            driver.full_name ||
+            `${driver.first_name || ''} ${driver.last_name || ''}`.trim() ||
+            '--';
+          const dcText =
+            driver.dc_display || (driver.dc_number ? `DC ${driver.dc_number}` : '');
+          const taxiText =
+            driver.taxi_no_display ||
+            (driver.assigned_taxi_no ? `Taxi No. ${driver.assigned_taxi_no}` : '');
+
+          const initials =
+            driver.initials ||
+            `${driver.first_name?.[0] || ''}${driver.last_name?.[0] || ''}`.toUpperCase() ||
+            'DR';
 
           return (
             <TouchableOpacity
@@ -174,7 +231,10 @@ export default function ManageDriverScreen() {
               onPress={() =>
                 router.push({
                   pathname: '/driver-details',
-                  params: { driverId: driver.id },
+                  params: {
+                    driverId: String(driver.id),
+                    driverData: JSON.stringify(driver),
+                  },
                 })
               }
             >
@@ -183,70 +243,78 @@ export default function ManageDriverScreen() {
                 <View style={styles.pendingBadgeWrap}>
                   <View style={styles.pendingBadge}>
                     <View style={styles.pendingDot} />
-                    <Text style={styles.pendingBadgeText}>Pending Approval</Text>
+                    <Text style={styles.pendingBadgeText}>
+                      {driver.status_label || 'Pending Approval'}
+                    </Text>
                   </View>
                 </View>
               )}
 
               <View style={styles.driverMainRow}>
-                {/* Avatar */}
-                {driver.avatar ? (
-                  <Image source={driver.avatar} style={styles.driverAvatar} />
+                {/* Avatar: profile_photo_url or initials */}
+                {driver.profile_photo_url ? (
+                  <Image
+                    source={{ uri: driver.profile_photo_url }}
+                    style={styles.driverAvatar}
+                  />
                 ) : (
                   <View style={styles.initialsAvatar}>
-                    <Text style={styles.initialsText}>{driver.initials || 'GD'}</Text>
+                    <Text style={styles.initialsText}>{initials}</Text>
                   </View>
                 )}
 
                 {/* Details Column */}
                 <View style={styles.detailsCol}>
                   <Text style={styles.nameAndDcText}>
-                    <Text style={styles.driverNameText}>{driver.name}</Text>
-                    <Text style={styles.dcText}> | DC {driver.dcNumber}</Text>
+                    <Text style={styles.driverNameText}>{driverName}</Text>
+                    {Boolean(dcText) && (
+                      <Text style={styles.dcText}> | {dcText}</Text>
+                    )}
                   </Text>
 
                   {/* Subtitle row with Taxi No & Status */}
                   <View style={styles.subInfoRow}>
-                    <View style={styles.taxiNoWrap}>
-                      <Ionicons
-                        name="car"
-                        size={13}
-                        color="#D97706"
-                        style={{ marginRight: 4 }}
-                      />
-                      <Text style={styles.taxiNoText}>Taxi No. {driver.taxiNo}</Text>
-                    </View>
+                    {Boolean(taxiText) && (
+                      <View style={styles.taxiNoWrap}>
+                        <Ionicons
+                          name="car"
+                          size={13}
+                          color="#D97706"
+                          style={{ marginRight: 4 }}
+                        />
+                        <Text style={styles.taxiNoText}>{taxiText}</Text>
+                      </View>
+                    )}
 
                     {!isPending && (
-                      <TouchableOpacity
-                        style={styles.statusRow}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          handleToggleStatus(driver.id);
-                        }}
-                        activeOpacity={0.7}
-                      >
+                      <View style={styles.statusRow}>
                         <View
                           style={[
                             styles.statusDot,
-                            { backgroundColor: isActive ? '#10B981' : '#94A3B8' },
+                            {
+                              backgroundColor: isActive
+                                ? '#10B981'
+                                : '#94A3B8',
+                            },
                           ]}
                         />
                         <Text
                           style={[
                             styles.statusText,
-                            { color: isActive ? '#059669' : '#64748B' },
+                            {
+                              color: isActive ? '#059669' : '#64748B',
+                            },
                           ]}
                         >
-                          {isActive ? 'Active' : 'Inactive'}
+                          {driver.status_label || (isActive ? 'Active' : 'Inactive')}
                         </Text>
-                      </TouchableOpacity>
+                      </View>
                     )}
                   </View>
                 </View>
 
                 {/* Call Action Button */}
-                {!isManager && (
+                {Boolean(driver.phone_no) && (
                   <TouchableOpacity
                     style={styles.callButton}
                     onPress={(e) => {
@@ -340,6 +408,53 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: '#4F46E5',
+  },
+
+  /* Error Banner */
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 12,
+  },
+  errorText: {
+    fontSize: 11.5,
+    color: '#DC2626',
+    fontWeight: '600',
+    flex: 1,
+  },
+
+  /* Loading Container */
+  loadingContainer: {
+    paddingVertical: 28,
+    alignItems: 'center',
+  },
+
+  /* Empty State */
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
+    paddingHorizontal: 20,
+  },
+  emptyTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  emptySub: {
+    fontSize: 11.5,
+    color: '#64748B',
+    marginTop: 4,
+    textAlign: 'center',
+    lineHeight: 16,
   },
 
   /* Driver Card */

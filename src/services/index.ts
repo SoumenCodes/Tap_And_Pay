@@ -4,3 +4,4 @@ export * from './authService';
 export * from './stripeApi';
 export * from './transactionStore';
 export * from './profileService';
+export * from './driverService';

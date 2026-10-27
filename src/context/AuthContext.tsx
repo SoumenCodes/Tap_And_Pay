@@ -69,17 +69,17 @@ export const MOCK_ACCOUNTS: Record<
     },
   },
   other_business: {
-    username: 'other_business',
-    passwords: ['business123', '123456'],
+    username: 'zafar.dnk4@gmail.com',
+    passwords: ['Zafar@1986', 'business123', '123456'],
     user: {
-      id: 'usr_other_biz_04',
-      username: 'other_business',
-      name: 'Soumen Sen',
+      id: '4',
+      username: 'zafar.dnk4@gmail.com',
+      name: 'Habibs',
       loginType: 'other_business',
-      roleLabel: 'Merchant Owner',
-      businessName: 'Crown Cuts',
-      businessAddress: 'Suite 4, 120 Collins Street, Melbourne VIC',
-      empId: '93821048',
+      roleLabel: 'Other Business (Company)',
+      businessName: 'Habibs',
+      businessAddress: '19 WORONORA AVE, LEUMEAH, NSW 2560',
+      empId: 'EMP2026100720101831',
       sessionStartTime: '7:30 AM',
     },
   },
@@ -215,8 +215,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // 4. Other Business (Owner)
     if (
+      lowerUser === 'zafar.dnk4@gmail.com' ||
       lowerUser === 'other_business' ||
       lowerUser === 'business' ||
+      lowerUser === 'habibs' ||
       lowerUser === 'crowncuts' ||
       lowerUser === 'merchant@business.com'
     ) {
@@ -226,7 +228,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await tokenStorage.saveUser(MOCK_ACCOUNTS.other_business.user);
         return { success: true };
       }
-      return { success: false, error: 'Invalid password. Use "business123" or "123456".' };
+      return { success: false, error: 'Invalid password. Use "Zafar@1986" or "business123".' };
     }
 
     // 5. Other Business Employee

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,46 +10,230 @@ import {
   Modal,
   Pressable,
   TextInput,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../../context/AuthContext';
 import HeaderBar from '../../common/HeaderBar';
+import {
+  profileService,
+  ProfileResponseData,
+  BankDetailsData,
+} from '../../../services/profileService';
+import { formatSubmittedDate } from '../../../utils/dateUtils';
 
 export default function OtherBusinessProfileScreen() {
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
 
-  const [isOnShift, setIsOnShift] = useState(true);
+  // Profile API State
+  const [profileData, setProfileData] = useState<ProfileResponseData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Bank Details Bottom Sheet Modals
+  // Dedicated Bank Details API State
+  const [bankData, setBankData] = useState<BankDetailsData | null>(null);
+  const [isBankLoading, setIsBankLoading] = useState(false);
+  const [isSubmittingBank, setIsSubmittingBank] = useState(false);
+
+  const [isOnShift, setIsOnShift] = useState(false);
+
+  // Bank Details Modals
   const [isBankModalVisible, setIsBankModalVisible] = useState(false);
   const [isUpdateBankModalVisible, setIsUpdateBankModalVisible] = useState(false);
 
-  // Bank Account State (pre-populated with realistic Australian merchant details)
-  const [accountName, setAccountName] = useState('Crown Cuts Pty Ltd');
-  const [bsbNumber, setBsbNumber] = useState('063-000');
-  const [accountNumber, setAccountNumber] = useState('1098 7654');
+  // Current Bank Account Information
+  const [accountName, setAccountName] = useState('');
+  const [bsbNumber, setBsbNumber] = useState('');
+  const [accountNumber, setAccountNumber] = useState('');
 
   // Form inputs for update modal
-  const [editAccountName, setEditAccountName] = useState('Crown Cuts Pty Ltd');
-  const [editBsb, setEditBsb] = useState('063-000');
-  const [editAccountNumber, setEditAccountNumber] = useState('1098 7654');
+  const [editAccountName, setEditAccountName] = useState('');
+  const [editBankName, setEditBankName] = useState('');
+  const [editBsb, setEditBsb] = useState('');
+  const [editAccountNumber, setEditAccountNumber] = useState('');
 
-  const businessName = user.businessName || 'CROWN CUTS';
-  const userName = user.name || 'Soumen Sen';
-  const shiftId = '26102026/93821048/537384';
+  const applyProfileData = useCallback((data: ProfileResponseData) => {
+    setProfileData(data);
+
+    if (data.user?.bank_details) {
+      const bd = data.user.bank_details;
+      if (bd.bank_account_name) {
+        setAccountName(bd.bank_account_name);
+        setEditAccountName(bd.bank_account_name);
+      }
+      if (bd.bsb) {
+        setBsbNumber(bd.bsb);
+        setEditBsb(bd.bsb);
+      }
+      if (bd.bank_name) {
+        setEditBankName(bd.bank_name);
+      }
+      if (bd.masked_account_number) {
+        setAccountNumber(bd.masked_account_number);
+      } else if (bd.account_number) {
+        setAccountNumber(`•••• •••• ${bd.account_number.slice(-4)}`);
+      }
+    }
+
+    if (data.current_session) {
+      setIsOnShift(Boolean(data.current_session.has_active_session));
+    }
+  }, []);
+
+  // Fetch initial profile
+  const fetchProfile = useCallback(async () => {
+    try {
+      const data = await profileService.getProfile();
+      applyProfileData(data);
+    } catch (err: any) {
+      console.log('Failed to fetch other business profile:', err.message || err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [applyProfileData]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const timer = setTimeout(() => {
+      if (!isMounted) return;
+      fetchProfile();
+    }, 0);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [fetchProfile]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      const data = await profileService.getProfile();
+      applyProfileData(data);
+    } catch (err: any) {
+      console.log('Failed to refresh other business profile:', err.message || err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Bank Details Modal: GET /api/user/bank-details
+  const handleOpenBankModal = async () => {
+    setIsBankModalVisible(true);
+    setIsBankLoading(true);
+    try {
+      const data = await profileService.getBankDetails();
+      setBankData(data);
+
+      if (data) {
+        if (data.bank_account_name) {
+          setAccountName(data.bank_account_name);
+        }
+        if (data.bsb) {
+          setBsbNumber(data.bsb);
+        }
+        if (data.masked_account_number) {
+          setAccountNumber(data.masked_account_number);
+        } else if (data.account_number) {
+          setAccountNumber(`•••• •••• ${data.account_number.slice(-4)}`);
+        }
+
+        if (data.has_pending_approval && data.draft_bank_details) {
+          const draft = data.draft_bank_details;
+          setEditAccountName(draft.bank_account_name || '');
+          setEditBsb(draft.bsb || '');
+          setEditAccountNumber(draft.account_number || '');
+          setEditBankName(draft.bank_name || '');
+        } else {
+          setEditAccountName(data.bank_account_name || accountName);
+          setEditBsb(data.bsb || bsbNumber);
+          setEditAccountNumber(data.account_number || '');
+          setEditBankName(data.bank_name || '');
+        }
+      }
+    } catch (err: any) {
+      console.log('Failed to fetch bank details:', err.message || err);
+    } finally {
+      setIsBankLoading(false);
+    }
+  };
+
+  const handleSubmitBankUpdate = async () => {
+    const trimmedName = editAccountName.trim();
+    const trimmedBsb = editBsb.trim();
+    const trimmedAcc = editAccountNumber.trim();
+    const trimmedBank = editBankName.trim();
+
+    if (!trimmedName || !trimmedBsb || !trimmedAcc) {
+      Alert.alert('Required Fields', 'Please enter Account Name, BSB, and Account Number.');
+      return;
+    }
+
+    setIsSubmittingBank(true);
+    try {
+      const res = await profileService.updateBankDetails({
+        account_name: trimmedName,
+        bsb: trimmedBsb,
+        account_number: trimmedAcc,
+        bank_name: trimmedBank || 'National Australia Bank',
+      });
+
+      const updated = res.data;
+      if (updated) {
+        setBankData((prev) => ({
+          ...prev,
+          has_pending_approval: true,
+          approval_status: updated.approval_status || 'pending',
+          draft_bank_details: {
+            bank_account_name: updated.bank_account_name || trimmedName,
+            bsb: updated.bsb || trimmedBsb,
+            account_number: updated.account_number || trimmedAcc,
+            masked_account_number:
+              updated.masked_account_number || `•••• •••• ${trimmedAcc.slice(-4)}`,
+            bank_name: trimmedBank || updated.bank_name || 'National Australia Bank',
+            bank_badge: updated.bank_badge || 'NAB',
+            submitted_ts: new Date().toISOString().slice(0, 19).replace('T', ' '),
+          },
+        }));
+      }
+
+      setIsUpdateBankModalVisible(false);
+      Alert.alert(
+        'Request Submitted',
+        res.message || 'Bank details submitted for approval successfully.'
+      );
+    } catch (err: any) {
+      Alert.alert(
+        'Update Failed',
+        err.message || 'Could not submit bank details for approval. Please try again.'
+      );
+    } finally {
+      setIsSubmittingBank(false);
+    }
+  };
 
   const handleCopyShiftId = () => {
-    Alert.alert('Shift ID Copied', `Active Shift ID: ${shiftId}`);
+    const code =
+      profileData?.current_session?.display_shift_id ||
+      profileData?.current_session?.shift_id;
+    if (code) {
+      Alert.alert('Shift ID', `Active Shift ID: ${code}`);
+    }
   };
 
   const handleToggleShift = () => {
+    const shiftCode =
+      profileData?.current_session?.display_shift_id ||
+      profileData?.current_session?.shift_id ||
+      '--';
     if (isOnShift) {
       Alert.alert(
         'End Shift',
-        `Are you sure you want to end your current active shift (${shiftId})? Total sales ($485.00) will be submitted for settlement.`,
+        `Are you sure you want to end your current active shift (${shiftCode})?`,
         [
           { text: 'Cancel', style: 'cancel' },
           {
@@ -68,14 +252,6 @@ export default function OtherBusinessProfileScreen() {
     }
   };
 
-  const handlePastShiftRecords = () => {
-    router.push('/(tabs)/transactions');
-  };
-
-  const handleManageEmployee = () => {
-    router.push('/manage-employee');
-  };
-
   const handleLogout = () => {
     Alert.alert(
       'Log Out Account',
@@ -85,8 +261,8 @@ export default function OtherBusinessProfileScreen() {
         {
           text: 'Log Out',
           style: 'destructive',
-          onPress: () => {
-            logout();
+          onPress: async () => {
+            await logout();
             router.replace('/login');
           },
         },
@@ -94,22 +270,40 @@ export default function OtherBusinessProfileScreen() {
     );
   };
 
-  const handleSubmitBankUpdate = () => {
-    if (!editAccountName.trim() || !editBsb.trim() || !editAccountNumber.trim()) {
-      Alert.alert('Required Fields', 'Please fill in all bank details.');
-      return;
-    }
+  const user = profileData?.user;
+  const session = profileData?.current_session;
 
-    setAccountName(editAccountName.trim());
-    setBsbNumber(editBsb.trim());
-    setAccountNumber(editAccountNumber.trim());
+  const businessName = user?.business_name || user?.header_business_name || '--';
+  const ownerName =
+    user?.display_name ||
+    (user?.first_name ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : '') ||
+    user?.business_name ||
+    '--';
+  const abnText = user?.abn || '--';
+  const phoneText = user?.phone_no || '--';
+  const empIdText = user?.emp_id || user?.employee_code || '--';
+  const emailText = user?.email || '--';
+  const addressText =
+    user?.formatted_address ||
+    user?.address?.formatted ||
+    user?.address?.address_line1 ||
+    '--';
+  const avatarUri = user?.logo_url || user?.profile_photo_url;
 
-    setIsUpdateBankModalVisible(false);
-    Alert.alert(
-      'Update Request Submitted',
-      'Your request to update bank account details has been submitted for verification. Daily payouts will resume once verified.'
-    );
-  };
+  // Session values
+  const shiftId = session?.display_shift_id || session?.shift_id || '--';
+  const totalAmountStr = session?.revenue?.total_amount_formatted || '$0.00';
+  const txnsLabel = session?.revenue?.transaction_label || '0 Txns';
+  const cardAmountStr = session?.revenue?.card?.amount_formatted || '$0.00';
+  const cardTxnsStr = session?.revenue?.card?.count_formatted || '0 Txns';
+  const tapAmountStr = session?.revenue?.tap_and_go?.amount_formatted || '$0.00';
+  const tapTxnsStr = session?.revenue?.tap_and_go?.count_formatted || '0 Txns';
+
+  // Parse big total into dollar, whole, cents
+  const cleanTotal = totalAmountStr.replace('$', '').trim();
+  const [wholeTotal, centsTotal] = cleanTotal.includes('.')
+    ? cleanTotal.split('.')
+    : [cleanTotal, '00'];
 
   return (
     <View style={styles.root}>
@@ -122,14 +316,33 @@ export default function OtherBusinessProfileScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            colors={['#D97706']}
+            tintColor="#D97706"
+          />
+        }
       >
-        {/* ── 1. MAIN PROFILE SUMMARY CARD (Matching Screenshot 1) ── */}
+        {/* Loading Indicator */}
+        {isLoading && !profileData && (
+          <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+            <ActivityIndicator size="small" color="#D97706" />
+          </View>
+        )}
+
+        {/* ── 1. MAIN PROFILE SUMMARY CARD ── */}
         <View style={styles.profileCard}>
           {/* Avatar with Crown Badge */}
           <View style={styles.avatarContainer}>
             <View style={styles.avatarWrap}>
               <Image
-                source={require('../../../../assets/emp_avatar_1.png')}
+                source={
+                  avatarUri
+                    ? { uri: avatarUri }
+                    : require('../../../../assets/emp_avatar_1.png')
+                }
                 style={styles.avatarImg}
                 resizeMode="cover"
               />
@@ -145,19 +358,17 @@ export default function OtherBusinessProfileScreen() {
 
           {/* Business & Owner Details */}
           <Text style={styles.brandTitle}>{businessName.toUpperCase()}</Text>
-          <Text style={styles.ownerNameText}>{userName}</Text>
+          <Text style={styles.ownerNameText}>{ownerName}</Text>
 
           <View style={styles.metaLinesWrap}>
             <Text style={styles.metaLineText}>
-              ABN: 62 458 123 800 • PH: 0400 555 320
+              ABN: {abnText} • PH: {phoneText}
             </Text>
             <Text style={styles.metaLineText}>
-              EMP ID: <Text style={styles.empIdBold}>93821048</Text>
+              EMP ID: <Text style={styles.empIdBold}>{empIdText}</Text>
             </Text>
-            <Text style={styles.metaLineText}>soumen_crowncuts@testmail.com.au</Text>
-            <Text style={styles.metaLineText}>
-              Suite 4, 120 Collins Street, Melbourne VIC
-            </Text>
+            <Text style={styles.metaLineText}>{emailText}</Text>
+            <Text style={styles.metaLineText}>{addressText}</Text>
           </View>
 
           {/* Status Badge */}
@@ -179,19 +390,23 @@ export default function OtherBusinessProfileScreen() {
                 !isOnShift && styles.statusTextOff,
               ]}
             >
-              {isOnShift ? 'Active • On Shift' : 'Off Shift • Inactive'}
+              {session?.status_badge || (isOnShift ? 'Active • On Shift' : 'Active • Off Shift')}
             </Text>
           </View>
 
           {/* Shift Start Duration Text */}
           <Text style={styles.shiftDurationText}>
-            Started 26 Oct 2026 | 07:30 AM (8h 45m)
+            {session?.started_at_formatted
+              ? `Started ${session.started_at_formatted}${session.duration ? ` (${session.duration})` : ''}`
+              : 'Off Shift • Standby'}
           </Text>
 
           {/* Active Shift ID Box */}
           <View style={styles.activeShiftIdBox}>
             <View style={styles.activeShiftIdInfo}>
-              <Text style={styles.activeShiftIdLabel}>Active Shift ID</Text>
+              <Text style={styles.activeShiftIdLabel}>
+                {session?.has_active_session ? 'Active Shift ID' : 'Shift ID'}
+              </Text>
               <Text style={styles.activeShiftIdCode}>{shiftId}</Text>
             </View>
             <TouchableOpacity
@@ -207,18 +422,20 @@ export default function OtherBusinessProfileScreen() {
           {/* Active Shift Txns Card */}
           <View style={styles.activeTxnsCard}>
             <View style={styles.activeTxnsHeaderRow}>
-              <Text style={styles.activeTxnsLabel}>Active Shift Txns</Text>
+              <Text style={styles.activeTxnsLabel}>
+                {session?.revenue_title || 'Session Revenue'}
+              </Text>
               <View style={styles.activeTxnsCountWrap}>
                 <Ionicons name="checkmark-circle-outline" size={14} color="#059669" />
-                <Text style={styles.activeTxnsCountText}>14 Txns</Text>
+                <Text style={styles.activeTxnsCountText}>{txnsLabel}</Text>
               </View>
             </View>
 
             {/* Big Amount */}
             <View style={styles.bigAmountRow}>
               <Text style={styles.bigAmountDollar}>$</Text>
-              <Text style={styles.bigAmountWhole}>485</Text>
-              <Text style={styles.bigAmountCents}>.00</Text>
+              <Text style={styles.bigAmountWhole}>{wholeTotal}</Text>
+              <Text style={styles.bigAmountCents}>.{centsTotal}</Text>
             </View>
 
             <View style={styles.txnsDivider} />
@@ -231,8 +448,8 @@ export default function OtherBusinessProfileScreen() {
                   <Ionicons name="card-outline" size={12} color="#2563EB" />
                   <Text style={styles.subMetricTitleCard}>CARD</Text>
                 </View>
-                <Text style={styles.subMetricValueCard}>$320.00</Text>
-                <Text style={styles.subMetricTxns}>9 Txns</Text>
+                <Text style={styles.subMetricValueCard}>{cardAmountStr}</Text>
+                <Text style={styles.subMetricTxns}>{cardTxnsStr}</Text>
               </View>
 
               <View style={styles.subMetricDivider} />
@@ -243,15 +460,18 @@ export default function OtherBusinessProfileScreen() {
                   <View style={styles.bulletTap} />
                   <Text style={styles.subMetricTitleTap}>TAP & GO</Text>
                 </View>
-                <Text style={styles.subMetricValueTap}>$165.00</Text>
-                <Text style={styles.subMetricTxns}>5 Txns</Text>
+                <Text style={styles.subMetricValueTap}>{tapAmountStr}</Text>
+                <Text style={styles.subMetricTxns}>{tapTxnsStr}</Text>
               </View>
             </View>
           </View>
 
           {/* End Shift Button */}
           <TouchableOpacity
-            style={styles.endShiftButton}
+            style={[
+              styles.endShiftButton,
+              !isOnShift && styles.startShiftButton,
+            ]}
             onPress={handleToggleShift}
             activeOpacity={0.85}
           >
@@ -262,60 +482,50 @@ export default function OtherBusinessProfileScreen() {
               style={{ marginRight: 8 }}
             />
             <Text style={styles.endShiftButtonText}>
-              {isOnShift ? 'End Shift' : 'Start Shift'}
+              {session?.end_button_title || (isOnShift ? 'End Shift' : 'Start Shift')}
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* ── 2. MENU ACTION CARDS (Past Shift Records, Manage Employee, Bank Details) ── */}
+        {/* ── 2. DYNAMIC MENU ACTION CARDS (Rendered from data.menu_options) ── */}
         <View style={styles.actionCardsList}>
-          {/* 1. Past Shift Records */}
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={handlePastShiftRecords}
-            activeOpacity={0.8}
-          >
-            <View style={styles.actionIconCircle}>
-              <Ionicons name="swap-horizontal" size={19} color="#B45309" />
-            </View>
-            <View style={styles.actionInfoCol}>
-              <Text style={styles.actionTitle}>Past Shift Records</Text>
-              <Text style={styles.actionSubtitle}>View your previous shift history</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
-          </TouchableOpacity>
-
-          {/* 2. Manage Employee */}
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={handleManageEmployee}
-            activeOpacity={0.8}
-          >
-            <View style={styles.actionIconCircle}>
-              <Feather name="user" size={17} color="#B45309" />
-            </View>
-            <View style={styles.actionInfoCol}>
-              <Text style={styles.actionTitle}>Manage Employee</Text>
-              <Text style={styles.actionSubtitle}>Add and manage your team</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
-          </TouchableOpacity>
-
-          {/* 3. Bank Details (Wiring the bank details section) */}
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => setIsBankModalVisible(true)}
-            activeOpacity={0.8}
-          >
-            <View style={styles.actionIconCircle}>
-              <Ionicons name="business-outline" size={18} color="#B45309" />
-            </View>
-            <View style={styles.actionInfoCol}>
-              <Text style={styles.actionTitle}>Bank Details</Text>
-              <Text style={styles.actionSubtitle}>Manage your bank account details</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
-          </TouchableOpacity>
+          {(profileData?.menu_options || []).map((item) => (
+            <TouchableOpacity
+              key={item.key}
+              style={styles.actionCard}
+              activeOpacity={0.8}
+              onPress={() => {
+                if (item.action === 'navigate_bank_details' || item.key === 'bank_details') {
+                  handleOpenBankModal();
+                } else if (item.action === 'navigate_manage_employees' || item.key === 'manage_staff') {
+                  router.push('/manage-employee');
+                } else if (item.action === 'navigate_shift_history' || item.key === 'history') {
+                  router.push('/(tabs)/history');
+                } else {
+                  router.push('/(tabs)/transactions');
+                }
+              }}
+            >
+              <View style={styles.actionIconCircle}>
+                <Ionicons
+                  name={
+                    item.key === 'bank_details'
+                      ? 'business-outline'
+                      : item.key === 'manage_staff'
+                      ? 'people-outline'
+                      : 'swap-horizontal'
+                  }
+                  size={18}
+                  color="#B45309"
+                />
+              </View>
+              <View style={styles.actionInfoCol}>
+                <Text style={styles.actionTitle}>{item.title}</Text>
+                <Text style={styles.actionSubtitle}>{item.subtitle}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* ── 3. LOG OUT BUTTON ── */}
@@ -364,8 +574,23 @@ export default function OtherBusinessProfileScreen() {
               <View style={styles.bankTitleCol}>
                 <View style={styles.bankTitleVerifiedRow}>
                   <Text style={styles.bankSheetTitle}>Bank Details</Text>
-                  <View style={styles.verifiedPill}>
-                    <Text style={styles.verifiedPillText}>Verified</Text>
+                  <View
+                    style={[
+                      styles.verifiedPill,
+                      !bankData?.is_verified && {
+                        backgroundColor: '#FEF3C7',
+                        borderColor: '#FDE68A',
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.verifiedPillText,
+                        !bankData?.is_verified && { color: '#B45309' },
+                      ]}
+                    >
+                      {bankData?.is_verified ? 'Verified' : 'Pending'}
+                    </Text>
                   </View>
                 </View>
                 <Text style={styles.bankSheetSubtitle}>Register account for payouts</Text>
@@ -380,6 +605,67 @@ export default function OtherBusinessProfileScreen() {
               </TouchableOpacity>
             </View>
 
+            {/* Loading Indicator for Bank Data */}
+            {isBankLoading && (
+              <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+                <ActivityIndicator size="small" color="#D97706" />
+              </View>
+            )}
+
+            {/* Pending Draft Details Card (shown when an update request is pending approval) */}
+            {bankData?.has_pending_approval && Boolean(bankData?.draft_bank_details) && (
+              <View style={styles.pendingReviewCard}>
+                <View style={styles.pendingReviewHeader}>
+                  <View style={styles.pendingReviewIconWrap}>
+                    <Ionicons name="time" size={14} color="#B45309" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.pendingReviewTitle}>Pending Update Under Review</Text>
+                    {Boolean(bankData.draft_bank_details?.submitted_ts) && (
+                      <Text style={styles.pendingReviewSub}>
+                        Submitted {formatSubmittedDate(bankData.draft_bank_details?.submitted_ts)}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+
+                <View style={styles.draftDetailsDivider} />
+
+                <View style={styles.draftDetailRow}>
+                  <Text style={styles.draftDetailLabel}>New Account Name</Text>
+                  <Text style={styles.draftDetailValue}>
+                    {bankData.draft_bank_details?.bank_account_name || '--'}
+                  </Text>
+                </View>
+
+                {Boolean(bankData.draft_bank_details?.bank_name) && (
+                  <View style={styles.draftDetailRow}>
+                    <Text style={styles.draftDetailLabel}>New Bank Name</Text>
+                    <Text style={styles.draftDetailValue}>
+                      {bankData.draft_bank_details?.bank_name}
+                    </Text>
+                  </View>
+                )}
+
+                <View style={styles.draftDetailRow}>
+                  <Text style={styles.draftDetailLabel}>New BSB</Text>
+                  <Text style={styles.draftDetailValue}>
+                    {bankData.draft_bank_details?.bsb || '--'}
+                  </Text>
+                </View>
+
+                <View style={styles.draftDetailRow}>
+                  <Text style={styles.draftDetailLabel}>New Account Number</Text>
+                  <Text style={styles.draftDetailValue}>
+                    {bankData.draft_bank_details?.masked_account_number ||
+                      (bankData.draft_bank_details?.account_number
+                        ? `•••• •••• ${bankData.draft_bank_details.account_number.slice(-4)}`
+                        : '--')}
+                  </Text>
+                </View>
+              </View>
+            )}
+
             {/* Bank Account Information Card */}
             <View style={styles.bankInfoBox}>
               <Text style={styles.bankInfoHeading}>BANK ACCOUNT INFORMATION</Text>
@@ -387,22 +673,24 @@ export default function OtherBusinessProfileScreen() {
 
               <View style={styles.bankInfoRow}>
                 <Text style={styles.bankInfoLabel}>Account Name</Text>
-                <Text style={styles.bankInfoValue}>{accountName}</Text>
+                <Text style={styles.bankInfoValue}>{accountName || '--'}</Text>
               </View>
 
               <View style={styles.bankInfoRow}>
                 <Text style={styles.bankInfoLabel}>BSB Number</Text>
                 <View style={styles.bsbRow}>
-                  <Text style={styles.bankInfoValue}>{bsbNumber}</Text>
+                  <Text style={styles.bankInfoValue}>{bsbNumber || '--'}</Text>
                   <View style={styles.nabBadge}>
-                    <Text style={styles.nabBadgeText}>NAB</Text>
+                    <Text style={styles.nabBadgeText}>
+                      {bankData?.bank_badge || 'NAB'}
+                    </Text>
                   </View>
                 </View>
               </View>
 
               <View style={styles.bankInfoRow}>
                 <Text style={styles.bankInfoLabel}>Account Number</Text>
-                <Text style={styles.bankInfoValue}>{accountNumber}</Text>
+                <Text style={styles.bankInfoValue}>{accountNumber || '--'}</Text>
               </View>
             </View>
 
@@ -411,12 +699,26 @@ export default function OtherBusinessProfileScreen() {
               style={styles.updateBankRow}
               activeOpacity={0.8}
               onPress={() => {
+                if (bankData?.has_pending_approval && bankData?.draft_bank_details) {
+                  const draft = bankData.draft_bank_details;
+                  setEditAccountName(draft.bank_account_name || '');
+                  setEditBsb(draft.bsb || '');
+                  setEditAccountNumber(draft.account_number || '');
+                  setEditBankName(draft.bank_name || '');
+                } else {
+                  setEditAccountName(bankData?.bank_account_name || accountName);
+                  setEditBsb(bankData?.bsb || bsbNumber);
+                  setEditAccountNumber(bankData?.account_number || '');
+                  setEditBankName(bankData?.bank_name || '');
+                }
                 setIsBankModalVisible(false);
                 setIsUpdateBankModalVisible(true);
               }}
             >
               <Ionicons name="create-outline" size={18} color="#D97706" style={{ marginRight: 6 }} />
-              <Text style={styles.updateBankText}>Update Bank Account</Text>
+              <Text style={styles.updateBankText}>
+                {bankData?.has_pending_approval ? 'Edit Pending Bank Update' : 'Update Bank Account'}
+              </Text>
             </TouchableOpacity>
           </Pressable>
         </Pressable>
@@ -441,9 +743,19 @@ export default function OtherBusinessProfileScreen() {
               <Ionicons name="warning-outline" size={26} color="#D97706" />
             </View>
 
-            <Text style={styles.updateModalTitle}>Request Bank Details Update?</Text>
+            <Text style={styles.updateModalTitle}>
+              {bankData?.has_pending_approval
+                ? 'Edit Pending Update Request'
+                : 'Request Bank Details Update?'}
+            </Text>
             <Text style={styles.updateModalDesc}>
-              To protect your business payouts, changing bank account details requires security verification. Once submitted, current daily payouts will pause until the new account is verified.
+              {bankData?.has_pending_approval
+                ? `You have a pending update request submitted${
+                    bankData.draft_bank_details?.submitted_ts
+                      ? ` on ${formatSubmittedDate(bankData.draft_bank_details.submitted_ts)}`
+                      : ''
+                  }. You can make adjustments to the draft details below and re-submit for approval.`
+                : 'To protect your business payouts, changing bank account details requires security verification. Once submitted, current daily payouts will pause until the new account is verified.'}
             </Text>
 
             {/* New Account Details Box */}
@@ -457,7 +769,18 @@ export default function OtherBusinessProfileScreen() {
                   style={styles.sheetInput}
                   value={editAccountName}
                   onChangeText={setEditAccountName}
-                  placeholder="Crown Cuts Pty Ltd"
+                  placeholder="e.g. Habibs"
+                  placeholderTextColor="#94A3B8"
+                />
+              </View>
+
+              <View style={styles.sheetInputGroup}>
+                <Text style={styles.sheetInputLabel}>BANK NAME</Text>
+                <TextInput
+                  style={styles.sheetInput}
+                  value={editBankName}
+                  onChangeText={setEditBankName}
+                  placeholder="e.g. National Australia Bank"
                   placeholderTextColor="#94A3B8"
                 />
               </View>
@@ -469,9 +792,8 @@ export default function OtherBusinessProfileScreen() {
                     style={styles.sheetInput}
                     value={editBsb}
                     onChangeText={setEditBsb}
-                    placeholder="063-000"
+                    placeholder="e.g. 082-056"
                     placeholderTextColor="#94A3B8"
-                    keyboardType="numeric"
                   />
                 </View>
 
@@ -481,7 +803,7 @@ export default function OtherBusinessProfileScreen() {
                     style={styles.sheetInput}
                     value={editAccountNumber}
                     onChangeText={setEditAccountNumber}
-                    placeholder="1098 7654"
+                    placeholder="e.g. 123456789"
                     placeholderTextColor="#94A3B8"
                     keyboardType="numeric"
                   />
@@ -491,17 +813,25 @@ export default function OtherBusinessProfileScreen() {
 
             {/* Action Buttons */}
             <TouchableOpacity
-              style={styles.submitUpdateBtn}
+              style={[styles.submitUpdateBtn, isSubmittingBank && { opacity: 0.7 }]}
               activeOpacity={0.85}
               onPress={handleSubmitBankUpdate}
+              disabled={isSubmittingBank}
             >
-              <Text style={styles.submitUpdateBtnText}>Submit Request</Text>
+              {isSubmittingBank ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.submitUpdateBtnText}>
+                  {bankData?.has_pending_approval ? 'Re-Submit for Approval' : 'Submit Request'}
+                </Text>
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.cancelUpdateBtn}
               activeOpacity={0.7}
               onPress={() => setIsUpdateBankModalVisible(false)}
+              disabled={isSubmittingBank}
             >
               <Text style={styles.cancelUpdateBtnText}>Cancel</Text>
             </TouchableOpacity>
@@ -978,6 +1308,61 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
+  /* Pending Review Card */
+  pendingReviewCard: {
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1.2,
+    borderColor: '#FDE68A',
+    borderRadius: 14,
+    padding: 13,
+    marginBottom: 14,
+  },
+  pendingReviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  pendingReviewIconWrap: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pendingReviewTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#B45309',
+  },
+  pendingReviewSub: {
+    fontSize: 10.5,
+    color: '#D97706',
+    marginTop: 1,
+    fontWeight: '600',
+  },
+  draftDetailsDivider: {
+    height: 1,
+    backgroundColor: '#FDE68A',
+    marginVertical: 8,
+  },
+  draftDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 3,
+  },
+  draftDetailLabel: {
+    fontSize: 11,
+    color: '#78350F',
+    fontWeight: '600',
+  },
+  draftDetailValue: {
+    fontSize: 11.5,
+    color: '#451A03',
+    fontWeight: '700',
+  },
+
   bankInfoBox: {
     backgroundColor: '#F8FAFC',
     borderRadius: 14,

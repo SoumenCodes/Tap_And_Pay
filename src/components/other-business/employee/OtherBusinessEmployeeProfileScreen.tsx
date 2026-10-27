@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,32 +7,90 @@ import {
   Image,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../../context/AuthContext';
 import HeaderBar from '../../common/HeaderBar';
+import {
+  profileService,
+  ProfileResponseData,
+} from '../../../services/profileService';
 
 export default function OtherBusinessEmployeeProfileScreen() {
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
 
-  const [isOnShift, setIsOnShift] = useState(true);
+  // Profile API State (Clean Initialization with Zero Hardcoded Mock Fallbacks)
+  const [profileData, setProfileData] = useState<ProfileResponseData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isOnShift, setIsOnShift] = useState(false);
 
-  const businessName = user.businessName || 'Crown Cuts';
-  const userName = user.name || 'Liam Hemsworth';
-  const shiftId = '26102026/93822048/537384';
+  const applyProfileData = useCallback((data: ProfileResponseData) => {
+    setProfileData(data);
+    if (data.current_session) {
+      setIsOnShift(Boolean(data.current_session.has_active_session));
+    }
+  }, []);
+
+  const fetchProfile = useCallback(async () => {
+    try {
+      const data = await profileService.getProfile();
+      applyProfileData(data);
+    } catch (err: any) {
+      console.log('Failed to fetch other business employee profile:', err.message || err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [applyProfileData]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const timer = setTimeout(() => {
+      if (!isMounted) return;
+      fetchProfile();
+    }, 0);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [fetchProfile]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      const data = await profileService.getProfile();
+      applyProfileData(data);
+    } catch (err: any) {
+      console.log('Failed to refresh other business employee profile:', err.message || err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const handleCopyShiftId = () => {
-    Alert.alert('Shift ID Copied', `Active Shift ID: ${shiftId}`);
+    const code =
+      profileData?.current_session?.display_shift_id ||
+      profileData?.current_session?.shift_id;
+    if (code) {
+      Alert.alert('Shift ID', `Active Shift ID: ${code}`);
+    }
   };
 
   const handleToggleShift = () => {
+    const shiftCode =
+      profileData?.current_session?.display_shift_id ||
+      profileData?.current_session?.shift_id ||
+      '--';
     if (isOnShift) {
       Alert.alert(
         'End Shift',
-        `Are you sure you want to end your current active shift (${shiftId})? Total sales ($485.00) will be submitted for settlement.`,
+        `Are you sure you want to end your current active shift (${shiftCode})?`,
         [
           { text: 'Cancel', style: 'cancel' },
           {
@@ -51,10 +109,6 @@ export default function OtherBusinessEmployeeProfileScreen() {
     }
   };
 
-  const handlePastShiftRecords = () => {
-    router.push('/(tabs)/transactions');
-  };
-
   const handleLogout = () => {
     Alert.alert(
       'Log Out Account',
@@ -64,14 +118,47 @@ export default function OtherBusinessEmployeeProfileScreen() {
         {
           text: 'Log Out',
           style: 'destructive',
-          onPress: () => {
-            logout();
+          onPress: async () => {
+            await logout();
             router.replace('/login');
           },
         },
       ]
     );
   };
+
+  const user = profileData?.user;
+  const session = profileData?.current_session;
+
+  const businessName = user?.business_name || user?.header_business_name || '--';
+  const employeeName =
+    user?.display_name ||
+    (user?.first_name ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : '') ||
+    '--';
+  const abnText = user?.abn || '--';
+  const phoneText = user?.phone_no || '--';
+  const empIdText = user?.emp_id || user?.employee_code || '--';
+  const emailText = user?.email || '--';
+  const addressText =
+    user?.formatted_address ||
+    user?.address?.formatted ||
+    user?.address?.address_line1 ||
+    '--';
+  const avatarUri = user?.profile_photo_url || user?.logo_url;
+
+  // Session metrics
+  const shiftId = session?.display_shift_id || session?.shift_id || '--';
+  const totalAmountStr = session?.revenue?.total_amount_formatted || '$0.00';
+  const txnsLabel = session?.revenue?.transaction_label || '0 Txns';
+  const cardAmountStr = session?.revenue?.card?.amount_formatted || '$0.00';
+  const cardTxnsStr = session?.revenue?.card?.count_formatted || '0 Txns';
+  const tapAmountStr = session?.revenue?.tap_and_go?.amount_formatted || '$0.00';
+  const tapTxnsStr = session?.revenue?.tap_and_go?.count_formatted || '0 Txns';
+
+  const cleanTotal = totalAmountStr.replace('$', '').trim();
+  const [wholeTotal, centsTotal] = cleanTotal.includes('.')
+    ? cleanTotal.split('.')
+    : [cleanTotal, '00'];
 
   return (
     <View style={styles.root}>
@@ -84,14 +171,33 @@ export default function OtherBusinessEmployeeProfileScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            colors={['#D97706']}
+            tintColor="#D97706"
+          />
+        }
       >
+        {/* Loading Indicator */}
+        {isLoading && !profileData && (
+          <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+            <ActivityIndicator size="small" color="#D97706" />
+          </View>
+        )}
+
         {/* ── 1. MAIN PROFILE SUMMARY CARD ── */}
         <View style={styles.profileCard}>
           {/* Avatar with Crown Badge */}
           <View style={styles.avatarContainer}>
             <View style={styles.avatarWrap}>
               <Image
-                source={require('../../../../assets/emp_avatar_2.png')}
+                source={
+                  avatarUri
+                    ? { uri: avatarUri }
+                    : require('../../../../assets/emp_avatar_2.png')
+                }
                 style={styles.avatarImg}
                 resizeMode="cover"
               />
@@ -107,19 +213,17 @@ export default function OtherBusinessEmployeeProfileScreen() {
 
           {/* Business & Employee Details */}
           <Text style={styles.brandTitle}>{businessName.toUpperCase()}</Text>
-          <Text style={styles.ownerNameText}>{userName}</Text>
+          <Text style={styles.ownerNameText}>{employeeName}</Text>
 
           <View style={styles.metaLinesWrap}>
             <Text style={styles.metaLineText}>
-              ABN: 62 458 123 800 • PH: 0400 555 320
+              ABN: {abnText} • PH: {phoneText}
             </Text>
             <Text style={styles.metaLineText}>
-              EMP ID: <Text style={styles.empIdBold}>93822048</Text>
+              EMP ID: <Text style={styles.empIdBold}>{empIdText}</Text>
             </Text>
-            <Text style={styles.metaLineText}>Liamhemsworth_crowncuts@testmail.com.au</Text>
-            <Text style={styles.metaLineText}>
-              Suite 4, 120 Collins Street, Melbourne VIC
-            </Text>
+            <Text style={styles.metaLineText}>{emailText}</Text>
+            <Text style={styles.metaLineText}>{addressText}</Text>
           </View>
 
           {/* Status Badge */}
@@ -141,19 +245,23 @@ export default function OtherBusinessEmployeeProfileScreen() {
                 !isOnShift && styles.statusTextOff,
               ]}
             >
-              {isOnShift ? 'Active • On Shift' : 'Off Shift • Inactive'}
+              {session?.status_badge || (isOnShift ? 'Active • On Shift' : 'Off Shift • Inactive')}
             </Text>
           </View>
 
           {/* Shift Start Duration Text */}
           <Text style={styles.shiftDurationText}>
-            Started 26 Oct 2026 | 07:30 AM (8h 45m)
+            {session?.started_at_formatted
+              ? `Started ${session.started_at_formatted}${session.duration ? ` (${session.duration})` : ''}`
+              : 'Off Shift • Standby'}
           </Text>
 
           {/* Active Shift ID Box */}
           <View style={styles.activeShiftIdBox}>
             <View style={styles.activeShiftIdInfo}>
-              <Text style={styles.activeShiftIdLabel}>Active Shift ID</Text>
+              <Text style={styles.activeShiftIdLabel}>
+                {session?.has_active_session ? 'Active Shift ID' : 'Shift ID'}
+              </Text>
               <Text style={styles.activeShiftIdCode}>{shiftId}</Text>
             </View>
             <TouchableOpacity
@@ -169,18 +277,20 @@ export default function OtherBusinessEmployeeProfileScreen() {
           {/* Active Shift Txns Card */}
           <View style={styles.activeTxnsCard}>
             <View style={styles.activeTxnsHeaderRow}>
-              <Text style={styles.activeTxnsLabel}>Active Shift Txns</Text>
+              <Text style={styles.activeTxnsLabel}>
+                {session?.revenue_title || 'Session Revenue'}
+              </Text>
               <View style={styles.activeTxnsCountWrap}>
                 <Ionicons name="checkmark-circle-outline" size={14} color="#059669" />
-                <Text style={styles.activeTxnsCountText}>14 Txns</Text>
+                <Text style={styles.activeTxnsCountText}>{txnsLabel}</Text>
               </View>
             </View>
 
             {/* Big Amount */}
             <View style={styles.bigAmountRow}>
               <Text style={styles.bigAmountDollar}>$</Text>
-              <Text style={styles.bigAmountWhole}>485</Text>
-              <Text style={styles.bigAmountCents}>.00</Text>
+              <Text style={styles.bigAmountWhole}>{wholeTotal}</Text>
+              <Text style={styles.bigAmountCents}>.{centsTotal}</Text>
             </View>
 
             <View style={styles.txnsDivider} />
@@ -193,8 +303,8 @@ export default function OtherBusinessEmployeeProfileScreen() {
                   <Ionicons name="card-outline" size={12} color="#2563EB" />
                   <Text style={styles.subMetricTitleCard}>CARD</Text>
                 </View>
-                <Text style={styles.subMetricValueCard}>$320.00</Text>
-                <Text style={styles.subMetricTxns}>9 Txns</Text>
+                <Text style={styles.subMetricValueCard}>{cardAmountStr}</Text>
+                <Text style={styles.subMetricTxns}>{cardTxnsStr}</Text>
               </View>
 
               <View style={styles.subMetricDivider} />
@@ -205,15 +315,18 @@ export default function OtherBusinessEmployeeProfileScreen() {
                   <View style={styles.bulletTap} />
                   <Text style={styles.subMetricTitleTap}>TAP & GO</Text>
                 </View>
-                <Text style={styles.subMetricValueTap}>$165.00</Text>
-                <Text style={styles.subMetricTxns}>5 Txns</Text>
+                <Text style={styles.subMetricValueTap}>{tapAmountStr}</Text>
+                <Text style={styles.subMetricTxns}>{tapTxnsStr}</Text>
               </View>
             </View>
           </View>
 
           {/* End Shift Button */}
           <TouchableOpacity
-            style={styles.endShiftButton}
+            style={[
+              styles.endShiftButton,
+              !isOnShift && { backgroundColor: '#16A34A' },
+            ]}
             onPress={handleToggleShift}
             activeOpacity={0.85}
           >
@@ -224,27 +337,44 @@ export default function OtherBusinessEmployeeProfileScreen() {
               style={{ marginRight: 8 }}
             />
             <Text style={styles.endShiftButtonText}>
-              {isOnShift ? 'End Shift' : 'Start Shift'}
+              {session?.end_button_title || (isOnShift ? 'End Shift' : 'Start Shift')}
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* ── 2. MENU ACTION CARD: Past Shift Records ── */}
+        {/* ── 2. DYNAMIC MENU ACTION CARDS (Rendered from data.menu_options) ── */}
         <View style={styles.actionCardsList}>
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={handlePastShiftRecords}
-            activeOpacity={0.8}
-          >
-            <View style={styles.actionIconCircle}>
-              <Ionicons name="swap-horizontal" size={19} color="#B45309" />
-            </View>
-            <View style={styles.actionInfoCol}>
-              <Text style={styles.actionTitle}>Past Shift Records</Text>
-              <Text style={styles.actionSubtitle}>View your previous shift history</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
-          </TouchableOpacity>
+          {(profileData?.menu_options || []).map((item) => (
+            <TouchableOpacity
+              key={item.key}
+              style={styles.actionCard}
+              activeOpacity={0.8}
+              onPress={() => {
+                if (item.action === 'navigate_shift_history' || item.key === 'history') {
+                  router.push('/(tabs)/history');
+                } else {
+                  router.push('/(tabs)/transactions');
+                }
+              }}
+            >
+              <View style={styles.actionIconCircle}>
+                <Ionicons
+                  name={
+                    item.key === 'history'
+                      ? 'swap-horizontal'
+                      : 'folder-outline'
+                  }
+                  size={19}
+                  color="#B45309"
+                />
+              </View>
+              <View style={styles.actionInfoCol}>
+                <Text style={styles.actionTitle}>{item.title}</Text>
+                <Text style={styles.actionSubtitle}>{item.subtitle}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* ── 3. LOG OUT BUTTON ── */}

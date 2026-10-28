@@ -77,6 +77,7 @@ export interface DriverPersonalInfo {
   abn: string;
   address: string;
   dob: string | null;
+  dl_number?: string;
   address_details: DriverAddressDetails;
 }
 
@@ -165,6 +166,14 @@ export interface AddDriverApiResponse {
   };
 }
 
+export interface UpdateDriverProfileApiResponse {
+  status: boolean;
+  message: string;
+  data: {
+    driver: DriverDetail;
+  };
+}
+
 export const driverService = {
   /**
    * Fetch drivers list with optional search term
@@ -201,6 +210,26 @@ export const driverService = {
         'Content-Type': 'multipart/form-data',
       },
     });
+    return response.data;
+  },
+
+  /**
+   * Update driver profile
+   * POST /api/driver/update-profile/:id (multipart/form-data)
+   */
+  updateDriverProfile: async (
+    id: number | string,
+    formData: FormData
+  ): Promise<UpdateDriverProfileApiResponse> => {
+    const response = await apiClient.post<UpdateDriverProfileApiResponse>(
+      `/api/driver/update-profile/${id}`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
     return response.data;
   },
 };

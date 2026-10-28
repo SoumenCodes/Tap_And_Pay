@@ -94,7 +94,14 @@ export default function DriverDetailsScreen() {
   };
 
   const handleEditProfile = () => {
-    router.push('/add-driver');
+    if (driver?.id) {
+      router.push({
+        pathname: '/add-driver',
+        params: { id: String(driver.id), mode: 'edit' },
+      });
+    } else {
+      router.push('/add-driver');
+    }
   };
 
   // Safe primitives for rendering (zero mock fallbacks)

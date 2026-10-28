@@ -44,6 +44,8 @@ export interface EmployeeDetail {
   employee_code?: string;
   employee_id?: string;
   emp_id_display?: string;
+  parent_id?: number;
+  parent_business_name?: string;
   first_name?: string;
   last_name?: string;
   full_name?: string;
@@ -56,6 +58,7 @@ export interface EmployeeDetail {
   status_label?: string;
   status_badge?: string;
   created_ts?: string;
+  updated_ts?: string;
 }
 
 export interface EmployeeDetailApiResponse {
@@ -96,6 +99,14 @@ export interface AddEmployeeApiResponse {
   };
 }
 
+export interface UpdateEmployeeApiResponse {
+  status: boolean;
+  message: string;
+  data: {
+    employee: EmployeeDetail;
+  };
+}
+
 export const employeeService = {
   /**
    * Fetch employees list with optional search term
@@ -132,6 +143,26 @@ export const employeeService = {
         'Content-Type': 'multipart/form-data',
       },
     });
+    return response.data;
+  },
+
+  /**
+   * Update employee profile
+   * POST /api/employee/edit/:id (multipart/form-data)
+   */
+  updateEmployee: async (
+    id: number | string,
+    formData: FormData
+  ): Promise<UpdateEmployeeApiResponse> => {
+    const response = await apiClient.post<UpdateEmployeeApiResponse>(
+      `/api/employee/edit/${id}`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
     return response.data;
   },
 };

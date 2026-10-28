@@ -108,6 +108,17 @@ export default function EmployeeDetailsScreen() {
     }
   };
 
+  const handleEditProfile = () => {
+    if (employee?.id) {
+      router.push({
+        pathname: '/add-employee',
+        params: { id: String(employee.id), mode: 'edit' },
+      });
+    } else {
+      router.push('/add-employee');
+    }
+  };
+
   const employeeName =
     employee?.full_name ||
     `${employee?.first_name || ''} ${employee?.last_name || ''}`.trim() ||
@@ -309,6 +320,21 @@ export default function EmployeeDetailsScreen() {
               thumbColor="#FFFFFF"
             />
           </View>
+
+          {/* ── EDIT EMPLOYEE PROFILE BUTTON ── */}
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={handleEditProfile}
+            activeOpacity={0.88}
+          >
+            <Ionicons
+              name="create-outline"
+              size={18}
+              color="#FFFFFF"
+              style={{ marginRight: 8 }}
+            />
+            <Text style={styles.editButtonText}>Edit Employee Profile</Text>
+          </TouchableOpacity>
 
           <View style={{ height: 32 }} />
         </ScrollView>
@@ -598,6 +624,27 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: '700',
     color: '#0F172A',
+  },
+
+  /* Edit Button */
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0F172A',
+    borderRadius: 12,
+    height: 48,
+    marginTop: 16,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  editButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13.5,
+    fontWeight: '700',
   },
 
   /* In-app Photo Viewer Modal */

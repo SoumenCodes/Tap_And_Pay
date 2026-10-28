@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,13 +15,15 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons, Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import HeaderBar from '../../common/HeaderBar';
 import { employeeService } from '../../../services/employeeService';
 
 export default function AddEmployeeScreen() {
   const router = useRouter();
+  const { id } = useLocalSearchParams<{ id?: string; mode?: string }>();
+  const isEditMode = Boolean(id);
 
   // Form State (Clean Primitives with Zero Hardcoded Mock Fallbacks)
   const [firstName, setFirstName] = useState('');
@@ -31,6 +33,8 @@ export default function AddEmployeeScreen() {
   const [empId, setEmpId] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingExisting, setIsLoadingExisting] = useState(Boolean(id));
+  const [existingPhotoUrl, setExistingPhotoUrl] = useState<string | null>(null);
 
   // Dynamic Profile Photo State
   const [profilePhoto, setProfilePhoto] = useState<{
@@ -38,6 +42,49 @@ export default function AddEmployeeScreen() {
     name: string;
     type: string;
   } | null>(null);
+
+  // Load existing details when in edit mode
+  useEffect(() => {
+    if (!id) return;
+    let isMounted = true;
+
+    const timer = setTimeout(() => {
+      if (!isMounted) return;
+
+      employeeService
+        .getEmployeeDetail(id)
+        .then((emp) => {
+          if (!isMounted) return;
+          if (emp.first_name) setFirstName(emp.first_name);
+          if (emp.last_name) setLastName(emp.last_name);
+          if (emp.phone_no) setPhone(emp.phone_no);
+          if (emp.email) setEmail(emp.email);
+          if (emp.employee_id || emp.employee_code) {
+            setEmpId(emp.employee_id || emp.employee_code || '');
+          }
+          if (typeof emp.is_active === 'boolean') {
+            setIsActive(emp.is_active);
+          }
+          if (emp.profile_photo_url) {
+            setExistingPhotoUrl(emp.profile_photo_url);
+          }
+        })
+        .catch((err) => {
+          Alert.alert(
+            'Error',
+            err?.message || 'Failed to load employee details for editing.'
+          );
+        })
+        .finally(() => {
+          if (isMounted) setIsLoadingExisting(false);
+        });
+    }, 0);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [id]);
 
   const pickFromCamera = async () => {
     try {
@@ -115,11 +162,14 @@ export default function AddEmployeeScreen() {
       { text: 'Choose from Gallery', onPress: pickFromGallery },
     ];
 
-    if (profilePhoto) {
+    if (profilePhoto || existingPhotoUrl) {
       options.push({
         text: 'Remove Photo',
         style: 'destructive',
-        onPress: () => setProfilePhoto(null),
+        onPress: () => {
+          setProfilePhoto(null);
+          setExistingPhotoUrl(null);
+        },
       });
     }
 
@@ -148,7 +198,9 @@ export default function AddEmployeeScreen() {
       formData.append('first_name', firstName.trim());
       formData.append('last_name', lastName.trim());
       formData.append('phone_number', phone.trim());
+      formData.append('phone_no', phone.trim());
       formData.append('email_id', email.trim());
+      formData.append('email', email.trim());
       formData.append('employee_id', empId.trim());
 
       // Append dynamic profile photo file
@@ -160,24 +212,40 @@ export default function AddEmployeeScreen() {
         } as any);
       }
 
-      const res = await employeeService.addEmployee(formData);
-      const created = res.data?.employee;
-      let msg = res.message || 'Employee added successfully and waiting for admin approval.';
-      if (created?.temporary_password) {
-        msg += `\n\nTemporary Password: ${created.temporary_password}\n(Please share this credential with the employee)`;
-      }
+      if (isEditMode && id) {
+        const res = await employeeService.updateEmployee(id, formData);
+        Alert.alert(
+          'Success',
+          res.message || 'Employee profile updated successfully.',
+          [
+            {
+              text: 'OK',
+              onPress: () => router.back(),
+            },
+          ]
+        );
+      } else {
+        const res = await employeeService.addEmployee(formData);
+        const created = res.data?.employee;
+        let msg = res.message || 'Employee added successfully and waiting for admin approval.';
+        if (created?.temporary_password) {
+          msg += `\n\nTemporary Password: ${created.temporary_password}\n(Please share this credential with the employee)`;
+        }
 
-      Alert.alert('Success', msg, [
-        {
-          text: 'OK',
-          onPress: () => router.back(),
-        },
-      ]);
+        Alert.alert('Success', msg, [
+          {
+            text: 'OK',
+            onPress: () => router.back(),
+          },
+        ]);
+      }
     } catch (err: any) {
       const errorMsg =
         err?.response?.data?.message ||
         err?.message ||
-        'Failed to add employee. Please check details and try again.';
+        (isEditMode
+          ? 'Failed to update employee. Please check details and try again.'
+          : 'Failed to add employee. Please check details and try again.');
       Alert.alert('Error', errorMsg);
     } finally {
       setIsSubmitting(false);
@@ -194,69 +262,96 @@ export default function AddEmployeeScreen() {
 
       {/* Header Bar */}
       <HeaderBar
-        title="Add Employee"
+        title={isEditMode ? 'Edit Employee' : 'Add Employee'}
         showBack={true}
         onBack={() => router.back()}
       />
 
-      <KeyboardAvoidingView
-        style={styles.keyboardContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+      {isLoadingExisting ? (
+        <View style={styles.centerLoading}>
+          <ActivityIndicator size="large" color="#D97706" />
+          <Text style={styles.loadingText}>Loading employee details...</Text>
+        </View>
+      ) : (
+        <KeyboardAvoidingView
+          style={styles.keyboardContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          {/* Subheader Title with Amber Icon */}
-          <View style={styles.headerCard}>
-            <View style={styles.headerIconBadge}>
-              <Feather name="user" size={18} color="#D97706" />
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Subheader Title with Amber Icon */}
+            <View style={styles.headerCard}>
+              <View style={styles.headerIconBadge}>
+                <Feather name="user" size={18} color="#D97706" />
+              </View>
+              <Text style={styles.headerCardTitle}>
+                {isEditMode ? 'Edit Employee Profile' : 'Add Employee Credentials'}
+              </Text>
             </View>
-            <Text style={styles.headerCardTitle}>Add Employee Credentials</Text>
-          </View>
 
-          {/* Field: Employee Photo */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Employee Photo</Text>
-            <TouchableOpacity
-              style={styles.uploadBox}
-              onPress={handleUploadPhoto}
-              activeOpacity={0.7}
-            >
-              {profilePhoto ? (
-                <View style={styles.previewContainer}>
-                  <Image source={{ uri: profilePhoto.uri }} style={styles.previewImage} />
-                  <View style={styles.previewInfo}>
-                    <Text style={styles.uploadPrompt}>Photo Selected</Text>
-                    <Text style={styles.uploadSubtext} numberOfLines={1}>
-                      {profilePhoto.name}
-                    </Text>
-                    <Text style={styles.changePrompt}>Tap to change</Text>
+            {/* Field: Employee Photo */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Employee Photo</Text>
+              <TouchableOpacity
+                style={styles.uploadBox}
+                onPress={handleUploadPhoto}
+                activeOpacity={0.7}
+              >
+                {profilePhoto ? (
+                  <View style={styles.previewContainer}>
+                    <Image source={{ uri: profilePhoto.uri }} style={styles.previewImage} />
+                    <View style={styles.previewInfo}>
+                      <Text style={styles.uploadPrompt}>Photo Selected</Text>
+                      <Text style={styles.uploadSubtext} numberOfLines={1}>
+                        {profilePhoto.name}
+                      </Text>
+                      <Text style={styles.changePrompt}>Tap to change</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.removePhotoBtn}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        setProfilePhoto(null);
+                      }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                    </TouchableOpacity>
                   </View>
-                  <TouchableOpacity
-                    style={styles.removePhotoBtn}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      setProfilePhoto(null);
-                    }}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Ionicons name="trash-outline" size={18} color="#EF4444" />
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <>
-                  <View style={styles.cameraIconWrap}>
-                    <Feather name="camera" size={20} color="#2563EB" />
+                ) : existingPhotoUrl ? (
+                  <View style={styles.previewContainer}>
+                    <Image source={{ uri: existingPhotoUrl }} style={styles.previewImage} />
+                    <View style={styles.previewInfo}>
+                      <Text style={styles.uploadPrompt}>Current Photo</Text>
+                      <Text style={styles.uploadSubtext}>On file</Text>
+                      <Text style={styles.changePrompt}>Tap to change</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.removePhotoBtn}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        setExistingPhotoUrl(null);
+                      }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                    </TouchableOpacity>
                   </View>
-                  <Text style={styles.uploadPrompt}>Tap to upload</Text>
-                  <Text style={styles.uploadSubtext}>JPEG or PNG, max 5MB</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
+                ) : (
+                  <>
+                    <View style={styles.cameraIconWrap}>
+                      <Feather name="camera" size={20} color="#2563EB" />
+                    </View>
+                    <Text style={styles.uploadPrompt}>Tap to upload</Text>
+                    <Text style={styles.uploadSubtext}>JPEG or PNG, max 5MB</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
 
           {/* Field: First Name */}
           <View style={styles.fieldGroup}>
@@ -372,7 +467,9 @@ export default function AddEmployeeScreen() {
                     color="#FFFFFF"
                     style={styles.buttonIcon}
                   />
-                  <Text style={styles.saveButtonText}>Save Employee</Text>
+                  <Text style={styles.saveButtonText}>
+                    {isEditMode ? 'Update Employee' : 'Save Employee'}
+                  </Text>
                 </>
               )}
             </TouchableOpacity>
@@ -388,6 +485,7 @@ export default function AddEmployeeScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      )}
     </View>
   );
 }
@@ -396,6 +494,18 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  centerLoading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '600',
   },
   keyboardContainer: {
     flex: 1,

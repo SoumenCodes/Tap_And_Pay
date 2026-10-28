@@ -90,6 +90,7 @@ apiClient.interceptors.response.use(
 
     const responseData = error.response?.data as any;
     const customMessage =
+      responseData?.messages?.message ||
       responseData?.messages?.error ||
       responseData?.message ||
       (typeof responseData?.error === 'string' ? responseData?.error : null) ||

@@ -146,7 +146,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const trimmedUser = inputUsername.trim();
     const trimmedPass = inputPassword.trim();
 
-    // 1. First attempt live stage API login
     try {
       const liveUser = await authService.login({
         username: trimmedUser,
@@ -159,121 +158,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       setUser(liveUser);
       setIsAuthenticated(true);
+      await tokenStorage.saveUser(liveUser);
       return { success: true };
     } catch (apiErr: any) {
-      console.log('Live login attempt notice:', apiErr.message || apiErr);
+      console.log('Live login attempt failed:', apiErr.message || apiErr);
+      return {
+        success: false,
+        error: apiErr?.message || 'Invalid username or password.',
+      };
     }
-
-    // 2. Mock fallback for local design review accounts
-    const lowerUser = trimmedUser.toLowerCase();
-
-    // 1. Taxi Owner (Owner Driver)
-    // Userid = EMP2026100720200630 / zafar.dnk2@gmail.com / DC750001 / 9932783474
-    if (
-      lowerUser === 'dc750001' ||
-      lowerUser === 'zafar.dnk2@gmail.com' ||
-      lowerUser === 'emp2026100720200630' ||
-      lowerUser === '9932783474' ||
-      lowerUser === 'taxi_owner' ||
-      lowerUser === 'owner' ||
-      lowerUser === 'owner@taxi.com'
-    ) {
-      if (MOCK_ACCOUNTS.taxi_owner.passwords.includes(trimmedPass)) {
-        setUser(MOCK_ACCOUNTS.taxi_owner.user);
-        setIsAuthenticated(true);
-        await tokenStorage.saveUser(MOCK_ACCOUNTS.taxi_owner.user);
-        return { success: true };
-      }
-      return { success: false, error: 'Invalid password. Use "Zafar@1986" or "owner123".' };
-    }
-
-    // 2. Taxi Company
-    // Userid = EMP2026100720013735 / zafar.dnk3@gmail.com / 9932783472
-    if (
-      lowerUser === 'zafar.dnk3@gmail.com' ||
-      lowerUser === 'emp2026100720013735' ||
-      lowerUser === '9932783472' ||
-      lowerUser === 'taxi_business' ||
-      lowerUser === 'fleet' ||
-      lowerUser === 'operator' ||
-      lowerUser === 'fleet@taxi.com'
-    ) {
-      if (MOCK_ACCOUNTS.taxi_business.passwords.includes(trimmedPass)) {
-        setUser(MOCK_ACCOUNTS.taxi_business.user);
-        setIsAuthenticated(true);
-        await tokenStorage.saveUser(MOCK_ACCOUNTS.taxi_business.user);
-        return { success: true };
-      }
-      return { success: false, error: 'Invalid password. Use "Zafar@1986" or "fleet123".' };
-    }
-
-    // 3. Normal Driver (Under Taxi Company)
-    // Userid = EMP2026100720200245 / zafar.dnk5@gmail.com / DC750030 / 9932783478
-    if (
-      lowerUser === 'zafar.dnk5@gmail.com' ||
-      lowerUser === 'dc750030' ||
-      lowerUser === 'emp2026100720200245' ||
-      lowerUser === '9932783478' ||
-      lowerUser === 'taxi_driver' ||
-      lowerUser === 'driver' ||
-      lowerUser === 'taxi_business_driver' ||
-      lowerUser === 'driver@taxi.com'
-    ) {
-      if (MOCK_ACCOUNTS.taxi_business_driver.passwords.includes(trimmedPass)) {
-        setUser(MOCK_ACCOUNTS.taxi_business_driver.user);
-        setIsAuthenticated(true);
-        await tokenStorage.saveUser(MOCK_ACCOUNTS.taxi_business_driver.user);
-        return { success: true };
-      }
-      return { success: false, error: 'Invalid password. Use "Zafar@1986" or "driver123".' };
-    }
-
-    // 4. Other Company (Other Business)
-    // Userid = EMP2026100720101831 / zafar.dnk4@gmail.com / 9932783473
-    if (
-      lowerUser === 'zafar.dnk4@gmail.com' ||
-      lowerUser === 'emp2026100720101831' ||
-      lowerUser === '9932783473' ||
-      lowerUser === 'other_business' ||
-      lowerUser === 'business' ||
-      lowerUser === 'habibs' ||
-      lowerUser === 'crowncuts' ||
-      lowerUser === 'merchant@business.com'
-    ) {
-      if (MOCK_ACCOUNTS.other_business.passwords.includes(trimmedPass)) {
-        setUser(MOCK_ACCOUNTS.other_business.user);
-        setIsAuthenticated(true);
-        await tokenStorage.saveUser(MOCK_ACCOUNTS.other_business.user);
-        return { success: true };
-      }
-      return { success: false, error: 'Invalid password. Use "Zafar@1986" or "business123".' };
-    }
-
-    // 5. Employees (Under Other Employee)
-    // Userid = EMP2026100720101878 / zafar.dnk9@gmail.com / 9932783487
-    if (
-      lowerUser === 'zafar.dnk9@gmail.com' ||
-      lowerUser === 'emp2026100720101878' ||
-      lowerUser === '9932783487' ||
-      lowerUser === 'other_employee' ||
-      lowerUser === 'employee' ||
-      lowerUser === 'staff' ||
-      lowerUser === 'liam' ||
-      lowerUser === 'staff@business.com'
-    ) {
-      if (MOCK_ACCOUNTS.other_business_employee.passwords.includes(trimmedPass)) {
-        setUser(MOCK_ACCOUNTS.other_business_employee.user);
-        setIsAuthenticated(true);
-        await tokenStorage.saveUser(MOCK_ACCOUNTS.other_business_employee.user);
-        return { success: true };
-      }
-      return { success: false, error: 'Invalid password. Use "Zafar@1986" or "staff123".' };
-    }
-
-    return {
-      success: false,
-      error: 'Invalid credentials. Please check your username and password.',
-    };
   };
 
   const logout = async () => {

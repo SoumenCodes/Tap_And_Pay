@@ -28,7 +28,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { login, quickLogin } = useAuth();
+  const { login } = useAuth();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -37,10 +37,9 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async () => {
-    // If empty, default to Other Business for smooth design review
-    if (!username.trim() && !password.trim()) {
-      quickLogin('other_business');
-      router.replace('/(tabs)');
+    // Require credentials - do NOT allow entry to dashboard without valid credentials!
+    if (!username.trim() || !password.trim()) {
+      setErrorMessage('Please enter both username and password.');
       return;
     }
 
@@ -52,7 +51,9 @@ export default function LoginScreen() {
         setErrorMessage('');
         router.replace('/(tabs)');
       } else {
-        setErrorMessage(result.error || 'Invalid credentials');
+        setErrorMessage(
+          result.error || 'Invalid username or password. Please try again.'
+        );
       }
     } catch (err: any) {
       setErrorMessage(err.message || 'Login failed. Please check credentials.');
@@ -63,13 +64,7 @@ export default function LoginScreen() {
 
   const handleQuickCredentialLogin = async (
     userVal: string,
-    passVal: string,
-    roleFallback?:
-      | 'taxi_business'
-      | 'taxi_owner'
-      | 'taxi_business_driver'
-      | 'other_business'
-      | 'other_business_employee'
+    passVal: string
   ) => {
     setUsername(userVal);
     setPassword(passVal);
@@ -81,19 +76,11 @@ export default function LoginScreen() {
       if (result.success) {
         setErrorMessage('');
         router.replace('/(tabs)');
-      } else if (roleFallback) {
-        quickLogin(roleFallback);
-        router.replace('/(tabs)');
       } else {
         setErrorMessage(result.error || 'Login failed. Please check credentials.');
       }
     } catch (err: any) {
-      if (roleFallback) {
-        quickLogin(roleFallback);
-        router.replace('/(tabs)');
-      } else {
-        setErrorMessage(err.message || 'Login failed.');
-      }
+      setErrorMessage(err.message || 'Login failed.');
     } finally {
       setIsLoading(false);
     }
@@ -268,7 +255,7 @@ export default function LoginScreen() {
                   style={styles.testChip}
                   activeOpacity={0.75}
                   onPress={() =>
-                    handleQuickCredentialLogin('DC750001', 'Zafar@1986', 'taxi_owner')
+                    handleQuickCredentialLogin('DC750001', 'Zafar@1986')
                   }
                 >
                   <Text style={styles.testChipText}>🚕 Taxi Owner</Text>
@@ -278,7 +265,7 @@ export default function LoginScreen() {
                   style={styles.testChip}
                   activeOpacity={0.75}
                   onPress={() =>
-                    handleQuickCredentialLogin('zafar.dnk3@gmail.com', 'Zafar@1986', 'taxi_business')
+                    handleQuickCredentialLogin('zafar.dnk3@gmail.com', 'Zafar@1986')
                   }
                 >
                   <Text style={styles.testChipText}>🏢 Taxi Company</Text>
@@ -288,7 +275,7 @@ export default function LoginScreen() {
                   style={styles.testChip}
                   activeOpacity={0.75}
                   onPress={() =>
-                    handleQuickCredentialLogin('zafar.dnk5@gmail.com', 'Zafar@1986', 'taxi_business_driver')
+                    handleQuickCredentialLogin('zafar.dnk5@gmail.com', 'Zafar@1986')
                   }
                 >
                   <Text style={styles.testChipText}>🚖 Driver</Text>
@@ -298,7 +285,7 @@ export default function LoginScreen() {
                   style={styles.testChip}
                   activeOpacity={0.75}
                   onPress={() =>
-                    handleQuickCredentialLogin('zafar.dnk4@gmail.com', 'Zafar@1986', 'other_business')
+                    handleQuickCredentialLogin('zafar.dnk4@gmail.com', 'Zafar@1986')
                   }
                 >
                   <Text style={styles.testChipText}>💈 Other Business</Text>
@@ -308,7 +295,7 @@ export default function LoginScreen() {
                   style={styles.testChip}
                   activeOpacity={0.75}
                   onPress={() =>
-                    handleQuickCredentialLogin('zafar.dnk9@gmail.com', 'Zafar@1986', 'other_business_employee')
+                    handleQuickCredentialLogin('zafar.dnk9@gmail.com', 'Zafar@1986')
                   }
                 >
                   <Text style={styles.testChipText}>✂️ Employee</Text>

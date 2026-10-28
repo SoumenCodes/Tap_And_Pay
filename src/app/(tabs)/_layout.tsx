@@ -1,13 +1,23 @@
 import React from 'react';
-import { Tabs } from 'expo-router';
+import { Tabs, Redirect } from 'expo-router';
 import { View, StyleSheet, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../constants/colors';
+import { useAuth } from '../../context/AuthContext';
 
 export default function TabLayout() {
+  const { isAuthenticated, isInitializing } = useAuth();
   const insets = useSafeAreaInsets();
   const historyTabTitle = 'History';
+
+  if (isInitializing) {
+    return null;
+  }
+
+  if (!isAuthenticated) {
+    return <Redirect href="/login" />;
+  }
 
   return (
     <Tabs

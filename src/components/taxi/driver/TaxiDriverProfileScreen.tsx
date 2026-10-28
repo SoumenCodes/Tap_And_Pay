@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  Alert,
   Modal,
   Pressable,
   TextInput,
@@ -24,10 +23,12 @@ import {
   BankDetailsData,
 } from '../../../services/profileService';
 import { formatSubmittedDate } from '../../../utils/dateUtils';
+import { useConfirmModal } from '../../../context/ConfirmModalContext';
 
 export default function TaxiDriverProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { showConfirm, showAlert } = useConfirmModal();
 
   // Profile API State
   const [profileData, setProfileData] = useState<ProfileResponseData | null>(null);
@@ -221,29 +222,41 @@ export default function TaxiDriverProfileScreen() {
   const tapCountText = rev?.tap_and_go?.count_formatted || '0 Txns';
 
   const handleCopyShiftId = () => {
-    Alert.alert('Active Shift ID', `${activeShiftId}\nCopied to clipboard.`);
+    showAlert({
+      title: 'Active Shift ID',
+      message: `${activeShiftId}\nCopied to clipboard.`,
+      type: 'info',
+      icon: 'information-circle-outline',
+    });
   };
 
   const handleToggleShift = () => {
     if (isOnShift) {
-      Alert.alert(
-        'End Shift',
-        `Are you sure you want to end your current active shift (${activeShiftId})?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'End Shift',
-            style: 'destructive',
-            onPress: () => {
-              setIsOnShift(false);
-              Alert.alert('Shift Ended', 'Shift tally submitted to fleet dispatch.');
-            },
-          },
-        ]
-      );
+      showConfirm({
+        title: 'End Shift',
+        message: `Are you sure you want to end your current active shift (${activeShiftId})?`,
+        confirmText: 'End Shift',
+        cancelText: 'Cancel',
+        type: 'warning',
+        icon: 'stop-circle-outline',
+        onConfirm: () => {
+          setIsOnShift(false);
+          showAlert({
+            title: 'Shift Ended',
+            message: 'Shift tally submitted to fleet dispatch.',
+            type: 'success',
+            icon: 'checkmark-circle-outline',
+          });
+        },
+      });
     } else {
       setIsOnShift(true);
-      Alert.alert('Shift Started', `Logged into vehicle ${taxiNumber}. Active on shift.`);
+      showAlert({
+        title: 'Shift Started',
+        message: `Logged into vehicle ${taxiNumber}. Active on shift.`,
+        type: 'success',
+        icon: 'checkmark-circle-outline',
+      });
     }
   };
 
@@ -254,10 +267,11 @@ export default function TaxiDriverProfileScreen() {
     const trimmedBank = editBankName.trim();
 
     if (!trimmedName || !trimmedBsb || !trimmedAcc || !trimmedBank) {
-      Alert.alert(
-        'Required Fields',
-        'Please enter Account Name, BSB, Account Number, and Bank Name.'
-      );
+      showAlert({
+        title: 'Required Fields',
+        message: 'Please enter Account Name, BSB, Account Number, and Bank Name.',
+        type: 'warning',
+      });
       return;
     }
 
@@ -290,37 +304,36 @@ export default function TaxiDriverProfileScreen() {
       }
 
       setIsUpdateBankModalVisible(false);
-      Alert.alert(
-        'Bank Details Submitted',
-        response.message || 'Bank details submitted for approval successfully.'
-      );
+      showAlert({
+        title: 'Bank Details Submitted',
+        message: response.message || 'Bank details submitted for approval successfully.',
+        type: 'success',
+      });
     } catch (err: any) {
       console.log('Failed to update bank details:', err.message || err);
-      Alert.alert(
-        'Update Failed',
-        err.message || 'Could not submit bank details for approval. Please try again.'
-      );
+      showAlert({
+        title: 'Update Failed',
+        message: err.message || 'Could not submit bank details for approval. Please try again.',
+        type: 'danger',
+      });
     } finally {
       setIsSubmittingBank(false);
     }
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      'Log Out Account',
-      'Are you sure you want to log out from SE PAY?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Log Out',
-          style: 'destructive',
-          onPress: () => {
-            logout();
-            router.replace('/login');
-          },
-        },
-      ]
-    );
+    showConfirm({
+      title: 'Log Out Account',
+      message: 'Are you sure you want to log out from SE PAY?',
+      confirmText: 'Log Out',
+      cancelText: 'Cancel',
+      type: 'danger',
+      icon: 'power',
+      onConfirm: async () => {
+        await logout();
+        router.replace('/login');
+      },
+    });
   };
 
   return (

@@ -7,7 +7,6 @@ import {
   TextInput,
   TouchableOpacity,
   Image,
-  Alert,
   Linking,
   ActivityIndicator,
   RefreshControl,
@@ -16,6 +15,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import HeaderBar from '../../common/HeaderBar';
+import { useConfirmModal } from '../../../context/ConfirmModalContext';
 import {
   driverService,
   DriverItem,
@@ -24,6 +24,7 @@ import {
 
 export default function ManageDriverScreen() {
   const router = useRouter();
+  const { showAlert } = useConfirmModal();
   const [drivers, setDrivers] = useState<DriverItem[]>([]);
   const [summary, setSummary] = useState<DriversSummary | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -95,10 +96,12 @@ export default function ManageDriverScreen() {
   const handleCall = (driver: DriverItem) => {
     const phone = driver.phone_no;
     if (!phone) {
-      Alert.alert(
-        'No Phone Number',
-        `${driver.full_name || 'Driver'} does not have a contact phone number registered.`
-      );
+      showAlert({
+        title: 'No Phone Number',
+        message: `${driver.full_name || 'Driver'} does not have a contact phone number registered.`,
+        type: 'info',
+        icon: 'call-outline',
+      });
       return;
     }
 
@@ -108,10 +111,12 @@ export default function ManageDriverScreen() {
       if (supported) {
         Linking.openURL(url);
       } else {
-        Alert.alert(
-          `Contact ${driver.full_name || 'Driver'}`,
-          `Phone: ${phone}\n${driver.taxi_no_display || `Taxi No. ${driver.assigned_taxi_no || '--'}`}\n${driver.dc_display || `DC ${driver.dc_number || '--'}`}`
-        );
+        showAlert({
+          title: `Contact ${driver.full_name || 'Driver'}`,
+          message: `Phone: ${phone}\n${driver.taxi_no_display || `Taxi No. ${driver.assigned_taxi_no || '--'}`}\n${driver.dc_display || `DC ${driver.dc_number || '--'}`}`,
+          type: 'info',
+          icon: 'call-outline',
+        });
       }
     });
   };

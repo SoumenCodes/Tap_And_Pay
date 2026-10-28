@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   Image,
   Switch,
-  Alert,
   ActivityIndicator,
   RefreshControl,
   Modal,
@@ -16,10 +15,12 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import HeaderBar from '../../common/HeaderBar';
+import { useConfirmModal } from '../../../context/ConfirmModalContext';
 import { driverService, DriverDetail, DriverDocumentDetail } from '../../../services/driverService';
 
 export default function DriverDetailsScreen() {
   const router = useRouter();
+  const { showAlert } = useConfirmModal();
   const params = useLocalSearchParams<{ driverId?: string; id?: string }>();
 
   const targetId = params?.driverId || params?.id;
@@ -84,12 +85,14 @@ export default function DriverDetailsScreen() {
         url: doc.url,
       });
     } else {
-      Alert.alert(
-        docTitle,
-        doc?.exists
+      showAlert({
+        title: docTitle,
+        message: doc?.exists
           ? `${docTitle} is verified on file.`
-          : `${docTitle} has not been uploaded yet.`
-      );
+          : `${docTitle} has not been uploaded yet.`,
+        type: 'info',
+        icon: 'document-text-outline',
+      });
     }
   };
 

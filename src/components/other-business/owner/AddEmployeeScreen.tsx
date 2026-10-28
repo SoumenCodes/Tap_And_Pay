@@ -7,7 +7,6 @@ import {
   TextInput,
   TouchableOpacity,
   Switch,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
@@ -18,10 +17,12 @@ import { Ionicons, Feather } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import HeaderBar from '../../common/HeaderBar';
+import { useConfirmModal } from '../../../context/ConfirmModalContext';
 import { employeeService } from '../../../services/employeeService';
 
 export default function AddEmployeeScreen() {
   const router = useRouter();
+  const { showAlert, showPrompt } = useConfirmModal();
   const { id } = useLocalSearchParams<{ id?: string; mode?: string }>();
   const isEditMode = Boolean(id);
 
@@ -70,10 +71,11 @@ export default function AddEmployeeScreen() {
           }
         })
         .catch((err) => {
-          Alert.alert(
-            'Error',
-            err?.message || 'Failed to load employee details for editing.'
-          );
+          showAlert({
+            title: 'Error',
+            message: err?.message || 'Failed to load employee details for editing.',
+            type: 'danger',
+          });
         })
         .finally(() => {
           if (isMounted) setIsLoadingExisting(false);
@@ -90,10 +92,12 @@ export default function AddEmployeeScreen() {
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(
-          'Permission Required',
-          'Camera access is required to take an employee profile photo.'
-        );
+        showAlert({
+          title: 'Permission Required',
+          message: 'Camera access is required to take an employee profile photo.',
+          type: 'warning',
+          icon: 'camera-outline',
+        });
         return;
       }
 
@@ -117,7 +121,11 @@ export default function AddEmployeeScreen() {
         });
       }
     } catch (err: any) {
-      Alert.alert('Camera Error', err.message || 'Could not open camera.');
+      showAlert({
+        title: 'Camera Error',
+        message: err.message || 'Could not open camera.',
+        type: 'danger',
+      });
     }
   };
 
@@ -125,10 +133,12 @@ export default function AddEmployeeScreen() {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(
-          'Permission Required',
-          'Photo library access is required to select an employee profile photo.'
-        );
+        showAlert({
+          title: 'Permission Required',
+          message: 'Photo library access is required to select an employee profile photo.',
+          type: 'warning',
+          icon: 'image-outline',
+        });
         return;
       }
 
@@ -152,18 +162,22 @@ export default function AddEmployeeScreen() {
         });
       }
     } catch (err: any) {
-      Alert.alert('Gallery Error', err.message || 'Could not open photo library.');
+      showAlert({
+        title: 'Gallery Error',
+        message: err.message || 'Could not open photo library.',
+        type: 'danger',
+      });
     }
   };
 
   const handleUploadPhoto = () => {
-    const options: { text: string; onPress?: () => void; style?: 'cancel' | 'destructive' }[] = [
+    const buttons: { text: string; onPress?: () => void; style?: 'cancel' | 'destructive' | 'default' }[] = [
       { text: 'Take Photo (Camera)', onPress: pickFromCamera },
       { text: 'Choose from Gallery', onPress: pickFromGallery },
     ];
 
     if (profilePhoto || existingPhotoUrl) {
-      options.push({
+      buttons.push({
         text: 'Remove Photo',
         style: 'destructive',
         onPress: () => {
@@ -173,22 +187,40 @@ export default function AddEmployeeScreen() {
       });
     }
 
-    options.push({ text: 'Cancel', style: 'cancel' });
+    buttons.push({ text: 'Cancel', style: 'cancel' });
 
-    Alert.alert('Upload Employee Photo', 'Select a photo source:', options);
+    showPrompt({
+      title: 'Upload Employee Photo',
+      message: 'Select a photo source:',
+      type: 'info',
+      icon: 'camera-outline',
+      buttons,
+    });
   };
 
   const handleSave = async () => {
     if (!firstName.trim() || !lastName.trim()) {
-      Alert.alert('Required Fields', 'Please enter First Name and Last Name.');
+      showAlert({
+        title: 'Required Fields',
+        message: 'Please enter First Name and Last Name.',
+        type: 'warning',
+      });
       return;
     }
     if (!phone.trim()) {
-      Alert.alert('Required Field', 'Please enter a contact phone number.');
+      showAlert({
+        title: 'Required Field',
+        message: 'Please enter a contact phone number.',
+        type: 'warning',
+      });
       return;
     }
     if (!empId.trim()) {
-      Alert.alert('Required Field', 'Please enter an Employee ID.');
+      showAlert({
+        title: 'Required Field',
+        message: 'Please enter an Employee ID.',
+        type: 'warning',
+      });
       return;
     }
 
@@ -214,16 +246,13 @@ export default function AddEmployeeScreen() {
 
       if (isEditMode && id) {
         const res = await employeeService.updateEmployee(id, formData);
-        Alert.alert(
-          'Success',
-          res.message || 'Employee profile updated successfully.',
-          [
-            {
-              text: 'OK',
-              onPress: () => router.back(),
-            },
-          ]
-        );
+        showAlert({
+          title: 'Success',
+          message: res.message || 'Employee profile updated successfully.',
+          type: 'success',
+          icon: 'checkmark-circle-outline',
+          onClose: () => router.back(),
+        });
       } else {
         const res = await employeeService.addEmployee(formData);
         const created = res.data?.employee;
@@ -232,12 +261,13 @@ export default function AddEmployeeScreen() {
           msg += `\n\nTemporary Password: ${created.temporary_password}\n(Please share this credential with the employee)`;
         }
 
-        Alert.alert('Success', msg, [
-          {
-            text: 'OK',
-            onPress: () => router.back(),
-          },
-        ]);
+        showAlert({
+          title: 'Success',
+          message: msg,
+          type: 'success',
+          icon: 'checkmark-circle-outline',
+          onClose: () => router.back(),
+        });
       }
     } catch (err: any) {
       const errorMsg =
@@ -246,7 +276,11 @@ export default function AddEmployeeScreen() {
         (isEditMode
           ? 'Failed to update employee. Please check details and try again.'
           : 'Failed to add employee. Please check details and try again.');
-      Alert.alert('Error', errorMsg);
+      showAlert({
+        title: 'Error',
+        message: errorMsg,
+        type: 'danger',
+      });
     } finally {
       setIsSubmitting(false);
     }

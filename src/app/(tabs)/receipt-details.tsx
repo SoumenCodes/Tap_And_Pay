@@ -8,7 +8,6 @@ import {
   ScrollView,
   Image,
   Share,
-  Alert,
   ActivityIndicator,
   Modal,
   TouchableWithoutFeedback,
@@ -20,6 +19,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useAuth } from '../../context/AuthContext';
+import { useConfirmModal } from '../../context/ConfirmModalContext';
 import HeaderBar from '../../components/common/HeaderBar';
 import { OtherBusinessReceiptScreen } from '../../components/other-business';
 import { getAssetDataUri } from '../../utils/assetUtils';
@@ -27,6 +27,7 @@ import { getAssetDataUri } from '../../utils/assetUtils';
 function TaxiReceiptScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const { showAlert } = useConfirmModal();
 
   const params = useLocalSearchParams<{
     amount?: string;
@@ -388,7 +389,11 @@ function TaxiReceiptScreen() {
       }
     } catch (error) {
       console.error('Error sharing receipt photo:', error);
-      Alert.alert('Share Receipt', 'Could not open share menu. Please try again.');
+      showAlert({
+        title: 'Share Receipt',
+        message: 'Could not open share menu. Please try again.',
+        type: 'danger',
+      });
     } finally {
       setIsSharing(false);
     }
@@ -424,7 +429,11 @@ function TaxiReceiptScreen() {
       }
     } catch (error) {
       console.error('Error sharing receipt PDF:', error);
-      Alert.alert('Share Receipt', 'Could not open share menu. Please try again.');
+      showAlert({
+        title: 'Share Receipt',
+        message: 'Could not open share menu. Please try again.',
+        type: 'danger',
+      });
     } finally {
       setIsSharing(false);
     }
@@ -444,7 +453,12 @@ function TaxiReceiptScreen() {
   };
 
   const handleCopyPaymentId = () => {
-    Alert.alert('Payment ID', `${paymentId}\nCopied to clipboard.`);
+    showAlert({
+      title: 'Payment ID',
+      message: `${paymentId}\nCopied to clipboard.`,
+      type: 'info',
+      icon: 'information-circle-outline',
+    });
   };
 
   return (

@@ -9,7 +9,6 @@ import {
   Image,
   Modal,
   Pressable,
-  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -18,6 +17,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import HeaderBar from '../../common/HeaderBar';
+import { useConfirmModal } from '../../../context/ConfirmModalContext';
 
 export interface SalonEmployeeItem {
   id: string;
@@ -320,6 +320,7 @@ export default function OtherBusinessTransactionsScreen({
   initialEmpId,
   onSelectShift,
 }: OtherBusinessTransactionsScreenProps) {
+  const { showAlert } = useConfirmModal();
   // Find employee matching initialEmpId or default to first
   const initialEmployee = useMemo(() => {
     if (initialEmpId) {
@@ -491,11 +492,20 @@ export default function OtherBusinessTransactionsScreen({
           UTI: '.pdf',
         });
       } else {
-        Alert.alert('Report Saved', `Shift report saved to ${targetUri}`);
+        showAlert({
+          title: 'Report Saved',
+          message: `Shift report saved to ${targetUri}`,
+          type: 'success',
+          icon: 'document-text-outline',
+        });
       }
     } catch (err) {
       console.error('Error exporting shift report:', err);
-      Alert.alert('Export Error', 'Unable to generate shift PDF report.');
+      showAlert({
+        title: 'Export Error',
+        message: 'Unable to generate shift PDF report.',
+        type: 'danger',
+      });
     }
   };
 

@@ -7,7 +7,6 @@ import {
   TextInput,
   TouchableOpacity,
   Image,
-  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -15,6 +14,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import HeaderBar from '../../common/HeaderBar';
+import { useConfirmModal } from '../../../context/ConfirmModalContext';
 import {
   MOCK_BUSINESS_TRANSACTIONS,
   MOCK_BUSINESS_STATS,
@@ -37,6 +37,7 @@ export default function OtherBusinessShiftDetailsScreen({
   businessName = 'Crown Cuts',
   userName = 'Soumen Sen',
 }: OtherBusinessShiftDetailsScreenProps) {
+  const { showAlert } = useConfirmModal();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<TxnFilterType>('all');
 
@@ -250,7 +251,11 @@ export default function OtherBusinessShiftDetailsScreen({
       }
     } catch (error) {
       console.error('Error sharing receipt:', error);
-      Alert.alert('Error', 'Unable to share receipt.');
+      showAlert({
+        title: 'Error',
+        message: 'Unable to share receipt.',
+        type: 'danger',
+      });
     }
   };
 
@@ -289,11 +294,20 @@ export default function OtherBusinessShiftDetailsScreen({
           UTI: '.pdf',
         });
       } else {
-        Alert.alert('Report Saved', `Saved to ${targetUri}`);
+        showAlert({
+          title: 'Report Saved',
+          message: `Saved to ${targetUri}`,
+          type: 'success',
+          icon: 'document-text-outline',
+        });
       }
     } catch (error) {
       console.error('Error sharing shift report:', error);
-      Alert.alert('Error', 'Unable to share shift report.');
+      showAlert({
+        title: 'Error',
+        message: 'Unable to share shift report.',
+        type: 'danger',
+      });
     }
   };
 

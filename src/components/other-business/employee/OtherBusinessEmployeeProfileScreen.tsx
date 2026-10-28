@@ -6,7 +6,6 @@ import {
   ScrollView,
   Image,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
@@ -15,6 +14,7 @@ import { Ionicons, Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../../context/AuthContext';
 import HeaderBar from '../../common/HeaderBar';
+import { useConfirmModal } from '../../../context/ConfirmModalContext';
 import {
   profileService,
   ProfileResponseData,
@@ -23,6 +23,7 @@ import {
 export default function OtherBusinessEmployeeProfileScreen() {
   const router = useRouter();
   const { logout } = useAuth();
+  const { showConfirm, showAlert } = useConfirmModal();
 
   // Profile API State (Clean Initialization with Zero Hardcoded Mock Fallbacks)
   const [profileData, setProfileData] = useState<ProfileResponseData | null>(null);
@@ -78,7 +79,12 @@ export default function OtherBusinessEmployeeProfileScreen() {
       profileData?.current_session?.display_shift_id ||
       profileData?.current_session?.shift_id;
     if (code) {
-      Alert.alert('Shift ID', `Active Shift ID: ${code}`);
+      showAlert({
+        title: 'Shift ID',
+        message: `Active Shift ID: ${code}`,
+        type: 'info',
+        icon: 'information-circle-outline',
+      });
     }
   };
 
@@ -88,43 +94,47 @@ export default function OtherBusinessEmployeeProfileScreen() {
       profileData?.current_session?.shift_id ||
       '--';
     if (isOnShift) {
-      Alert.alert(
-        'End Shift',
-        `Are you sure you want to end your current active shift (${shiftCode})?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'End Shift',
-            style: 'destructive',
-            onPress: () => {
-              setIsOnShift(false);
-              Alert.alert('Shift Ended', 'Active shift ended. Summary submitted to records.');
-            },
-          },
-        ]
-      );
+      showConfirm({
+        title: 'End Shift',
+        message: `Are you sure you want to end your current active shift (${shiftCode})?`,
+        confirmText: 'End Shift',
+        cancelText: 'Cancel',
+        type: 'warning',
+        icon: 'stop-circle-outline',
+        onConfirm: () => {
+          setIsOnShift(false);
+          showAlert({
+            title: 'Shift Ended',
+            message: 'Active shift ended. Summary submitted to records.',
+            type: 'success',
+            icon: 'checkmark-circle-outline',
+          });
+        },
+      });
     } else {
       setIsOnShift(true);
-      Alert.alert('Shift Started', 'You are now on shift and ready to accept sales.');
+      showAlert({
+        title: 'Shift Started',
+        message: 'You are now on shift and ready to accept sales.',
+        type: 'success',
+        icon: 'checkmark-circle-outline',
+      });
     }
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      'Log Out Account',
-      'Are you sure you want to log out from SE PAY?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Log Out',
-          style: 'destructive',
-          onPress: async () => {
-            await logout();
-            router.replace('/login');
-          },
-        },
-      ]
-    );
+    showConfirm({
+      title: 'Log Out Account',
+      message: 'Are you sure you want to log out from SE PAY?',
+      confirmText: 'Log Out',
+      cancelText: 'Cancel',
+      type: 'danger',
+      icon: 'power',
+      onConfirm: async () => {
+        await logout();
+        router.replace('/login');
+      },
+    });
   };
 
   const user = profileData?.user;

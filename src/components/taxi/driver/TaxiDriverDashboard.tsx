@@ -6,13 +6,13 @@ import {
   ScrollView,
   Image,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import HeaderBar from '../../common/HeaderBar';
+import { useConfirmModal } from '../../../context/ConfirmModalContext';
 
 interface TaxiDriverDashboardProps {
   businessName?: string;
@@ -28,6 +28,7 @@ export default function TaxiDriverDashboard({
   sessionStartTime = '7:30 AM',
 }: TaxiDriverDashboardProps) {
   const router = useRouter();
+  const { showConfirm, showAlert } = useConfirmModal();
   const [isOnShift, setIsOnShift] = useState(true);
 
   const handleStartTaxiFare = () => {
@@ -35,20 +36,34 @@ export default function TaxiDriverDashboard({
   };
 
   const handleToggleShift = () => {
-    Alert.alert(
-      isOnShift ? 'End Shift' : 'Start Shift',
-      isOnShift
-        ? 'Are you sure you want to end your current active shift? Total fare collections ($485.00) will be submitted to records.'
-        : `Start a new active shift for vehicle ${taxiNumber}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: isOnShift ? 'End Shift' : 'Start Shift',
-          style: isOnShift ? 'destructive' : 'default',
-          onPress: () => setIsOnShift((prev) => !prev),
+    if (isOnShift) {
+      showConfirm({
+        title: 'End Shift',
+        message:
+          'Are you sure you want to end your current active shift? Total fare collections ($485.00) will be submitted to records.',
+        confirmText: 'End Shift',
+        cancelText: 'Cancel',
+        type: 'warning',
+        icon: 'stop-circle-outline',
+        onConfirm: () => {
+          setIsOnShift(false);
+          showAlert({
+            title: 'Shift Ended',
+            message: 'Shift tally submitted to fleet dispatch.',
+            type: 'success',
+            icon: 'checkmark-circle-outline',
+          });
         },
-      ]
-    );
+      });
+    } else {
+      setIsOnShift(true);
+      showAlert({
+        title: 'Shift Started',
+        message: `Logged into vehicle ${taxiNumber}. Active on shift.`,
+        type: 'success',
+        icon: 'checkmark-circle-outline',
+      });
+    }
   };
 
   const handleNavigateToTransactions = () => {

@@ -7,7 +7,6 @@ import {
   TextInput,
   TouchableOpacity,
   Image,
-  Alert,
   ActivityIndicator,
   Share,
 } from 'react-native';
@@ -18,6 +17,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import HeaderBar from '../common/HeaderBar';
+import { useConfirmModal } from '../../context/ConfirmModalContext';
 import { ShiftRecord, ShiftTransaction } from '../../types/shift';
 
 interface ShiftDetailsScreenProps {
@@ -29,6 +29,7 @@ type TxnFilterType = 'all' | 'card' | 'tap_and_go';
 
 export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreenProps) {
   const insets = useSafeAreaInsets();
+  const { showAlert } = useConfirmModal();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<TxnFilterType>('all');
   const [isExporting, setIsExporting] = useState(false);
@@ -227,7 +228,11 @@ export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreen
           message: `Shift Report for ${shift.driverName} (${shift.taxiNumber})\nShift ID: ${shift.id}\nDate: ${shift.dateText} (${shift.timeRange})\nTotal: $${shift.totalAmount.toFixed(2)} (${shift.tripsCount} trips)\nCard: $${shift.cardAmount.toFixed(2)} (${shift.cardCount} txns)\nTap & Go: $${shift.tapAndGoAmount.toFixed(2)} (${shift.tapAndGoCount} txns)`,
         });
       } catch {
-        Alert.alert('Error', 'Unable to open share menu. Please try again.');
+        showAlert({
+          title: 'Error',
+          message: 'Unable to open share menu. Please try again.',
+          type: 'danger',
+        });
       }
     } finally {
       setIsExporting(false);

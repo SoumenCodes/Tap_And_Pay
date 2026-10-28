@@ -12,8 +12,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../constants/colors';
 import HeaderBar from '../common/HeaderBar';
+import { useConfirmModal } from '../../context/ConfirmModalContext';
 
 export default function TaxiDashboard() {
+  const { showConfirm, showAlert } = useConfirmModal();
   // Shift & Online state (defaults to Offline & Start Shift)
   const [isOnline, setIsOnline] = useState(false);
 
@@ -22,7 +24,33 @@ export default function TaxiDashboard() {
   };
 
   const handleToggleShift = () => {
-    setIsOnline((prev) => !prev);
+    if (isOnline) {
+      showConfirm({
+        title: 'End Shift',
+        message: 'Are you sure you want to end your current active shift?',
+        confirmText: 'End Shift',
+        cancelText: 'Cancel',
+        type: 'warning',
+        icon: 'stop-circle-outline',
+        onConfirm: () => {
+          setIsOnline(false);
+          showAlert({
+            title: 'Shift Ended',
+            message: 'Active shift ended. Summary submitted to records.',
+            type: 'success',
+            icon: 'checkmark-circle-outline',
+          });
+        },
+      });
+    } else {
+      setIsOnline(true);
+      showAlert({
+        title: 'Shift Started',
+        message: 'You are now on shift and ready to accept taxi fares.',
+        type: 'success',
+        icon: 'checkmark-circle-outline',
+      });
+    }
   };
 
   return (

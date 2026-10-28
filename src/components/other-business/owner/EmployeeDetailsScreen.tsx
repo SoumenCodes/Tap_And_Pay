@@ -10,13 +10,13 @@ import {
   ActivityIndicator,
   RefreshControl,
   Linking,
-  Alert,
   Modal,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import HeaderBar from '../../common/HeaderBar';
+import { useConfirmModal } from '../../../context/ConfirmModalContext';
 import {
   employeeService,
   EmployeeDetail,
@@ -25,6 +25,7 @@ import { formatSubmittedDate } from '../../../utils/dateUtils';
 
 export default function EmployeeDetailsScreen() {
   const router = useRouter();
+  const { showAlert } = useConfirmModal();
   const params = useLocalSearchParams<{ employeeId?: string; id?: string }>();
 
   const targetId = params?.employeeId || params?.id;
@@ -84,7 +85,12 @@ export default function EmployeeDetailsScreen() {
   const handleCall = () => {
     const phone = employee?.phone_no;
     if (!phone) {
-      Alert.alert('No Phone Number', 'This employee does not have a registered contact number.');
+      showAlert({
+        title: 'No Phone Number',
+        message: 'This employee does not have a registered contact number.',
+        type: 'warning',
+        icon: 'call-outline',
+      });
       return;
     }
 
@@ -94,7 +100,12 @@ export default function EmployeeDetailsScreen() {
       if (supported) {
         Linking.openURL(url);
       } else {
-        Alert.alert(`Phone: ${phone}`);
+        showAlert({
+          title: 'Employee Phone',
+          message: phone,
+          type: 'info',
+          icon: 'call-outline',
+        });
       }
     });
   };
@@ -104,7 +115,12 @@ export default function EmployeeDetailsScreen() {
       setIsImageLoading(true);
       setIsPhotoViewerVisible(true);
     } else {
-      Alert.alert('Profile Photo', 'No profile photo uploaded for this employee.');
+      showAlert({
+        title: 'Profile Photo',
+        message: 'No profile photo uploaded for this employee.',
+        type: 'info',
+        icon: 'person-circle-outline',
+      });
     }
   };
 

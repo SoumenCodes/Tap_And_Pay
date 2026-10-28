@@ -8,7 +8,6 @@ import {
   ScrollView,
   Image,
   Share,
-  Alert,
   ActivityIndicator,
   Modal,
   TouchableWithoutFeedback,
@@ -20,12 +19,14 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useAuth } from '../../../context/AuthContext';
+import { useConfirmModal } from '../../../context/ConfirmModalContext';
 import HeaderBar from '../../common/HeaderBar';
 import { getAssetDataUri } from '../../../utils/assetUtils';
 
 export default function OtherBusinessReceiptScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const { showAlert } = useConfirmModal();
   const params = useLocalSearchParams<{
     amount?: string;
     method?: string;
@@ -359,7 +360,11 @@ export default function OtherBusinessReceiptScreen() {
       }
     } catch (error) {
       console.error('Error sharing receipt photo:', error);
-      Alert.alert('Share Receipt', 'Could not open share menu. Please try again.');
+      showAlert({
+        title: 'Share Receipt',
+        message: 'Could not open share menu. Please try again.',
+        type: 'danger',
+      });
     } finally {
       setIsSharing(false);
     }
@@ -395,7 +400,11 @@ export default function OtherBusinessReceiptScreen() {
       }
     } catch (error) {
       console.error('Error sharing receipt PDF:', error);
-      Alert.alert('Share Receipt', 'Could not open share menu. Please try again.');
+      showAlert({
+        title: 'Share Receipt',
+        message: 'Could not open share menu. Please try again.',
+        type: 'danger',
+      });
     } finally {
       setIsSharing(false);
     }
@@ -415,7 +424,12 @@ export default function OtherBusinessReceiptScreen() {
   };
 
   const handleCopyPaymentId = () => {
-    Alert.alert('Payment ID', `${paymentId}\nCopied to clipboard.`);
+    showAlert({
+      title: 'Payment ID',
+      message: `${paymentId}\nCopied to clipboard.`,
+      type: 'info',
+      icon: 'information-circle-outline',
+    });
   };
 
   return (

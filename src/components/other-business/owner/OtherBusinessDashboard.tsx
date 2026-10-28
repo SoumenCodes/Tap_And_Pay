@@ -6,13 +6,13 @@ import {
   ScrollView,
   Image,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import HeaderBar from '../../common/HeaderBar';
+import { useConfirmModal } from '../../../context/ConfirmModalContext';
 
 interface OtherBusinessDashboardProps {
   businessName?: string;
@@ -92,6 +92,7 @@ export default function OtherBusinessDashboard({
   empId = '93821048',
 }: OtherBusinessDashboardProps) {
   const router = useRouter();
+  const { showConfirm, showAlert } = useConfirmModal();
 
   const [isOnShift, setIsOnShift] = useState(true);
   const [filterMode, setFilterMode] = useState<EmployeeFilterMode>('on_shift');
@@ -112,24 +113,32 @@ export default function OtherBusinessDashboard({
 
   const handleToggleShift = () => {
     if (isOnShift) {
-      Alert.alert(
-        'End Shift',
-        'Are you sure you want to end your current active shift (26062021/93821048/537384)?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'End Shift',
-            style: 'destructive',
-            onPress: () => {
-              setIsOnShift(false);
-              Alert.alert('Shift Ended', 'Shift tally submitted to records.');
-            },
-          },
-        ]
-      );
+      showConfirm({
+        title: 'End Shift',
+        message:
+          'Are you sure you want to end your current active shift (26062021/93821048/537384)?',
+        confirmText: 'End Shift',
+        cancelText: 'Cancel',
+        type: 'warning',
+        icon: 'stop-circle-outline',
+        onConfirm: () => {
+          setIsOnShift(false);
+          showAlert({
+            title: 'Shift Ended',
+            message: 'Shift tally submitted to records.',
+            type: 'success',
+            icon: 'checkmark-circle-outline',
+          });
+        },
+      });
     } else {
       setIsOnShift(true);
-      Alert.alert('Shift Started', 'Active on shift. Ready to accept sales.');
+      showAlert({
+        title: 'Shift Started',
+        message: 'Active on shift. Ready to accept sales.',
+        type: 'success',
+        icon: 'checkmark-circle-outline',
+      });
     }
   };
 

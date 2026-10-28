@@ -11,7 +11,6 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   ScrollView,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -19,6 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import HeaderBar from '../components/common/HeaderBar';
+import { useConfirmModal } from '../context/ConfirmModalContext';
 import { APP_CONFIG } from '../constants/appConfig';
 import { authService } from '../services/authService';
 
@@ -26,6 +26,7 @@ type ForgotStep = 'mobile' | 'otp' | 'new_password' | 'success';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
+  const { showAlert } = useConfirmModal();
 
   const [step, setStep] = useState<ForgotStep>('mobile');
   const [mobileNumber, setMobileNumber] = useState('0400 555 320');
@@ -123,10 +124,12 @@ export default function ForgotPasswordScreen() {
       setOtpCode('');
       setTimerSeconds(30);
       setIsTimerActive(true);
-      Alert.alert(
-        'New Code Sent',
-        res.data?.message || `A new 6-digit code has been sent to ${mobileNumber}.`
-      );
+      showAlert({
+        title: 'New Code Sent',
+        message: res.data?.message || `A new 6-digit code has been sent to ${mobileNumber}.`,
+        type: 'success',
+        icon: 'mail-unread-outline',
+      });
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to resend verification code.');
     } finally {

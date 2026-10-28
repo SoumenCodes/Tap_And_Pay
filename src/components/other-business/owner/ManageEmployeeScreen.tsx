@@ -7,7 +7,6 @@ import {
   TextInput,
   TouchableOpacity,
   Image,
-  Alert,
   Linking,
   ActivityIndicator,
   RefreshControl,
@@ -16,6 +15,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import HeaderBar from '../../common/HeaderBar';
+import { useConfirmModal } from '../../../context/ConfirmModalContext';
 import {
   employeeService,
   EmployeeListItem,
@@ -24,6 +24,7 @@ import {
 
 export default function ManageEmployeeScreen() {
   const router = useRouter();
+  const { showAlert } = useConfirmModal();
 
   // Employee API State (Zero Hardcoded Fallbacks)
   const [employees, setEmployees] = useState<EmployeeListItem[]>([]);
@@ -97,10 +98,12 @@ export default function ManageEmployeeScreen() {
   const handleCall = (employee: EmployeeListItem) => {
     const phone = employee.phone_no;
     if (!phone) {
-      Alert.alert(
-        'No Phone Number',
-        `${employee.full_name || 'Employee'} does not have a contact phone number registered.`
-      );
+      showAlert({
+        title: 'No Phone Number',
+        message: `${employee.full_name || 'Employee'} does not have a contact phone number registered.`,
+        type: 'info',
+        icon: 'call-outline',
+      });
       return;
     }
 
@@ -110,10 +113,12 @@ export default function ManageEmployeeScreen() {
       if (supported) {
         Linking.openURL(url);
       } else {
-        Alert.alert(
-          `Contact ${employee.full_name || 'Employee'}`,
-          `Phone: ${phone}\n${employee.emp_id_display || `EMP ID: ${employee.employee_id || employee.employee_code || '--'}`}`
-        );
+        showAlert({
+          title: `Contact ${employee.full_name || 'Employee'}`,
+          message: `Phone: ${phone}\n${employee.emp_id_display || `EMP ID: ${employee.employee_id || employee.employee_code || '--'}`}`,
+          type: 'info',
+          icon: 'call-outline',
+        });
       }
     });
   };

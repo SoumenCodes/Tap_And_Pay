@@ -6,7 +6,6 @@ import {
   ScrollView,
   Image,
   TouchableOpacity,
-  Alert,
   Modal,
   Pressable,
   TextInput,
@@ -24,10 +23,12 @@ import {
   BankDetailsData,
 } from '../../../services/profileService';
 import { formatSubmittedDate } from '../../../utils/dateUtils';
+import { useConfirmModal } from '../../../context/ConfirmModalContext';
 
 export default function OtherBusinessProfileScreen() {
   const router = useRouter();
   const { logout } = useAuth();
+  const { showConfirm, showAlert } = useConfirmModal();
 
   // Profile API State
   const [profileData, setProfileData] = useState<ProfileResponseData | null>(null);
@@ -169,7 +170,11 @@ export default function OtherBusinessProfileScreen() {
     const trimmedBank = editBankName.trim();
 
     if (!trimmedName || !trimmedBsb || !trimmedAcc) {
-      Alert.alert('Required Fields', 'Please enter Account Name, BSB, and Account Number.');
+      showAlert({
+        title: 'Required Fields',
+        message: 'Please enter Account Name, BSB, and Account Number.',
+        type: 'warning',
+      });
       return;
     }
 
@@ -202,15 +207,17 @@ export default function OtherBusinessProfileScreen() {
       }
 
       setIsUpdateBankModalVisible(false);
-      Alert.alert(
-        'Request Submitted',
-        res.message || 'Bank details submitted for approval successfully.'
-      );
+      showAlert({
+        title: 'Request Submitted',
+        message: res.message || 'Bank details submitted for approval successfully.',
+        type: 'success',
+      });
     } catch (err: any) {
-      Alert.alert(
-        'Update Failed',
-        err.message || 'Could not submit bank details for approval. Please try again.'
-      );
+      showAlert({
+        title: 'Update Failed',
+        message: err.message || 'Could not submit bank details for approval. Please try again.',
+        type: 'danger',
+      });
     } finally {
       setIsSubmittingBank(false);
     }
@@ -221,7 +228,12 @@ export default function OtherBusinessProfileScreen() {
       profileData?.current_session?.display_shift_id ||
       profileData?.current_session?.shift_id;
     if (code) {
-      Alert.alert('Shift ID', `Active Shift ID: ${code}`);
+      showAlert({
+        title: 'Shift ID',
+        message: `Active Shift ID: ${code}`,
+        type: 'info',
+        icon: 'information-circle-outline',
+      });
     }
   };
 
@@ -231,43 +243,47 @@ export default function OtherBusinessProfileScreen() {
       profileData?.current_session?.shift_id ||
       '--';
     if (isOnShift) {
-      Alert.alert(
-        'End Shift',
-        `Are you sure you want to end your current active shift (${shiftCode})?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'End Shift',
-            style: 'destructive',
-            onPress: () => {
-              setIsOnShift(false);
-              Alert.alert('Shift Ended', 'Active shift ended. Summary submitted to records.');
-            },
-          },
-        ]
-      );
+      showConfirm({
+        title: 'End Shift',
+        message: `Are you sure you want to end your current active shift (${shiftCode})?`,
+        confirmText: 'End Shift',
+        cancelText: 'Cancel',
+        type: 'warning',
+        icon: 'stop-circle-outline',
+        onConfirm: () => {
+          setIsOnShift(false);
+          showAlert({
+            title: 'Shift Ended',
+            message: 'Active shift ended. Summary submitted to records.',
+            type: 'success',
+            icon: 'checkmark-circle-outline',
+          });
+        },
+      });
     } else {
       setIsOnShift(true);
-      Alert.alert('Shift Started', 'You are now on shift and ready to accept sales.');
+      showAlert({
+        title: 'Shift Started',
+        message: 'You are now on shift and ready to accept sales.',
+        type: 'success',
+        icon: 'checkmark-circle-outline',
+      });
     }
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      'Log Out Account',
-      'Are you sure you want to log out from SE PAY?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Log Out',
-          style: 'destructive',
-          onPress: async () => {
-            await logout();
-            router.replace('/login');
-          },
-        },
-      ]
-    );
+    showConfirm({
+      title: 'Log Out Account',
+      message: 'Are you sure you want to log out from SE PAY?',
+      confirmText: 'Log Out',
+      cancelText: 'Cancel',
+      type: 'danger',
+      icon: 'power',
+      onConfirm: async () => {
+        await logout();
+        router.replace('/login');
+      },
+    });
   };
 
   const user = profileData?.user;

@@ -7,7 +7,6 @@ import {
   TextInput,
   TouchableOpacity,
   Switch,
-  Alert,
   ActivityIndicator,
   Image,
 } from 'react-native';
@@ -16,10 +15,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import HeaderBar from '../../common/HeaderBar';
+import { useConfirmModal } from '../../../context/ConfirmModalContext';
 import { driverService } from '../../../services/driverService';
 
 export default function AddDriverScreen() {
   const router = useRouter();
+  const { showAlert, showPrompt } = useConfirmModal();
   const { id } = useLocalSearchParams<{ id?: string; mode?: string }>();
   const isEditMode = Boolean(id);
 
@@ -166,7 +167,11 @@ export default function AddDriverScreen() {
           }
         })
         .catch((err) => {
-          Alert.alert('Error', err?.message || 'Failed to load driver details for editing.');
+          showAlert({
+            title: 'Error',
+            message: err?.message || 'Failed to load driver details for editing.',
+            type: 'danger',
+          });
         })
         .finally(() => {
           if (isMounted) setIsLoadingExisting(false);
@@ -187,7 +192,12 @@ export default function AddDriverScreen() {
       if (source === 'camera') {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== 'granted') {
-          Alert.alert('Permission Required', 'Camera permission is required.');
+          showAlert({
+            title: 'Permission Required',
+            message: 'Camera permission is required.',
+            type: 'warning',
+            icon: 'camera-outline',
+          });
           return;
         }
         const result = await ImagePicker.launchCameraAsync({
@@ -208,7 +218,12 @@ export default function AddDriverScreen() {
       } else {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-          Alert.alert('Permission Required', 'Photo library permission is required.');
+          showAlert({
+            title: 'Permission Required',
+            message: 'Photo library permission is required.',
+            type: 'warning',
+            icon: 'image-outline',
+          });
           return;
         }
         const result = await ImagePicker.launchImageLibraryAsync({
@@ -228,7 +243,11 @@ export default function AddDriverScreen() {
         }
       }
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Could not select image.');
+      showAlert({
+        title: 'Error',
+        message: err.message || 'Could not select image.',
+        type: 'danger',
+      });
     }
   };
 
@@ -240,13 +259,13 @@ export default function AddDriverScreen() {
         ? Boolean(dlFront || existingDlFrontUrl)
         : Boolean(dlRear || existingDlRearUrl);
 
-    const options: { text: string; onPress?: () => void; style?: 'cancel' | 'destructive' }[] = [
+    const buttons: { text: string; onPress?: () => void; style?: 'cancel' | 'destructive' | 'default' }[] = [
       { text: 'Take Photo (Camera)', onPress: () => pickImage(target, 'camera') },
       { text: 'Choose from Gallery', onPress: () => pickImage(target, 'gallery') },
     ];
 
     if (hasCurrent) {
-      options.push({
+      buttons.push({
         text: 'Remove Image',
         style: 'destructive',
         onPress: () => {
@@ -264,23 +283,41 @@ export default function AddDriverScreen() {
       });
     }
 
-    options.push({ text: 'Cancel', style: 'cancel' });
-    Alert.alert(title, 'Select image source:', options);
+    buttons.push({ text: 'Cancel', style: 'cancel' });
+    showPrompt({
+      title,
+      message: 'Select image source:',
+      type: 'info',
+      icon: 'camera-outline',
+      buttons,
+    });
   };
 
   const handleSaveDriver = async () => {
     if (!firstName.trim() || !lastName.trim()) {
-      Alert.alert('Required Field', 'Please enter first name and last name.');
+      showAlert({
+        title: 'Required Field',
+        message: 'Please enter first name and last name.',
+        type: 'warning',
+      });
       return;
     }
 
     if (!phone.trim()) {
-      Alert.alert('Required Field', 'Please enter the driver phone number.');
+      showAlert({
+        title: 'Required Field',
+        message: 'Please enter the driver phone number.',
+        type: 'warning',
+      });
       return;
     }
 
     if (!dcNumber.trim()) {
-      Alert.alert('Required Field', 'Please enter the DC number.');
+      showAlert({
+        title: 'Required Field',
+        message: 'Please enter the DC number.',
+        type: 'warning',
+      });
       return;
     }
 
@@ -329,22 +366,19 @@ export default function AddDriverScreen() {
 
       if (isEditMode && id) {
         const response = await driverService.updateDriverProfile(id, formData);
-        Alert.alert(
-          'Success',
-          response.message || 'Driver profile updated successfully.',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                if (router.canGoBack()) {
-                  router.back();
-                } else {
-                  router.replace('/manage-driver');
-                }
-              },
-            },
-          ]
-        );
+        showAlert({
+          title: 'Success',
+          message: response.message || 'Driver profile updated successfully.',
+          type: 'success',
+          icon: 'checkmark-circle-outline',
+          onClose: () => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/manage-driver');
+            }
+          },
+        });
       } else {
         const response = await driverService.addDriver(formData);
         const created = response.data?.driver;
@@ -353,18 +387,19 @@ export default function AddDriverScreen() {
           successMsg += `\n\nTemporary Password: ${created.temporary_password}\n(Please share this with the driver)`;
         }
 
-        Alert.alert('Success', successMsg, [
-          {
-            text: 'OK',
-            onPress: () => {
-              if (router.canGoBack()) {
-                router.back();
-              } else {
-                router.replace('/manage-driver');
-              }
-            },
+        showAlert({
+          title: 'Success',
+          message: successMsg,
+          type: 'success',
+          icon: 'checkmark-circle-outline',
+          onClose: () => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/manage-driver');
+            }
           },
-        ]);
+        });
       }
     } catch (err: any) {
       const errorMsg =
@@ -373,7 +408,11 @@ export default function AddDriverScreen() {
         (isEditMode
           ? 'Failed to update driver profile. Please verify details and try again.'
           : 'Failed to add driver. Please verify all information and try again.');
-      Alert.alert('Error', errorMsg);
+      showAlert({
+        title: 'Error',
+        message: errorMsg,
+        type: 'danger',
+      });
     } finally {
       setIsSubmitting(false);
     }

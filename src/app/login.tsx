@@ -288,7 +288,7 @@ export default function LoginScreen() {
                   style={styles.testChip}
                   activeOpacity={0.75}
                   onPress={() =>
-                    handleQuickCredentialLogin('taxi_driver', 'driver123', 'taxi_business_driver')
+                    handleQuickCredentialLogin('zafar.dnk5@gmail.com', 'Zafar@1986', 'taxi_business_driver')
                   }
                 >
                   <Text style={styles.testChipText}>🚖 Driver</Text>
@@ -308,7 +308,7 @@ export default function LoginScreen() {
                   style={styles.testChip}
                   activeOpacity={0.75}
                   onPress={() =>
-                    handleQuickCredentialLogin('other_employee', 'staff123', 'other_business_employee')
+                    handleQuickCredentialLogin('zafar.dnk9@gmail.com', 'Zafar@1986', 'other_business_employee')
                   }
                 >
                   <Text style={styles.testChipText}>✂️ Employee</Text>

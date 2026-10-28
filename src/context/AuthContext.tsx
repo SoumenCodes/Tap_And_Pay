@@ -37,6 +37,7 @@ export const MOCK_ACCOUNTS: Record<
       roleLabel: 'Taxi Owner',
       businessName: 'Zafar Taxi Company',
       taxiNumber: 'EMP2026100720200630',
+      empId: 'EMP2026100720200630',
       sessionStartTime: '7:30 AM',
     },
   },
@@ -51,20 +52,22 @@ export const MOCK_ACCOUNTS: Record<
       roleLabel: 'Taxi Company (Taxi)',
       businessName: 'Elite Taxi Service',
       taxiNumber: 'EMP2026100720013735',
+      empId: 'EMP2026100720013735',
       sessionStartTime: '7:30 AM',
     },
   },
   taxi_business_driver: {
-    username: 'taxi_driver',
-    passwords: ['driver123', '123456'],
+    username: 'zafar.dnk5@gmail.com',
+    passwords: ['Zafar@1986', 'driver123', '123456'],
     user: {
-      id: 'usr_taxi_driver_03',
-      username: 'taxi_driver',
-      name: 'Harpreet Singh',
+      id: 'EMP2026100720200245',
+      username: 'zafar.dnk5@gmail.com',
+      name: 'Zafar Driver',
       loginType: 'taxi_business_driver',
       roleLabel: 'Taxi Business Driver',
       businessName: 'Elite Taxi Service',
-      taxiNumber: 'M6022',
+      taxiNumber: 'DC750030',
+      empId: 'EMP2026100720200245',
       sessionStartTime: '7:30 AM',
     },
   },
@@ -84,18 +87,18 @@ export const MOCK_ACCOUNTS: Record<
     },
   },
   other_business_employee: {
-    username: 'other_employee',
-    passwords: ['staff123', '123456'],
+    username: 'zafar.dnk9@gmail.com',
+    passwords: ['Zafar@1986', 'staff123', '123456'],
     user: {
-      id: 'usr_other_emp_05',
-      username: 'other_employee',
-      name: 'Liam Hemsworth',
+      id: 'EMP2026100720101878',
+      username: 'zafar.dnk9@gmail.com',
+      name: 'Habibs Employee',
       loginType: 'other_business_employee',
       roleLabel: 'Business Employee',
-      businessName: 'Crown Cuts',
-      businessAddress: 'Suite 4, 120 Collins Street, Melbourne VIC',
+      businessName: 'Habibs',
+      businessAddress: '19 WORONORA AVE, LEUMEAH, NSW 2560',
       sessionStartTime: '7:30 AM',
-      empId: '93822048',
+      empId: 'EMP2026100720101878',
     },
   },
 };
@@ -164,9 +167,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // 2. Mock fallback for local design review accounts
     const lowerUser = trimmedUser.toLowerCase();
 
-    // 1. Taxi Owner
+    // 1. Taxi Owner (Owner Driver)
+    // Userid = EMP2026100720200630 / zafar.dnk2@gmail.com / DC750001 / 9932783474
     if (
       lowerUser === 'dc750001' ||
+      lowerUser === 'zafar.dnk2@gmail.com' ||
+      lowerUser === 'emp2026100720200630' ||
+      lowerUser === '9932783474' ||
       lowerUser === 'taxi_owner' ||
       lowerUser === 'owner' ||
       lowerUser === 'owner@taxi.com'
@@ -180,9 +187,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: false, error: 'Invalid password. Use "Zafar@1986" or "owner123".' };
     }
 
-    // 2. Taxi Business
+    // 2. Taxi Company
+    // Userid = EMP2026100720013735 / zafar.dnk3@gmail.com / 9932783472
     if (
       lowerUser === 'zafar.dnk3@gmail.com' ||
+      lowerUser === 'emp2026100720013735' ||
+      lowerUser === '9932783472' ||
       lowerUser === 'taxi_business' ||
       lowerUser === 'fleet' ||
       lowerUser === 'operator' ||
@@ -197,8 +207,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: false, error: 'Invalid password. Use "Zafar@1986" or "fleet123".' };
     }
 
-    // 3. Taxi Business Driver
+    // 3. Normal Driver (Under Taxi Company)
+    // Userid = EMP2026100720200245 / zafar.dnk5@gmail.com / DC750030 / 9932783478
     if (
+      lowerUser === 'zafar.dnk5@gmail.com' ||
+      lowerUser === 'dc750030' ||
+      lowerUser === 'emp2026100720200245' ||
+      lowerUser === '9932783478' ||
       lowerUser === 'taxi_driver' ||
       lowerUser === 'driver' ||
       lowerUser === 'taxi_business_driver' ||
@@ -210,12 +225,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await tokenStorage.saveUser(MOCK_ACCOUNTS.taxi_business_driver.user);
         return { success: true };
       }
-      return { success: false, error: 'Invalid password. Use "driver123" or "123456".' };
+      return { success: false, error: 'Invalid password. Use "Zafar@1986" or "driver123".' };
     }
 
-    // 4. Other Business (Owner)
+    // 4. Other Company (Other Business)
+    // Userid = EMP2026100720101831 / zafar.dnk4@gmail.com / 9932783473
     if (
       lowerUser === 'zafar.dnk4@gmail.com' ||
+      lowerUser === 'emp2026100720101831' ||
+      lowerUser === '9932783473' ||
       lowerUser === 'other_business' ||
       lowerUser === 'business' ||
       lowerUser === 'habibs' ||
@@ -231,8 +249,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: false, error: 'Invalid password. Use "Zafar@1986" or "business123".' };
     }
 
-    // 5. Other Business Employee
+    // 5. Employees (Under Other Employee)
+    // Userid = EMP2026100720101878 / zafar.dnk9@gmail.com / 9932783487
     if (
+      lowerUser === 'zafar.dnk9@gmail.com' ||
+      lowerUser === 'emp2026100720101878' ||
+      lowerUser === '9932783487' ||
       lowerUser === 'other_employee' ||
       lowerUser === 'employee' ||
       lowerUser === 'staff' ||
@@ -245,7 +267,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await tokenStorage.saveUser(MOCK_ACCOUNTS.other_business_employee.user);
         return { success: true };
       }
-      return { success: false, error: 'Invalid password. Use "staff123" or "123456".' };
+      return { success: false, error: 'Invalid password. Use "Zafar@1986" or "staff123".' };
     }
 
     return {

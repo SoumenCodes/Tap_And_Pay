@@ -1,4 +1,5 @@
 import { apiClient } from './apiClient';
+import { ActiveShiftData } from './shiftService';
 
 export interface DashboardHeader {
   title?: string;
@@ -105,7 +106,7 @@ export interface DashboardData {
   is_taxi_service: boolean;
   is_on_shift: boolean;
   start_time?: string | null;
-  active_shift?: any;
+  active_shift?: ActiveShiftData | null;
   active_shift_text?: string;
   shift_status_badge?: string;
   header: DashboardHeader;

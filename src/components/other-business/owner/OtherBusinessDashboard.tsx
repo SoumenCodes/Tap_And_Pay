@@ -20,6 +20,7 @@ import {
   DashboardData,
   ActiveEmployeeItem,
 } from '../../../services/dashboardService';
+import { shiftService } from '../../../services/shiftService';
 
 interface OtherBusinessDashboardProps {
   businessName?: string;
@@ -48,6 +49,7 @@ export default function OtherBusinessDashboard({
 
   // Shift & Filter state
   const [isOnShift, setIsOnShift] = useState<boolean>(false);
+  const [isShiftActionLoading, setIsShiftActionLoading] = useState<boolean>(false);
   const [filterMode, setFilterMode] = useState<EmployeeFilterMode>('on_shift');
 
   useEffect(() => {
@@ -99,8 +101,12 @@ export default function OtherBusinessDashboard({
   const displayBusinessName = header?.business_name || businessName;
   const displayUserName = header?.full_name || header?.first_name || userName;
   const displayEmpId = header?.identifier_value || empId;
-  const displayStartTime = dashboardData?.start_time || sessionStartTime;
+  const displayStartTime =
+    dashboardData?.active_shift?.start_time ||
+    dashboardData?.start_time ||
+    sessionStartTime;
   const activeShiftCode =
+    dashboardData?.active_shift?.display_shift_id ||
     header?.active_shift_code ||
     dashboardData?.active_shift_text ||
     (isOnShift ? '--' : 'No Active Shift');
@@ -158,7 +164,7 @@ export default function OtherBusinessDashboard({
     router.push('/(tabs)/tap-to-pay');
   };
 
-  const handleToggleShift = () => {
+  const handleToggleShift = async () => {
     if (isOnShift) {
       showConfirm({
         title: 'End Shift',
@@ -178,13 +184,40 @@ export default function OtherBusinessDashboard({
         },
       });
     } else {
-      setIsOnShift(true);
-      showAlert({
-        title: 'Shift Started',
-        message: 'Active on shift. Ready to accept sales.',
-        type: 'success',
-        icon: 'checkmark-circle-outline',
-      });
+      setIsShiftActionLoading(true);
+      try {
+        const res = await shiftService.startShift();
+        if (res.status && res.data) {
+          setIsOnShift(true);
+          showAlert({
+            title: 'Shift Started',
+            message: res.message || 'Active on shift. Ready to accept sales.',
+            type: 'success',
+            icon: 'checkmark-circle-outline',
+          });
+          // Refresh dashboard data to sync backend shift state
+          await handleRefresh();
+        } else {
+          showAlert({
+            title: 'Start Shift Failed',
+            message: res.message || 'Unable to start shift. Please try again.',
+            type: 'danger',
+            icon: 'alert-circle-outline',
+          });
+        }
+      } catch (err: any) {
+        showAlert({
+          title: 'Start Shift Failed',
+          message:
+            err?.response?.data?.message ||
+            err?.message ||
+            'Unable to start shift. Please try again.',
+          type: 'danger',
+          icon: 'alert-circle-outline',
+        });
+      } finally {
+        setIsShiftActionLoading(false);
+      }
     }
   };
 
@@ -413,18 +446,25 @@ export default function OtherBusinessDashboard({
         {/* 5. End / Start Shift Action Button */}
         <TouchableOpacity
           activeOpacity={0.85}
+          disabled={isShiftActionLoading}
           onPress={handleToggleShift}
           style={[styles.shiftButton, !isOnShift && styles.startShiftButton]}
         >
-          <Feather
-            name={isOnShift ? 'log-out' : 'log-in'}
-            size={18}
-            color="#FFFFFF"
-            style={{ marginRight: 8 }}
-          />
-          <Text style={styles.shiftButtonText}>
-            {isOnShift ? 'End Shift' : 'Start Shift'}
-          </Text>
+          {isShiftActionLoading ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <>
+              <Feather
+                name={isOnShift ? 'log-out' : 'log-in'}
+                size={18}
+                color="#FFFFFF"
+                style={{ marginRight: 8 }}
+              />
+              <Text style={styles.shiftButtonText}>
+                {isOnShift ? 'End Shift' : 'Start Shift'}
+              </Text>
+            </>
+          )}
         </TouchableOpacity>
 
         {/* 6. Active Employee Section */}

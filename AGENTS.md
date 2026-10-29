@@ -1,49 +1,45 @@
-This is an Expo/React Native mobile application. Prioritize mobile-first patterns, performance, and cross-platform compatibility.
+# SE PAY Mobile Development Rules
 
-## Expo has changed — do not trust your training data
+Expo / React Native application. Prioritize mobile-first patterns, performance, and cross-platform compatibility.
 
-Expo ships breaking changes every SDK release. APIs you remember are likely renamed, moved, or removed. Before writing any code that touches an Expo, EAS, or React Native API:
+---
 
-1. Read the major version of the `expo` package in `package.json`.
-2. Fetch the matching versioned docs: `https://docs.expo.dev/versions/v<major>.0.0/`
-3. For anything else, fetch https://docs.expo.dev/llms.txt — an index of all Expo docs with corrections to common LLM misconceptions. Follow its links to the specific page you need; never answer from memory.
+## 1. Expo & React Native Standards
+- **Expo Version Awareness**: Always verify `package.json` Expo major version before touching native/Expo APIs.
+- **Documentation First**: Fetch versioned docs (`https://docs.expo.dev/versions/v<major>.0.0/`) or `https://docs.expo.dev/llms.txt`; never code from legacy memory.
+- **Native Generation (CNG)**: Never edit `ios/` or `android/` directly. Configure native behaviors via `app.json` and config plugins.
+- **Module Preference**: Prefer official Expo modules over third-party alternatives.
 
-## Commands
+---
 
-Use `bunx` instead of `npx` if the project uses bun (`bun.lock` present).
+## 2. Essential Commands
+Always use SDK-compatible commands (`bunx` if `bun.lock` exists, otherwise `npx`):
 
 ```bash
-npx expo install <package>  # ALWAYS use instead of npm/yarn/pnpm/bun add — resolves SDK-compatible versions
-npx expo start              # start the dev server
-npx expo lint               # lint
-npx tsc --noEmit            # typecheck
-npx expo-doctor             # diagnose dependency and config issues
-npx expo install --fix      # fix incompatible package versions
+npx expo install <package>   # SDK-compatible installation
+npx expo start               # Start development server
+npx expo lint                # Lint codebase (Must pass before completion)
+npx tsc --noEmit             # TypeScript typecheck (Must pass before completion)
+npx expo-doctor              # Diagnose config & dependency health
 ```
 
-Run lint and typecheck before declaring any task done.
+---
 
-## Navigation & Routing
+## 3. Navigation & Routing (Expo Router)
+- **File-Based Routing**: All screens live in `src/app/`.
+- **Clean Separation**: Keep all components, hooks, services, and types outside `src/app/`.
+- **Standard Navigation**: Use `router`, `Link`, and `useLocalSearchParams` from `expo-router`.
 
-- Use **Expo Router** for all navigation. Routes live in `src/app/` — every file there is a screen, `_layout.tsx` files define navigators. Keep non-route code (components, hooks, utils) outside `src/app/`.
-- Import `Link`, `router`, and `useLocalSearchParams` from `expo-router`.
-- Docs: https://docs.expo.dev/router/introduction.md
+---
 
-## Building with EAS
-
-Use EAS to build, sign, and submit the app in the cloud (`eas build`, `eas submit`) and to ship over-the-air updates (`eas update`) — no local Xcode or Android Studio required. Run EAS CLI as `bunx eas-cli <command>` in Bun projects, or `npx eas-cli@latest <command>` otherwise; substitute that for bare `eas` in docs examples.
-Docs: https://docs.expo.dev/eas/index.md
-
-## Rules
-
-- If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
-- Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
-- Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
-
-## API Integration Rules
-
-- **Complete Schema Mapping**: For every integrated API endpoint, inspect the entire JSON response contract. Ensure all returned parameters are strictly typed in TypeScript interfaces. Proactively report to the user if any returned parameter is missing or unused.
-- **Zero Hardcoded Fallbacks**: Never use hardcoded mock or dummy values (e.g., fake user names, dummy amounts, hardcoded bank account numbers, or mock shift IDs) as fallback values in screens or state.
-- **Clean State Initialization**: Initialize component states with empty primitives (`''`, `null`, `0`, `[]`).
-- **Graceful Empty Rendering**: When data is loading or fields are nullable/empty, display clean empty states (e.g., `'--'` or conditional rendering), never synthetic mockup text.
-- **Dynamic Arrays**: Lists (e.g., `menu_options`, transaction logs) must render strictly from the backend response array without fallback hardcoded mock arrays.
+## 4. API Integration & Backend Architecture Rules
+- **Complete Schema Mapping**: Inspect every response contract. Strictly type all returned parameters in TypeScript interfaces.
+- **AI Backend Contract Review**:
+  - Audit AI-generated APIs for missing functional parameters (e.g., filtering flags like `is_on_shift`).
+  - Favor clean primitives over redundant pre-baked UI strings (e.g. raw counts instead of `"• On Shift 0"`).
+  - Proactively report missing or redundant parameters to the team.
+- **Zero Hardcoded Fallbacks**: Never fall back to fake names, synthetic amounts, hardcoded bank numbers, or dummy shifts.
+- **Clean State Initialization**: Initialize state with empty primitives (`''`, `null`, `0`, `[]`).
+- **Graceful Empty Rendering**: Display clean placeholder states (`'--'`), never synthetic mockups.
+- **Dynamic Arrays**: Render lists directly from backend response arrays without fallback mock arrays.
+- **Screen & API Tracking**: Maintain and update [`docs/API_SCREEN_MAPPING.md`](docs/API_SCREEN_MAPPING.md) whenever an endpoint is added, updated, or integrated.

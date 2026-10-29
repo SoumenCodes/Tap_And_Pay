@@ -6,3 +6,4 @@ export * from './transactionStore';
 export * from './profileService';
 export * from './driverService';
 export * from './employeeService';
+export * from './dashboardService';

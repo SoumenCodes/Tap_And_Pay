@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   ScrollView,
   Image,
   TouchableOpacity,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -13,6 +15,11 @@ import { Ionicons, Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import HeaderBar from '../../common/HeaderBar';
 import { useConfirmModal } from '../../../context/ConfirmModalContext';
+import {
+  dashboardService,
+  DashboardData,
+  RecentTransactionItem,
+} from '../../../services/dashboardService';
 
 interface OtherBusinessEmployeeDashboardProps {
   businessName?: string;
@@ -23,16 +30,105 @@ interface OtherBusinessEmployeeDashboardProps {
 }
 
 export default function OtherBusinessEmployeeDashboard({
-  businessName = 'Crown Cuts',
-  userName = 'Liam Hemsworth',
+  businessName = 'Habibs',
+  userName = 'Ramesh Poddar',
   sessionStartTime = '7:30 AM',
-  empId = '93822048',
+  empId = 'EMP2026100720101878',
 }: OtherBusinessEmployeeDashboardProps) {
   const router = useRouter();
   const { showConfirm, showAlert } = useConfirmModal();
-  const [isOnShift, setIsOnShift] = useState(true);
 
-  const activeShiftId = '26062021/93821048/537384';
+  // API State
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Shift state
+  const [isOnShift, setIsOnShift] = useState<boolean>(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    dashboardService
+      .getDashboard()
+      .then((res) => {
+        if (isMounted && res.data) {
+          setDashboardData(res.data);
+          setIsOnShift(Boolean(res.data.is_on_shift));
+        }
+      })
+      .catch((err: any) => {
+        if (isMounted) {
+          console.warn('Failed to load employee dashboard:', err?.message || err);
+          setErrorMessage(err?.message || 'Unable to load dashboard data.');
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    setErrorMessage(null);
+    try {
+      const res = await dashboardService.getDashboard();
+      if (res.data) {
+        setDashboardData(res.data);
+        setIsOnShift(Boolean(res.data.is_on_shift));
+      }
+    } catch (err: any) {
+      console.warn('Failed to refresh employee dashboard:', err?.message || err);
+      setErrorMessage(err?.message || 'Unable to refresh dashboard data.');
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  // Header data
+  const header = dashboardData?.header;
+  const displayBusinessName = header?.business_name || businessName;
+  const displayUserName = header?.full_name || header?.first_name || userName;
+  const displayEmpId = header?.identifier_value || empId;
+  const displayStartTime = dashboardData?.start_time || sessionStartTime;
+  const activeShiftCode =
+    header?.active_shift_code ||
+    dashboardData?.active_shift_text ||
+    (isOnShift ? '--' : 'No Active Shift');
+
+  // Revenue metrics breakdown
+  const revenue = dashboardData?.revenue;
+  const totalRevFormatted = revenue?.total_amount_formatted || '$0.00';
+  const totalCountText = revenue?.total_count_formatted || `${revenue?.total_count ?? 0} Txns`;
+
+  const cardRevFormatted = revenue?.card?.amount_formatted || '$0.00';
+  const cardCountText = revenue?.card?.count_formatted || `${revenue?.card?.count ?? 0} Txns`;
+
+  const tapRevFormatted = revenue?.tap_and_go?.amount_formatted || '$0.00';
+  const tapCountText = revenue?.tap_and_go?.count_formatted || `${revenue?.tap_and_go?.count ?? 0} Txns`;
+
+  const splitAmount = (formatted: string) => {
+    const cleaned = formatted.replace('$', '').trim();
+    const parts = cleaned.split('.');
+    return {
+      dollars: parts[0] || '0',
+      cents: parts[1] || '00',
+    };
+  };
+
+  const totalSplit = splitAmount(totalRevFormatted);
+  const cardSplit = splitAmount(cardRevFormatted);
+  const tapSplit = splitAmount(tapRevFormatted);
+
+  // Recent transactions list
+  const recentTxns: RecentTransactionItem[] =
+    dashboardData?.recent_transactions?.list || [];
 
   const handleCreateSale = () => {
     router.push('/(tabs)/tap-to-pay');
@@ -42,7 +138,7 @@ export default function OtherBusinessEmployeeDashboard({
     if (isOnShift) {
       showConfirm({
         title: 'End Shift',
-        message: `Are you sure you want to end your current active shift (${activeShiftId})? Total sales ($485.00) will be submitted to records.`,
+        message: `Are you sure you want to end your current active shift (${activeShiftCode})?`,
         confirmText: 'End Shift',
         cancelText: 'Cancel',
         type: 'warning',
@@ -77,36 +173,60 @@ export default function OtherBusinessEmployeeDashboard({
       <StatusBar style="dark" />
 
       {/* Header Bar */}
-      <HeaderBar title="SE PAY DASHBOARD" />
+      <HeaderBar title={header?.title || 'SE PAY DASHBOARD'} />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            colors={['#D97706']}
+            tintColor="#D97706"
+          />
+        }
       >
+        {/* Error Banner */}
+        {errorMessage && (
+          <View style={styles.errorBanner}>
+            <Ionicons name="alert-circle-outline" size={16} color="#DC2626" style={{ marginRight: 6 }} />
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          </View>
+        )}
+
         {/* 1. Combined Hero Banner & Employee Welcome Card */}
         <View style={styles.topCardContainer}>
           {/* Top Banner Image with Barber Salon & Crown Cuts */}
           <View style={styles.bannerContainer}>
             <Image
-              source={require('../../../../assets/crown_cuts_hero.png')}
+              source={
+                header?.banner_image_url
+                  ? { uri: header.banner_image_url }
+                  : require('../../../../assets/crown_cuts_hero.png')
+              }
               style={styles.bannerImage}
               resizeMode="cover"
             />
 
-            {/* Bottom-left overlay: Crown cuts gold badge + translucent text badge */}
+            {/* Bottom-left overlay: Badge + translucent text badge */}
             <View style={styles.bannerBottomRow}>
               <View style={styles.avatarBox}>
                 <Image
-                  source={require('../../../../assets/crown_cuts_badge_hd.png')}
+                  source={
+                    header?.logo_url
+                      ? { uri: header.logo_url }
+                      : require('../../../../assets/crown_cuts_badge_hd.png')
+                  }
                   style={styles.avatarBadgeImage}
                   resizeMode="contain"
                 />
               </View>
 
-              {/* Translucent Text Badge (matching Other Business) */}
+              {/* Translucent Text Badge */}
               <View style={styles.bannerTextBadge}>
                 <Text style={styles.bannerTitle} numberOfLines={1}>
-                  {businessName}
+                  {displayBusinessName}
                 </Text>
                 <Text style={styles.bannerSubtitle} numberOfLines={1}>
                   SHIFT: {isOnShift ? 'Active' : 'Start Shift Now!'}
@@ -118,17 +238,19 @@ export default function OtherBusinessEmployeeDashboard({
           {/* Employee Info Section */}
           <View style={styles.welcomeInfoContainer}>
             <Text style={styles.welcomeTitle}>
-              Welcome, <Text style={styles.userNameBold}>{userName}</Text>
+              Welcome, <Text style={styles.userNameBold}>{displayUserName}</Text>
             </Text>
 
             <View style={styles.welcomeMetaRow}>
               <Text style={styles.empIdMetaLabel}>
-                EMP ID: <Text style={styles.empIdHighlight}>{empId}</Text>
+                EMP ID: <Text style={styles.empIdHighlight}>{displayEmpId}</Text>
               </Text>
               <Text style={styles.metaDot}>•</Text>
               <View style={styles.clockRow}>
                 <Feather name="clock" size={12} color="#64748B" style={styles.clockIcon} />
-                <Text style={styles.shiftStartText}>Shift Start: {sessionStartTime}</Text>
+                <Text style={styles.shiftStartText}>
+                  Shift Start: {displayStartTime || '--'}
+                </Text>
               </View>
             </View>
           </View>
@@ -136,27 +258,12 @@ export default function OtherBusinessEmployeeDashboard({
           {/* Active Shift Row with ON SHIFT Pill */}
           <View style={styles.activeShiftRow}>
             <Text style={styles.activeShiftLabel}>
-              ACTIVE SHIFT: <Text style={styles.activeShiftCode}>{activeShiftId}</Text>
+              ACTIVE SHIFT: <Text style={styles.activeShiftCode}>{activeShiftCode}</Text>
             </Text>
 
-            <View
-              style={[
-                styles.onShiftBadge,
-                !isOnShift && styles.offShiftBadge,
-              ]}
-            >
-              <View
-                style={[
-                  styles.onShiftDot,
-                  !isOnShift && styles.offShiftDot,
-                ]}
-              />
-              <Text
-                style={[
-                  styles.onShiftText,
-                  !isOnShift && styles.offShiftText,
-                ]}
-              >
+            <View style={[styles.onShiftBadge, !isOnShift && styles.offShiftBadge]}>
+              <View style={[styles.onShiftDot, !isOnShift && styles.offShiftDot]} />
+              <Text style={[styles.onShiftText, !isOnShift && styles.offShiftText]}>
                 {isOnShift ? 'ON SHIFT' : 'OFF SHIFT'}
               </Text>
             </View>
@@ -195,16 +302,18 @@ export default function OtherBusinessEmployeeDashboard({
           </TouchableOpacity>
         )}
 
-        {/* 3. Revenue Card: Last 7 days */}
+        {/* 3. Revenue Card */}
         <View style={styles.revenueCardOuter}>
           <View style={styles.revenueCardHeader}>
             <View style={styles.revenueTitleRow}>
               <Text style={styles.revenueMainTitle}>Revenue </Text>
-              <Text style={styles.revenueSubTitle}>Last 7 days</Text>
+              <Text style={styles.revenueSubTitle}>
+                {revenue?.timeframe_label || 'Last 7 days'}
+              </Text>
             </View>
             <View style={styles.txnsCountBadge}>
               <Ionicons name="checkmark-circle-outline" size={15} color="#059669" />
-              <Text style={styles.txnsCountText}>14 Txns</Text>
+              <Text style={styles.txnsCountText}>{totalCountText}</Text>
             </View>
           </View>
 
@@ -219,10 +328,11 @@ export default function OtherBusinessEmployeeDashboard({
                 <Text style={styles.metricLabelTotal}>TOTAL</Text>
               </View>
               <Text style={styles.metricValue}>
-                <Text style={styles.currencySymbolGold}>$</Text>485
-                <Text style={styles.centsText}>.00</Text>
+                <Text style={styles.currencySymbolGold}>$</Text>
+                {totalSplit.dollars}
+                <Text style={styles.centsText}>.{totalSplit.cents}</Text>
               </Text>
-              <Text style={styles.metricSubtext}>9 Txns</Text>
+              <Text style={styles.metricSubtext}>{totalCountText}</Text>
             </View>
 
             <View style={styles.columnDivider} />
@@ -234,10 +344,11 @@ export default function OtherBusinessEmployeeDashboard({
                 <Text style={styles.metricLabelCard}>CARD</Text>
               </View>
               <Text style={styles.metricValue}>
-                <Text style={styles.currencySymbolBlue}>$</Text>320
-                <Text style={styles.centsText}>.00</Text>
+                <Text style={styles.currencySymbolBlue}>$</Text>
+                {cardSplit.dollars}
+                <Text style={styles.centsText}>.{cardSplit.cents}</Text>
               </Text>
-              <Text style={styles.metricSubtext}>2 Txns</Text>
+              <Text style={styles.metricSubtext}>{cardCountText}</Text>
             </View>
 
             <View style={styles.columnDivider} />
@@ -249,19 +360,20 @@ export default function OtherBusinessEmployeeDashboard({
                 <Text style={styles.metricLabelTap}>TAP & GO</Text>
               </View>
               <Text style={styles.metricValue}>
-                <Text style={styles.currencySymbolOrange}>$</Text>165
-                <Text style={styles.centsText}>.00</Text>
+                <Text style={styles.currencySymbolOrange}>$</Text>
+                {tapSplit.dollars}
+                <Text style={styles.centsText}>.{tapSplit.cents}</Text>
               </Text>
-              <Text style={styles.metricSubtext}>7 Txns</Text>
+              <Text style={styles.metricSubtext}>{tapCountText}</Text>
             </View>
           </View>
         </View>
 
-        {/* 4. End / Start Shift Action Button (Black) */}
+        {/* 4. End / Start Shift Action Button */}
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={handleToggleShift}
-          style={styles.shiftButton}
+          style={[styles.shiftButton, !isOnShift && styles.startShiftButton]}
         >
           <Ionicons
             name={isOnShift ? 'exit-outline' : 'enter-outline'}
@@ -277,7 +389,9 @@ export default function OtherBusinessEmployeeDashboard({
         {/* 5. Recent Transactions Section */}
         <View style={styles.recentSection}>
           <View style={styles.recentHeaderRow}>
-            <Text style={styles.recentSectionTitle}>Recent Transactions</Text>
+            <Text style={styles.recentSectionTitle}>
+              {dashboardData?.recent_transactions?.title || 'Recent Transactions'}
+            </Text>
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={handleNavigateToTransactions}
@@ -287,47 +401,60 @@ export default function OtherBusinessEmployeeDashboard({
             </TouchableOpacity>
           </View>
 
-          {/* Transaction Card 1 */}
-          <TouchableOpacity
-            style={styles.txnCard}
-            activeOpacity={0.85}
-            onPress={handleNavigateToTransactions}
-          >
-            <View style={styles.txnLeftWrap}>
-              <Text style={styles.txnIdText}>#TXN-984210</Text>
-              <Text style={styles.txnTimeText}>04:45 PM</Text>
-              <View style={styles.cardPill}>
-                <Ionicons name="card" size={10} color="#2563EB" style={{ marginRight: 3 }} />
-                <Text style={styles.cardPillText}>Card</Text>
-              </View>
+          {/* Loading Indicator */}
+          {isLoading && !isRefreshing && (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color="#D97706" />
             </View>
+          )}
 
-            <Text style={styles.txnAmount}>
-              <Text style={styles.currencySymbolGold}>$</Text>106
-              <Text style={styles.centsText}>.00</Text>
-            </Text>
-          </TouchableOpacity>
-
-          {/* Transaction Card 2 */}
-          <TouchableOpacity
-            style={styles.txnCard}
-            activeOpacity={0.85}
-            onPress={handleNavigateToTransactions}
-          >
-            <View style={styles.txnLeftWrap}>
-              <Text style={styles.txnIdText}>#TXN-987541</Text>
-              <Text style={styles.txnTimeText}>05:58 PM</Text>
-              <View style={styles.cardPill}>
-                <Ionicons name="card" size={10} color="#2563EB" style={{ marginRight: 3 }} />
-                <Text style={styles.cardPillText}>Card</Text>
-              </View>
+          {/* Empty State */}
+          {!isLoading && recentTxns.length === 0 && (
+            <View style={styles.emptyRecentBox}>
+              <Feather name="file-text" size={32} color="#CBD5E1" />
+              <Text style={styles.emptyRecentTitle}>No Recent Transactions</Text>
+              <Text style={styles.emptyRecentSub}>
+                Transactions processed during your active shift will appear here.
+              </Text>
             </View>
+          )}
 
-            <Text style={styles.txnAmount}>
-              <Text style={styles.currencySymbolGold}>$</Text>85
-              <Text style={styles.centsText}>.00</Text>
-            </Text>
-          </TouchableOpacity>
+          {/* Transaction Cards dynamically rendered from API */}
+          {recentTxns.map((txn, index) => {
+            const txnCode = txn.txn_id || txn.transaction_id || `#TXN-${txn.id}`;
+            const timeText = txn.time_formatted || txn.created_at || '--';
+            const method = (txn.payment_method || 'card').toLowerCase();
+            const isTap = method.includes('tap') || method.includes('nfc');
+
+            return (
+              <TouchableOpacity
+                key={txn.id || index}
+                style={styles.txnCard}
+                activeOpacity={0.85}
+                onPress={handleNavigateToTransactions}
+              >
+                <View style={styles.txnLeftWrap}>
+                  <Text style={styles.txnIdText}>{txnCode}</Text>
+                  <Text style={styles.txnTimeText}>{timeText}</Text>
+                  <View style={[styles.cardPill, isTap && styles.tapPill]}>
+                    <Ionicons
+                      name={isTap ? 'radio-outline' : 'card'}
+                      size={10}
+                      color={isTap ? '#EA580C' : '#2563EB'}
+                      style={{ marginRight: 3 }}
+                    />
+                    <Text style={[styles.cardPillText, isTap && styles.tapPillText]}>
+                      {txn.payment_method_label || (isTap ? 'Tap & Go' : 'Card')}
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={styles.txnAmount}>
+                  {txn.amount_formatted || `$${txn.amount?.toFixed(2) || '0.00'}`}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         <View style={{ height: 28 }} />
@@ -345,6 +472,52 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 28,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEE2E2',
+    borderColor: '#FCA5A5',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 10,
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#DC2626',
+    fontWeight: '600',
+    flex: 1,
+  },
+  loadingContainer: {
+    paddingVertical: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyRecentBox: {
+    paddingVertical: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderStyle: 'dashed',
+    marginTop: 4,
+  },
+  emptyRecentTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#475569',
+    marginTop: 8,
+  },
+  emptyRecentSub: {
+    fontSize: 11.5,
+    color: '#94A3B8',
+    marginTop: 2,
+    textAlign: 'center',
+    paddingHorizontal: 16,
   },
 
   /* 1. Top Card (Banner + Welcome + Active Shift) */
@@ -388,12 +561,12 @@ const styles = StyleSheet.create({
     borderColor: '#FEF08A',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 2,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+    padding: 2.5,
   },
   avatarBadgeImage: {
     width: '100%',
@@ -411,28 +584,29 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   bannerTitle: {
-    fontSize: 13.5,
+    fontSize: 13,
     fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: 0.2,
   },
   bannerSubtitle: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '500',
     color: '#E2E8F0',
     letterSpacing: 0.1,
   },
+
+  /* Welcome Info */
   welcomeInfoContainer: {
     paddingHorizontal: 14,
-    paddingTop: 12,
-    paddingBottom: 10,
+    paddingTop: 10,
+    paddingBottom: 8,
   },
   welcomeTitle: {
-    fontSize: 15.5,
-    color: '#334155',
-    fontWeight: '400',
-    marginBottom: 4,
-    textAlign: 'center',
+    fontSize: 14.5,
+    fontWeight: '600',
+    color: '#0F172A',
+    marginBottom: 3,
   },
   userNameBold: {
     fontWeight: '800',
@@ -441,21 +615,21 @@ const styles = StyleSheet.create({
   welcomeMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    flexWrap: 'wrap',
   },
   empIdMetaLabel: {
     fontSize: 11,
+    fontWeight: '600',
     color: '#64748B',
-    fontWeight: '500',
   },
   empIdHighlight: {
     color: '#D97706',
     fontWeight: '700',
   },
   metaDot: {
-    color: '#CBD5E1',
     marginHorizontal: 6,
-    fontSize: 11,
+    color: '#CBD5E1',
+    fontSize: 10,
   },
   clockRow: {
     flexDirection: 'row',
@@ -466,109 +640,111 @@ const styles = StyleSheet.create({
   },
   shiftStartText: {
     fontSize: 11,
-    color: '#64748B',
     fontWeight: '500',
+    color: '#64748B',
   },
+
+  /* Active Shift Row */
   activeShiftRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(254, 243, 199, 0.45)',
     paddingHorizontal: 14,
-    paddingVertical: 9,
-    backgroundColor: '#FEFCE8',
+    paddingVertical: 7,
     borderTopWidth: 1,
-    borderTopColor: '#FEF08A',
+    borderTopColor: '#FEF3C7',
   },
   activeShiftLabel: {
     fontSize: 10.5,
-    fontWeight: '800',
-    color: '#0F172A',
+    fontWeight: '600',
+    color: '#78350F',
+    letterSpacing: 0.2,
   },
   activeShiftCode: {
-    fontWeight: '600',
-    color: '#475569',
+    fontWeight: '800',
+    color: '#B45309',
   },
   onShiftBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#DCFCE7',
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 8,
     gap: 4,
+    borderWidth: 1,
+    borderColor: '#86EFAC',
   },
   offShiftBadge: {
-    backgroundColor: '#F1F5F9',
-    borderColor: '#E2E8F0',
+    backgroundColor: '#FEE2E2',
+    borderColor: '#FCA5A5',
   },
   onShiftDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#10B981',
+    backgroundColor: '#15803D',
   },
   offShiftDot: {
-    backgroundColor: '#94A3B8',
+    backgroundColor: '#DC2626',
   },
   onShiftText: {
-    fontSize: 9.5,
+    fontSize: 9,
     fontWeight: '800',
     color: '#166534',
-    letterSpacing: 0.3,
+    letterSpacing: 0.4,
   },
   offShiftText: {
-    color: '#64748B',
+    color: '#DC2626',
   },
 
-  /* 2. CREATE SALE Quick Action Card */
+  /* 2. Create Sale Quick Action Card */
   saleCardOuter: {
-    borderRadius: 16,
+    borderRadius: 14,
     overflow: 'hidden',
     marginBottom: 12,
     shadowColor: '#F59E0B',
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.18,
-    shadowRadius: 6,
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
     elevation: 3,
   },
   saleGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
     paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   scissorsIconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.55)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
+    marginRight: 12,
   },
   saleTextWrap: {
     flex: 1,
   },
   saleTitle: {
-    fontSize: 16,
+    fontSize: 14.5,
     fontWeight: '900',
     color: '#0F172A',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   saleSubtitle: {
-    fontSize: 11.5,
-    fontStyle: 'italic',
-    color: '#78350F',
-    marginTop: 2,
+    fontSize: 11,
     fontWeight: '600',
+    color: '#475569',
+    marginTop: 1,
   },
   saleArrowWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.45)',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.55)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -583,7 +759,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
+    shadowOpacity: 0.04,
     shadowRadius: 4,
     elevation: 1,
   },
@@ -598,18 +774,24 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
   },
   revenueMainTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
     color: '#0F172A',
   },
   revenueSubTitle: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#D97706',
+    fontWeight: '500',
+    color: '#64748B',
   },
   txnsCountBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
     gap: 4,
   },
   txnsCountText: {
@@ -697,7 +879,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
   },
 
-  /* 4. End Shift Action Button */
+  /* 4. Shift Button */
   shiftButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -712,16 +894,18 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
+  startShiftButton: {
+    backgroundColor: '#16A34A',
+  },
   shiftButtonText: {
     color: '#FFFFFF',
     fontSize: 13.5,
     fontWeight: '700',
   },
 
-  /* 5. Recent Transactions Section */
+  /* 5. Recent Transactions */
   recentSection: {
     marginTop: 2,
-    marginBottom: 8,
   },
   recentHeaderRow: {
     flexDirection: 'row',
@@ -735,21 +919,21 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
   seeAllText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: '#2563EB',
   },
   txnCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    paddingVertical: 13,
     paddingHorizontal: 14,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
+    paddingVertical: 12,
+    marginBottom: 8,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
@@ -757,8 +941,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   txnLeftWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    gap: 3,
   },
   txnIdText: {
     fontSize: 13,
@@ -766,25 +949,30 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
   txnTimeText: {
-    fontSize: 11.5,
+    fontSize: 11,
+    fontWeight: '500',
     color: '#64748B',
-    marginLeft: 8,
   },
   cardPill: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#EFF6FF',
-    borderWidth: 1,
-    borderColor: '#DBEAFE',
-    borderRadius: 6,
+    alignSelf: 'flex-start',
     paddingHorizontal: 6,
     paddingVertical: 2,
-    marginLeft: 8,
+    borderRadius: 6,
+    marginTop: 2,
   },
   cardPillText: {
-    fontSize: 10.5,
+    fontSize: 10,
     fontWeight: '700',
     color: '#2563EB',
+  },
+  tapPill: {
+    backgroundColor: '#FFF7ED',
+  },
+  tapPillText: {
+    color: '#EA580C',
   },
   txnAmount: {
     fontSize: 15,

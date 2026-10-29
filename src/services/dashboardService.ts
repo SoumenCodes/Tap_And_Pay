@@ -79,6 +79,26 @@ export interface ActiveEmployeesSection {
   list: ActiveEmployeeItem[];
 }
 
+export interface RecentTransactionItem {
+  id: number | string;
+  txn_id?: string;
+  transaction_id?: string;
+  amount: number;
+  amount_formatted: string;
+  payment_method?: string;
+  payment_method_label?: string;
+  created_at?: string;
+  time_formatted?: string;
+  status?: string;
+}
+
+export interface RecentTransactionsSection {
+  title?: string;
+  action?: string;
+  count: number;
+  list: RecentTransactionItem[];
+}
+
 export interface DashboardData {
   user_type_key: string;
   role_id: number;
@@ -93,6 +113,7 @@ export interface DashboardData {
   revenue: DashboardRevenue;
   section_type: string;
   active_employees?: ActiveEmployeesSection;
+  recent_transactions?: RecentTransactionsSection;
 }
 
 export interface DashboardResponse {

@@ -1,11 +1,15 @@
 import { apiClient } from './apiClient';
 import { ActiveShiftData } from './shiftService';
+import { tokenStorage } from './tokenStorage';
+import type { UserProfile } from '../context/AuthContext';
 
 export interface DashboardHeader {
   title?: string;
   business_name?: string;
   logo_url?: string | null;
   banner_image_url?: string | null;
+  abn?: string;
+  phone?: string;
   full_name?: string;
   first_name?: string;
   last_name?: string;
@@ -124,6 +128,17 @@ export interface DashboardResponse {
   data: DashboardData;
 }
 
+export type DashboardHeaderSyncCallback = (header: DashboardHeader) => void;
+let headerSyncListeners: DashboardHeaderSyncCallback[] = [];
+let activeDashboardPromise: Promise<DashboardResponse> | null = null;
+
+export function onDashboardHeaderSync(callback: DashboardHeaderSyncCallback): () => void {
+  headerSyncListeners.push(callback);
+  return () => {
+    headerSyncListeners = headerSyncListeners.filter((cb) => cb !== callback);
+  };
+}
+
 /**
  * Dashboard API Service
  */
@@ -133,7 +148,54 @@ export const dashboardService = {
    * Fetches unified dashboard metrics, shift status, and employee/driver lists
    */
   getDashboard: async (): Promise<DashboardResponse> => {
-    const response = await apiClient.get<DashboardResponse>('/api/user/dashboard');
-    return response.data;
+    if (activeDashboardPromise) {
+      return activeDashboardPromise;
+    }
+
+    activeDashboardPromise = (async () => {
+      try {
+        const response = await apiClient.get<DashboardResponse>('/api/user/dashboard');
+        const resData = response.data;
+
+        if (resData?.data?.header) {
+          const h = resData.data.header;
+
+          // 1. Persist abn, phone and business details to stored session on device
+          tokenStorage
+            .loadStoredSession()
+            .then(({ user }) => {
+              if (user) {
+                const updated: UserProfile = {
+                  ...user,
+                  abn: h.abn || user.abn,
+                  phone: h.phone || user.phone,
+                  businessName: h.business_name || user.businessName,
+                  empId: h.identifier_value || user.empId,
+                  logoUrl: h.logo_url !== undefined ? h.logo_url : user.logoUrl,
+                  bannerImageUrl:
+                    h.banner_image_url !== undefined ? h.banner_image_url : user.bannerImageUrl,
+                };
+                tokenStorage.saveUser(updated);
+              }
+            })
+            .catch(() => {});
+
+          // 2. Notify active listeners (AuthContext, etc.)
+          headerSyncListeners.forEach((listener) => {
+            try {
+              listener(h);
+            } catch (err) {
+              console.warn('⚠️ Error in dashboard header listener:', err);
+            }
+          });
+        }
+
+        return response.data;
+      } finally {
+        activeDashboardPromise = null;
+      }
+    })();
+
+    return activeDashboardPromise;
   },
 };

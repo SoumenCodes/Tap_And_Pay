@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { authService } from '../services/authService';
 import { tokenStorage } from '../services/tokenStorage';
+import { onDashboardHeaderSync } from '../services/dashboardService';
 
 export type LoginType =
   | 'taxi_owner'
@@ -20,6 +21,10 @@ export interface UserProfile {
   taxiNumber?: string;
   empId?: string;
   sessionStartTime: string;
+  abn?: string;
+  phone?: string;
+  logoUrl?: string | null;
+  bannerImageUrl?: string | null;
 }
 
 export const MOCK_ACCOUNTS: Record<
@@ -110,6 +115,7 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   quickLogin: (type: LoginType) => void;
+  updateUserProfile: (partial: Partial<UserProfile>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -118,6 +124,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserProfile>(MOCK_ACCOUNTS.other_business.user);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isInitializing, setIsInitializing] = useState<boolean>(true);
+
+  // Auto-sync dashboard header parameters (abn, phone, businessName, empId, logoUrl) to user state & storage
+  useEffect(() => {
+    const unsubscribe = onDashboardHeaderSync((header) => {
+      setUser((prev) => {
+        const hasChanged =
+          (Boolean(header.abn) && prev.abn !== header.abn) ||
+          (Boolean(header.phone) && prev.phone !== header.phone) ||
+          (Boolean(header.business_name) && prev.businessName !== header.business_name) ||
+          (Boolean(header.identifier_value) && prev.empId !== header.identifier_value) ||
+          (header.logo_url !== undefined && prev.logoUrl !== header.logo_url) ||
+          (header.banner_image_url !== undefined && prev.bannerImageUrl !== header.banner_image_url);
+
+        if (!hasChanged) {
+          return prev;
+        }
+
+        const next: UserProfile = {
+          ...prev,
+          abn: header.abn || prev.abn,
+          phone: header.phone || prev.phone,
+          businessName: header.business_name || prev.businessName,
+          empId: header.identifier_value || prev.empId,
+          logoUrl: header.logo_url !== undefined ? header.logo_url : prev.logoUrl,
+          bannerImageUrl:
+            header.banner_image_url !== undefined ? header.banner_image_url : prev.bannerImageUrl,
+        };
+        tokenStorage.saveUser(next);
+        return next;
+      });
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   // Restore encrypted session on cold start
   useEffect(() => {
@@ -169,6 +209,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateUserProfile = useCallback(async (partial: Partial<UserProfile>) => {
+    setUser((prev) => {
+      const updated: UserProfile = { ...prev, ...partial };
+      tokenStorage.saveUser(updated);
+      return updated;
+    });
+  }, []);
+
   const logout = async () => {
     setIsAuthenticated(false);
     setUser(MOCK_ACCOUNTS.other_business.user);
@@ -191,6 +239,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         quickLogin,
+        updateUserProfile,
       }}
     >
       {children}

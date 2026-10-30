@@ -55,8 +55,8 @@ function TaxiReceiptScreen() {
   const dropoff = params.dropoff || '--';
   const taxiNumber = params.taxiNumber || user?.taxiNumber || '--';
   const dcNumber = params.dcNumber || (user as any)?.dcNumber || '--';
-  const abn = params.abn || (user as any)?.abn || '--';
-  const phone = params.phone || (user as any)?.phone || (user as any)?.mobileNumber || '--';
+  const abn = params.abn || user?.abn || (user as any)?.abn || '--';
+  const phone = params.phone || user?.phone || (user as any)?.phone || (user as any)?.mobileNumber || '--';
   const businessName = user?.businessName || user?.name || '--';
 
   const formattedDate = useMemo(() => {

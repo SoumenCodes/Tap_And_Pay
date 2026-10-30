@@ -35,6 +35,8 @@ export default function OtherBusinessReceiptScreen() {
     paymentId?: string;
     cardLast4?: string;
     dateStr?: string;
+    abn?: string;
+    phone?: string;
   }>();
 
   const rawAmount = params.amount || '0.00';
@@ -45,8 +47,8 @@ export default function OtherBusinessReceiptScreen() {
   const dateStr = params.dateStr || '--';
 
   const businessName = user?.businessName || user?.name || '--';
-  const abn = (user as any)?.abn || '--';
-  const phone = (user as any)?.phone || (user as any)?.mobileNumber || '--';
+  const abn = params.abn || user?.abn || (user as any)?.abn || '--';
+  const phone = params.phone || user?.phone || (user as any)?.phone || (user as any)?.mobileNumber || '--';
   const address = user?.businessAddress || '--';
   const empId = user?.empId || '--';
 

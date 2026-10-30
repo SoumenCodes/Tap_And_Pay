@@ -189,6 +189,9 @@ export const authService = {
       taxiNumber: u.dc_number || undefined,
       empId: u.employee_code || undefined,
       sessionStartTime: '',
+      abn: u.abn || undefined,
+      phone: u.phone_no || undefined,
+      logoUrl: u.logo_url || null,
     };
 
     // Save user profile to encrypted storage

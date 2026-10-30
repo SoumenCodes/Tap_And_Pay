@@ -75,6 +75,8 @@ export default function PaymentSuccessScreen() {
         dateStr: formattedDate,
         pickup: params.pickup || '',
         dropoff: params.dropoff || '',
+        abn: user?.abn || '',
+        phone: user?.phone || '',
       },
     });
   };

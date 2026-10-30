@@ -15,6 +15,7 @@ import {
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import HeaderBar from '../../components/common/HeaderBar';
+import { useConfirmModal } from '../../context/ConfirmModalContext';
 import { colors } from '../../constants/theme';
 
 export default function CardEntryScreen() {
@@ -40,15 +41,13 @@ export default function CardEntryScreen() {
   });
   const decimalPart = (numericAmount.toFixed(2)).split('.')[1] || '00';
 
-  const [cardNumber, setCardNumber] = useState('•••• •••• •••• 4242');
-  const [expiry, setExpiry] = useState('12/28');
-  const [cvc, setCvc] = useState('123');
-  const [cardholder, setCardholder] = useState('John Doe');
+  const [cardNumber, setCardNumber] = useState('');
+  const [expiry, setExpiry] = useState('');
+  const [cvc, setCvc] = useState('');
+  const [cardholder, setCardholder] = useState('');
 
-  // Fraud Warning Modal state (sole confirmation modal for card payment)
-  const [isFraudWarningVisible, setIsFraudWarningVisible] = useState(
-    params.showFraudWarning !== 'false'
-  );
+  // Fraud Warning Modal state (appears only upon pressing Confirm & Collect)
+  const [isFraudWarningVisible, setIsFraudWarningVisible] = useState(false);
   const [isFraudRiskAccepted, setIsFraudRiskAccepted] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -92,35 +91,48 @@ export default function CardEntryScreen() {
 
   const detectedBrand = getCardBrand(cardNumber);
 
+  const { showAlert } = useConfirmModal();
+
   // Open Fraud Warning modal
   const handleOpenConfirm = () => {
-    if (!cardNumber) {
-      setCardNumber('•••• •••• •••• 4242');
-      setExpiry('12/28');
-      setCvc('123');
-      setCardholder('John Doe');
+    const cleanNum = cardNumber.replace(/\s/g, '');
+    if (cleanNum.length < 15 || !expiry.includes('/') || cvc.length < 3) {
+      showAlert({
+        title: 'Card Details Required',
+        message: 'Please enter a valid card number, expiry date (MM/YY), and CVC before proceeding.',
+        buttonText: 'OK',
+        type: 'danger',
+      });
+      return;
     }
     setIsFraudWarningVisible(true);
   };
 
-  // Confirm and Charge -> Routes to Processing Screen
+  // Confirm and Charge -> Routes to Processing Screen with real card input
   const handleProceedCharge = () => {
     if (!isFraudRiskAccepted) return;
     setIsProcessing(true);
+    setIsFraudWarningVisible(false);
 
-    setTimeout(() => {
-      setIsProcessing(false);
-      setIsFraudWarningVisible(false);
-      router.push({
-        pathname: '/(tabs)/processing',
-        params: {
-          amount: rawAmount,
-          method: 'card',
-          pickup: params.pickup || 'Hospital',
-          dropoff: params.dropoff || 'Home',
-        },
-      });
-    }, 400);
+    const [expMonthRaw, expYearRaw] = expiry.split('/');
+    const expYear = expYearRaw?.trim().length === 2 ? `20${expYearRaw.trim()}` : (expYearRaw?.trim() || '');
+
+    router.push({
+      pathname: '/(tabs)/processing',
+      params: {
+        amount: rawAmount,
+        method: 'card',
+        cardInput: JSON.stringify({
+          number: cardNumber.replace(/\s/g, ''),
+          expMonth: expMonthRaw?.trim() || '',
+          expYear,
+          cvc: cvc.trim(),
+        }),
+        pickup: params.pickup || '',
+        dropoff: params.dropoff || '',
+      },
+    });
+    setIsProcessing(false);
   };
 
   return (
@@ -333,9 +345,9 @@ export default function CardEntryScreen() {
                 style={styles.fraudCancelBtn}
                 activeOpacity={0.7}
                 disabled={isProcessing}
-                onPress={() => router.back()}
+                onPress={() => setIsFraudWarningVisible(false)}
               >
-                <Text style={styles.fraudCancelBtnText}>Cancel Transaction</Text>
+                <Text style={styles.fraudCancelBtnText}>Cancel</Text>
               </TouchableOpacity>
             </View>
           </View>

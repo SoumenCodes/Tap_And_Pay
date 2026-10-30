@@ -35,18 +35,18 @@ export default function OtherBusinessReceiptScreen() {
     dateStr?: string;
   }>();
 
-  const rawAmount = params.amount || '100.00';
-  const numericAmount = parseFloat(rawAmount) || 100;
+  const rawAmount = params.amount || '0.00';
+  const numericAmount = parseFloat(rawAmount) || 0;
   const isTap = params.method === 'tap' || !params.method;
-  const cardLast4 = params.cardLast4 || '4242';
-  const paymentId = params.paymentId || 'pi_3N5x...8F2d';
-  const dateStr = params.dateStr || '21 Sep 2026, 09:41 AM';
+  const cardLast4 = params.cardLast4 || '••••';
+  const paymentId = params.paymentId || '--';
+  const dateStr = params.dateStr || '--';
 
-  const businessName = user?.businessName || 'Crown Cuts';
-  const abn = '62 458 123 800';
-  const phone = '0400 555 320';
-  const address = user?.businessAddress || 'Suite 4, 120 Collins Street, Melbourne VIC';
-  const empId = user?.empId || '93821048';
+  const businessName = user?.businessName || user?.name || '--';
+  const abn = (user as any)?.abn || '--';
+  const phone = (user as any)?.phone || (user as any)?.mobileNumber || '--';
+  const address = user?.businessAddress || '--';
+  const empId = user?.empId || '--';
 
   // Amount formatting: integer and decimal parts
   const formattedWithComma =

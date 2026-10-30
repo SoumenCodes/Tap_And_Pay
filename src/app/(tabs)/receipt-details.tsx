@@ -42,18 +42,18 @@ function TaxiReceiptScreen() {
     phone?: string;
   }>();
 
-  const rawAmount = params.amount || '104.00';
-  const numericAmount = parseFloat(rawAmount) || 104;
+  const rawAmount = params.amount || '0.00';
+  const numericAmount = parseFloat(rawAmount) || 0;
   const isTap = params.method === 'tap';
-  const cardLast4 = params.cardLast4 || '4242';
-  const paymentId = params.paymentId || 'pi_3N5x...8F2d';
-  const pickup = params.pickup || 'Hospital';
-  const dropoff = params.dropoff || 'Home';
-  const taxiNumber = params.taxiNumber || user?.taxiNumber || 'M6061';
-  const dcNumber = params.dcNumber || '93821048';
-  const abn = params.abn || '62 458 123 800';
-  const phone = params.phone || '0400 555 320';
-  const businessName = user?.businessName || 'Elite Taxi Service';
+  const cardLast4 = params.cardLast4 || '••••';
+  const paymentId = params.paymentId || '--';
+  const pickup = params.pickup || '--';
+  const dropoff = params.dropoff || '--';
+  const taxiNumber = params.taxiNumber || user?.taxiNumber || '--';
+  const dcNumber = params.dcNumber || (user as any)?.dcNumber || '--';
+  const abn = params.abn || (user as any)?.abn || '--';
+  const phone = params.phone || (user as any)?.phone || (user as any)?.mobileNumber || '--';
+  const businessName = user?.businessName || user?.name || '--';
 
   // Amount formatting: integer and decimal parts
   const formattedWithComma =

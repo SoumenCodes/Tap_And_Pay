@@ -1,4 +1,5 @@
 import { config } from '../constants/config';
+import { apiClient } from './apiClient';
 import type { PaymentMethodType } from '../utils/feeCalculator';
 
 export interface CreatePaymentIntentResponse {
@@ -23,28 +24,33 @@ export function getCachedLocationId(): string | null {
 
 /**
  * Fetch a connection token from the backend for Stripe Terminal SDK initialization
+ * Live endpoint: POST /api/connection_token (requires Bearer token)
  */
 export async function fetchConnectionToken(): Promise<string> {
-  const url = `${config.backendUrl}/connection_token`;
   try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    });
-
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`Failed to fetch connection token (${res.status}): ${errText}`);
+    let data: any;
+    try {
+      const res = await apiClient.post('/api/connection_token');
+      data = res.data;
+    } catch (err: any) {
+      if (err?.status === 404) {
+        const res = await apiClient.post('/connection_token');
+        data = res.data;
+      } else {
+        throw err;
+      }
     }
 
-    const data = await res.json();
-    if (!data.secret) {
+    const secret = data?.secret || data?.data?.secret;
+    const locationId = data?.locationId || data?.data?.locationId;
+
+    if (!secret) {
       throw new Error('Connection token response did not contain a secret');
     }
-    if (data.locationId) {
-      cachedLocationId = data.locationId;
+    if (locationId) {
+      cachedLocationId = locationId;
     }
-    return data.secret;
+    return secret;
   } catch (err: any) {
     console.error('Error fetching connection token from backend:', err);
     throw err;
@@ -65,21 +71,39 @@ export async function fetchTerminalConfig(): Promise<{
   publishableKey?: string;
   stripeConfigured: boolean;
 }> {
+  if (cachedLocationId && cachedPublishableKey) {
+    return {
+      locationId: cachedLocationId,
+      publishableKey: cachedPublishableKey,
+      stripeConfigured: true,
+    };
+  }
+
   try {
-    const res = await fetch(`${config.backendUrl}/terminal_config`);
-    if (res.ok) {
-      const data = await res.json();
-      if (data.locationId) {
-        cachedLocationId = data.locationId;
+    let res: any;
+    try {
+      res = await apiClient.get('/api/terminal_config');
+    } catch (err: any) {
+      if (err?.status === 404) {
+        res = await apiClient.get('/terminal_config');
+      } else {
+        throw err;
       }
-      if (data.publishableKey) {
-        cachedPublishableKey = data.publishableKey;
-      }
-      return data;
     }
-    return { locationId: 'loc_simulated', stripeConfigured: false };
+
+    const data = res.data?.data || res.data;
+    if (data?.locationId) {
+      cachedLocationId = data.locationId;
+    }
+    if (data?.publishableKey) {
+      cachedPublishableKey = data.publishableKey;
+    }
+    return data;
   } catch {
-    return { locationId: 'loc_simulated', stripeConfigured: false };
+    return {
+      locationId: cachedLocationId || config.locationId || 'loc_simulated',
+      stripeConfigured: false,
+    };
   }
 }
 
@@ -136,54 +160,53 @@ export async function tokenizeCardWithStripe(
 
 /**
  * Create a Stripe PaymentIntent on the backend for card_present (Tap to Pay) or card
+ * Live endpoint: POST /api/payment/create-intent (requires Bearer token)
  */
 export async function createPaymentIntentOnBackend(
   amount: number,
   currency: string = 'aud',
   paymentMethodType: PaymentMethodType = 'tap',
-  card?: { number: string; expMonth: string; expYear: string; cvc: string },
+  card?: { number: string; expMonth: string | number; expYear: string | number; cvc: string },
   paymentMethodId?: string
 ): Promise<CreatePaymentIntentResponse> {
-  const url = `${config.backendUrl}/create_payment_intent`;
-  try {
-    const maskedBody = {
-      amount,
-      currency,
-      paymentMethodType,
-      paymentMethodId,
-      card: card ? { ...card, number: `•••• ${card.number.slice(-4)}`, cvc: '•••' } : undefined,
-    };
-    console.log(`📡 [API POST ${url}] Request:`, JSON.stringify(maskedBody, null, 2));
-
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        amount,
-        currency,
-        paymentMethodType,
-        paymentMethodId,
-        card,
-      }),
-    });
-
-    if (!res.ok) {
-      const errText = await res.text();
-      let parsedMessage = errText;
-      try {
-        const parsed = JSON.parse(errText);
-        if (parsed.error) {
-          parsedMessage = parsed.error;
-        }
-      } catch {
-        // use raw text
+  const formattedCard = card
+    ? {
+        number: String(card.number).replace(/\s/g, ''),
+        expMonth: typeof card.expMonth === 'number' ? card.expMonth : parseInt(String(card.expMonth), 10),
+        expYear: typeof card.expYear === 'number' ? card.expYear : parseInt(String(card.expYear), 10),
+        cvc: String(card.cvc).trim(),
       }
-      console.error(`❌ [API POST ${url}] Error (${res.status}):`, parsedMessage);
-      throw new Error(parsedMessage);
+    : undefined;
+
+  const payload = {
+    amount,
+    currency,
+    paymentMethodType,
+    paymentMethodId,
+    card: formattedCard,
+  };
+
+  try {
+    let res: any;
+    try {
+      res = await apiClient.post('/api/payment/create-intent', payload);
+    } catch (err: any) {
+      if (err?.status === 404) {
+        try {
+          res = await apiClient.post('/api/create_payment_intent', payload);
+        } catch (innerErr: any) {
+          if (innerErr?.status === 404) {
+            res = await apiClient.post('/create_payment_intent', payload);
+          } else {
+            throw innerErr;
+          }
+        }
+      } else {
+        throw err;
+      }
     }
 
-    const data = await res.json();
-    console.log(`✅ [API POST ${url}] Response from backend:`, JSON.stringify(data, null, 2));
+    const data = res.data?.data || res.data;
     return data;
   } catch (err: any) {
     console.error('Error creating payment intent on backend:', err);
@@ -196,8 +219,17 @@ export async function createPaymentIntentOnBackend(
  */
 export async function checkBackendHealth(): Promise<{ status: string; stripeConfigured: boolean }> {
   try {
-    const res = await fetch(`${config.backendUrl}/health`);
-    return await res.json();
+    let res: any;
+    try {
+      res = await apiClient.get('/api/health');
+    } catch (err: any) {
+      if (err?.status === 404) {
+        res = await apiClient.get('/health');
+      } else {
+        throw err;
+      }
+    }
+    return res.data?.data || res.data;
   } catch {
     return { status: 'unreachable', stripeConfigured: false };
   }
@@ -215,14 +247,18 @@ export async function retrievePaymentIntentStatus(paymentIntentId: string): Prom
   currency: string;
   charges?: any[];
 }> {
-  const url = `${config.backendUrl}/payment_intent/${paymentIntentId}`;
   try {
-    const res = await fetch(url);
-    if (!res.ok) {
-      throw new Error(`Failed to check payment status (${res.status})`);
+    let res: any;
+    try {
+      res = await apiClient.get(`/api/payment_intent/${paymentIntentId}`);
+    } catch (err: any) {
+      if (err?.status === 404) {
+        res = await apiClient.get(`/payment_intent/${paymentIntentId}`);
+      } else {
+        throw err;
+      }
     }
-    const data = await res.json();
-    return data;
+    return res.data?.data || res.data;
   } catch (err: any) {
     console.error(`Error checking payment intent status for ${paymentIntentId}:`, err);
     throw err;

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,15 @@ import {
   Easing,
   Platform,
   Image,
+  TouchableOpacity,
 } from 'react-native';
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useTerminal } from '../../context/TerminalContext';
+import { addTransaction } from '../../services/transactionStore';
+import { calculateFee, type PaymentMethodType } from '../../utils/feeCalculator';
 
 const RING_SIZE = 210;
 const STROKE_WIDTH = 5.5;
@@ -24,9 +29,28 @@ export default function ProcessingScreen() {
   const params = useLocalSearchParams<{
     amount?: string;
     method?: string;
+    cardInput?: string;
     pickup?: string;
     dropoff?: string;
   }>();
+
+  const { runSimulatedPayment, statusMessage, errorMessage } = useTerminal();
+  const [isFailed, setIsFailed] = useState(false);
+  const [errorReason, setErrorReason] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+
+  const rawAmount = params.amount || '0';
+  const numericAmount = parseFloat(rawAmount) || 0;
+  const paymentMethod: PaymentMethodType = params.method === 'card' ? 'card' : 'tap';
+
+  const parsedCardInput = useMemo(() => {
+    if (!params.cardInput) return undefined;
+    try {
+      return JSON.parse(params.cardInput);
+    } catch {
+      return undefined;
+    }
+  }, [params.cardInput]);
 
   // Continuous smooth linear rotation of the gold arc
   const [rotateAnim] = useState(() => new Animated.Value(0));
@@ -47,27 +71,118 @@ export default function ProcessingScreen() {
     outputRange: ['0deg', '360deg'],
   });
 
-  // Simulating payment completion and transition
-  const hasFinishedRef = useRef(false);
+  const paymentStateRef = useRef({
+    numericAmount,
+    rawAmount,
+    paymentMethod,
+    parsedCardInput,
+    pickup: params.pickup || '',
+    dropoff: params.dropoff || '',
+    runSimulatedPayment,
+    router,
+  });
+
   useEffect(() => {
-    if (hasFinishedRef.current) return;
-    hasFinishedRef.current = true;
+    paymentStateRef.current = {
+      numericAmount,
+      rawAmount,
+      paymentMethod,
+      parsedCardInput,
+      pickup: params.pickup || '',
+      dropoff: params.dropoff || '',
+      runSimulatedPayment,
+      router,
+    };
+  });
 
-    const timer = setTimeout(() => {
-      // Transition to screen 13 (Payment Successful)
-      router.replace({
-        pathname: '/(tabs)/payment-success',
-        params: {
-          amount: params.amount || '104.00',
-          method: params.method || 'tap',
-          pickup: params.pickup || 'Hospital',
-          dropoff: params.dropoff || 'Home',
-        },
-      });
-    }, 3000);
+  const hasExecutedRef = useRef(false);
 
-    return () => clearTimeout(timer);
-  }, [router, params.amount, params.method, params.pickup, params.dropoff]);
+  useEffect(() => {
+    if (hasExecutedRef.current) return;
+    hasExecutedRef.current = true;
+
+    async function process() {
+      const {
+        numericAmount: amt,
+        rawAmount: rawAmt,
+        paymentMethod: method,
+        parsedCardInput: cardInput,
+        pickup,
+        dropoff,
+        runSimulatedPayment: executePayment,
+        router: navRouter,
+      } = paymentStateRef.current;
+
+      try {
+        const feeBreakdown = calculateFee(amt, method);
+        const result = await executePayment(amt, method, feeBreakdown, cardInput);
+
+        if (result.success && result.paymentIntent) {
+          const pi = result.paymentIntent;
+          const charge = pi.charges?.[0];
+          const cardDetails =
+            charge?.paymentMethodDetails?.cardPresentDetails ||
+            charge?.paymentMethodDetails?.cardDetails;
+
+          const rawBrand = cardDetails?.brand || (cardInput ? 'Card' : 'Contactless');
+          const brand = rawBrand.charAt(0).toUpperCase() + rawBrand.slice(1);
+          const last4 = cardDetails?.last4 || cardInput?.number?.slice(-4) || '••••';
+          const realTxnId = charge?.id || pi.paymentIntentId || pi.id || `pi_${Date.now()}`;
+          const timestamp = new Date().toISOString();
+
+          addTransaction({
+            id: realTxnId,
+            amount: amt,
+            originalAmount: amt,
+            fee: feeBreakdown.totalFee,
+            percentageFee: feeBreakdown.percentageFee,
+            fixedFee: feeBreakdown.fixedFee,
+            currency: '$',
+            status: 'success',
+            paymentMethod: method === 'tap' ? 'Tap to Pay' : 'Card',
+            paymentMethodType: method,
+            cardLast4: last4,
+            cardBrand: brand,
+            paymentId: realTxnId,
+            storeName: 'SE PAY',
+            timestamp,
+          });
+
+          // Transition to Payment Successful screen after brief display of success state
+          setTimeout(() => {
+            navRouter.replace({
+              pathname: '/(tabs)/payment-success',
+              params: {
+                amount: rawAmt,
+                method,
+                paymentId: realTxnId,
+                cardLast4: last4,
+                cardBrand: brand,
+                timestamp,
+                pickup,
+                dropoff,
+              },
+            });
+          }, 450);
+        } else {
+          setIsFailed(true);
+          setErrorReason(result.error || errorMessage || 'Payment could not be completed.');
+        }
+      } catch (err: any) {
+        setIsFailed(true);
+        setErrorReason(err?.message || 'An unexpected error occurred while processing payment.');
+      }
+    }
+
+    process();
+  }, [retryCount, errorMessage]);
+
+  const handleRetry = () => {
+    hasExecutedRef.current = false;
+    setIsFailed(false);
+    setErrorReason(null);
+    setRetryCount((c) => c + 1);
+  };
 
   return (
     <View
@@ -81,88 +196,108 @@ export default function ProcessingScreen() {
     >
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {/* ── Central Processing Container ── */}
-      <View style={styles.centerSection}>
-        {/* Circle with Radial Glow, Rotating Dual-Tone Arc, and Unicorn */}
-        <View style={styles.circleContainer}>
-          {/* Inner Soft Warm Radial Glow */}
-          <Svg
-            width={RING_SIZE}
-            height={RING_SIZE}
-            viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}
-            style={styles.glowSvg}
-          >
-            <Defs>
-              <RadialGradient
-                id="innerGlow"
-                cx="50%"
-                cy="50%"
-                rx="50%"
-                ry="50%"
-                fx="50%"
-                fy="50%"
-              >
-                <Stop offset="0%" stopColor="#FEF9C3" stopOpacity="0.85" />
-                <Stop offset="65%" stopColor="#FFFBEB" stopOpacity="0.45" />
-                <Stop offset="100%" stopColor="#FFFFFF" stopOpacity="0" />
-              </RadialGradient>
-            </Defs>
-            <Circle
-              cx={RING_SIZE / 2}
-              cy={RING_SIZE / 2}
-              r={RADIUS - STROKE_WIDTH / 2}
-              fill="url(#innerGlow)"
-            />
-          </Svg>
+      {isFailed ? (
+        <View style={styles.centerSection}>
+          <View style={styles.errorIconWrap}>
+            <Ionicons name="close-circle-outline" size={64} color="#EF4444" />
+          </View>
+          <Text style={styles.title}>Payment Failed</Text>
+          <Text style={styles.errorSubtitle}>{errorReason}</Text>
 
-          {/* Rotating Two-Tone Ring (Dark Navy with Gold Active Arc) */}
-          <Animated.View
-            style={[
-              styles.rotatingRing,
-              {
-                transform: [{ rotate: spin }],
-              },
-            ]}
-          >
-            <Svg width={RING_SIZE} height={RING_SIZE} viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}>
-              {/* Dark Navy Base Ring (~65% arc visible) */}
-              <Circle
-                cx={RING_SIZE / 2}
-                cy={RING_SIZE / 2}
-                r={RADIUS}
-                stroke="#1E293B"
-                strokeWidth={STROKE_WIDTH}
-                fill="none"
-              />
-              {/* Vibrant Gold Active Progress Segment (~35% of circle) */}
-              <Circle
-                cx={RING_SIZE / 2}
-                cy={RING_SIZE / 2}
-                r={RADIUS}
-                stroke="#F59E0B"
-                strokeWidth={STROKE_WIDTH}
-                strokeDasharray={`${CIRCUMFERENCE * 0.35} ${CIRCUMFERENCE * 0.65}`}
-                strokeDashoffset={CIRCUMFERENCE * 0.1}
-                strokeLinecap="round"
-                fill="none"
-              />
-            </Svg>
-          </Animated.View>
+          <View style={styles.actionRow}>
+            <TouchableOpacity style={styles.retryBtn} onPress={handleRetry} activeOpacity={0.85}>
+              <Text style={styles.retryBtnText}>Try Again</Text>
+            </TouchableOpacity>
 
-          {/* Centered SE PAY Unicorn Mascot Emblem */}
-          <View style={styles.unicornWrap}>
-            <Image
-              source={require('../../../assets/se_pay_unicorn.png')}
-              style={styles.unicornImage}
-              resizeMode="contain"
-            />
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => router.back()} activeOpacity={0.85}>
+              <Text style={styles.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
           </View>
         </View>
+      ) : (
+        /* ── Central Processing Container ── */
+        <View style={styles.centerSection}>
+          {/* Circle with Radial Glow, Rotating Dual-Tone Arc, and Unicorn */}
+          <View style={styles.circleContainer}>
+            {/* Inner Soft Warm Radial Glow */}
+            <Svg
+              width={RING_SIZE}
+              height={RING_SIZE}
+              viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}
+              style={styles.glowSvg}
+            >
+              <Defs>
+                <RadialGradient
+                  id="innerGlow"
+                  cx="50%"
+                  cy="50%"
+                  rx="50%"
+                  ry="50%"
+                  fx="50%"
+                  fy="50%"
+                >
+                  <Stop offset="0%" stopColor="#FEF9C3" stopOpacity="0.85" />
+                  <Stop offset="65%" stopColor="#FFFBEB" stopOpacity="0.45" />
+                  <Stop offset="100%" stopColor="#FFFFFF" stopOpacity="0" />
+                </RadialGradient>
+              </Defs>
+              <Circle
+                cx={RING_SIZE / 2}
+                cy={RING_SIZE / 2}
+                r={RADIUS - STROKE_WIDTH / 2}
+                fill="url(#innerGlow)"
+              />
+            </Svg>
 
-        {/* ── Status Text (100% Figma Match) ── */}
-        <Text style={styles.title}>Processing payment...</Text>
-        <Text style={styles.subtitle}>{"Please don't remove the card."}</Text>
-      </View>
+            {/* Rotating Two-Tone Ring (Dark Navy with Gold Active Arc) */}
+            <Animated.View
+              style={[
+                styles.rotatingRing,
+                {
+                  transform: [{ rotate: spin }],
+                },
+              ]}
+            >
+              <Svg width={RING_SIZE} height={RING_SIZE} viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}>
+                {/* Dark Navy Base Ring (~65% arc visible) */}
+                <Circle
+                  cx={RING_SIZE / 2}
+                  cy={RING_SIZE / 2}
+                  r={RADIUS}
+                  stroke="#1E293B"
+                  strokeWidth={STROKE_WIDTH}
+                  fill="none"
+                />
+                {/* Vibrant Gold Active Progress Segment (~35% of circle) */}
+                <Circle
+                  cx={RING_SIZE / 2}
+                  cy={RING_SIZE / 2}
+                  r={RADIUS}
+                  stroke="#F59E0B"
+                  strokeWidth={STROKE_WIDTH}
+                  strokeDasharray={`${CIRCUMFERENCE * 0.35} ${CIRCUMFERENCE * 0.65}`}
+                  strokeDashoffset={CIRCUMFERENCE * 0.1}
+                  strokeLinecap="round"
+                  fill="none"
+                />
+              </Svg>
+            </Animated.View>
+
+            {/* Centered SE PAY Unicorn Mascot Emblem */}
+            <View style={styles.unicornWrap}>
+              <Image
+                source={require('../../../assets/se_pay_unicorn.png')}
+                style={styles.unicornImage}
+                resizeMode="contain"
+              />
+            </View>
+          </View>
+
+          {/* ── Status Text ── */}
+          <Text style={styles.title}>{statusMessage || 'Processing payment...'}</Text>
+          <Text style={styles.subtitle}>{"Please don't remove or move the card."}</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -225,5 +360,44 @@ const styles = StyleSheet.create({
     color: '#64748B',
     textAlign: 'center',
     fontWeight: '500',
+  },
+  errorIconWrap: {
+    marginBottom: 16,
+  },
+  errorSubtitle: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    fontWeight: '500',
+    marginBottom: 28,
+    paddingHorizontal: 20,
+    lineHeight: 20,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  retryBtn: {
+    backgroundColor: '#0F172A',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+  },
+  retryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  cancelBtn: {
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+  },
+  cancelBtnText: {
+    color: '#475569',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -22,15 +22,33 @@ export default function PaymentSuccessScreen() {
     method?: string;
     paymentId?: string;
     cardLast4?: string;
+    cardBrand?: string;
+    timestamp?: string;
     pickup?: string;
     dropoff?: string;
   }>();
 
-  const rawAmount = params.amount || '104.00';
+  const rawAmount = params.amount || '0.00';
   const numericAmount = parseFloat(rawAmount) || 0;
   const isTap = params.method === 'tap' || !params.method;
-  const cardLast4 = params.cardLast4 || '4242';
-  const paymentId = params.paymentId || 'pi_3N5x...8F2d';
+  const cardBrand = params.cardBrand || (isTap ? 'Contactless' : 'Card');
+  const cardLast4 = params.cardLast4 || '••••';
+  const paymentId = params.paymentId || '--';
+
+  // Dynamic formatted timestamp: e.g. "30 Oct 2026, 03:45 PM"
+  const formattedDate = useMemo(() => {
+    const d = params.timestamp ? new Date(params.timestamp) : new Date();
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = months[d.getMonth()];
+    const year = d.getFullYear();
+    let hours = d.getHours();
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+    const hoursStr = String(hours).padStart(2, '0');
+    return `${day} ${month} ${year}, ${hoursStr}:${minutes} ${ampm}`;
+  }, [params.timestamp]);
 
   // Format amount with commas: 104.00 or 1,250
   const formattedAmount =
@@ -43,7 +61,7 @@ export default function PaymentSuccessScreen() {
       ? `${numericAmount}.00`
       : numericAmount.toFixed(2);
 
-  const businessName = user?.businessName || 'Elite Taxi Service';
+  const businessName = user?.businessName || user?.name || '--';
 
   const handleViewReceipt = () => {
     router.push({
@@ -53,8 +71,10 @@ export default function PaymentSuccessScreen() {
         method: isTap ? 'tap' : 'card',
         paymentId,
         cardLast4,
-        pickup: params.pickup || 'Hospital',
-        dropoff: params.dropoff || 'Home',
+        cardBrand,
+        dateStr: formattedDate,
+        pickup: params.pickup || '',
+        dropoff: params.dropoff || '',
       },
     });
   };
@@ -96,7 +116,7 @@ export default function PaymentSuccessScreen() {
         </View>
 
         {/* ── Timestamp ── */}
-        <Text style={styles.timestamp}>21 Sep 2026, 09:41 AM</Text>
+        <Text style={styles.timestamp}>{formattedDate}</Text>
 
         {/* ── Method Pill Badge ── */}
         <View style={styles.methodBadgeWrap}>
@@ -118,7 +138,7 @@ export default function PaymentSuccessScreen() {
           {/* Row 1: Card info */}
           <View style={styles.cardRow}>
             <Ionicons name="card-outline" size={20} color="#64748B" style={styles.rowIcon} />
-            <Text style={styles.rowText}>Visa •••• {cardLast4}</Text>
+            <Text style={styles.rowText}>{cardBrand} •••• {cardLast4}</Text>
           </View>
 
           <View style={styles.divider} />

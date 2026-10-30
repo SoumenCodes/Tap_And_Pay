@@ -160,7 +160,6 @@ export default function TapToPayEnterAmountScreen() {
           pathname: '/(tabs)/card-entry',
           params: {
             amount: finalAmountFormatted,
-            showFraudWarning: 'true',
           },
         });
       } else if (selectedMethod === 'tap') {
@@ -193,7 +192,6 @@ export default function TapToPayEnterAmountScreen() {
         pathname: '/(tabs)/card-entry',
         params: {
           amount: totalAmountFormatted,
-          showFraudWarning: 'true',
           pickup: pickupLocation,
           dropoff: dropoffLocation,
         },

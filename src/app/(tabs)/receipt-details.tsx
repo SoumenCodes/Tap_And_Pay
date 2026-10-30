@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import { useLocalSearchParams } from 'expo-router';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
+import { captureRef } from 'react-native-view-shot';
 import { useAuth } from '../../context/AuthContext';
 import { useConfirmModal } from '../../context/ConfirmModalContext';
 import HeaderBar from '../../components/common/HeaderBar';
@@ -28,6 +29,7 @@ function TaxiReceiptScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { showAlert } = useConfirmModal();
+  const receiptCardRef = useRef<View>(null);
 
   const params = useLocalSearchParams<{
     amount?: string;
@@ -40,6 +42,8 @@ function TaxiReceiptScreen() {
     dcNumber?: string;
     abn?: string;
     phone?: string;
+    dateStr?: string;
+    timestamp?: string;
   }>();
 
   const rawAmount = params.amount || '0.00';
@@ -54,6 +58,21 @@ function TaxiReceiptScreen() {
   const abn = params.abn || (user as any)?.abn || '--';
   const phone = params.phone || (user as any)?.phone || (user as any)?.mobileNumber || '--';
   const businessName = user?.businessName || user?.name || '--';
+
+  const formattedDate = useMemo(() => {
+    if (params.dateStr) return params.dateStr;
+    const d = params.timestamp ? new Date(params.timestamp) : new Date();
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = months[d.getMonth()];
+    const year = d.getFullYear();
+    let hours = d.getHours();
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+    const hoursStr = String(hours).padStart(2, '0');
+    return `${day} ${month} ${year}, ${hoursStr}:${minutes} ${ampm}`;
+  }, [params.timestamp, params.dateStr]);
 
   // Amount formatting: integer and decimal parts
   const formattedWithComma =
@@ -290,7 +309,11 @@ function TaxiReceiptScreen() {
 <body>
   <div class="receipt-card">
     <div class="logo-badge">
-      <img src="${taxiLogoUri}" alt="Taxi" />
+      ${
+        taxiLogoUri
+          ? `<img src="${taxiLogoUri}" alt="Taxi" />`
+          : `<div style="font-size: 26px; line-height: 52px; text-align: center;">🚕</div>`
+      }
     </div>
     <div class="biz-name">${businessName}</div>
     <div class="biz-meta">ABN: ${abn} • PH: ${phone}</div>
@@ -322,7 +345,7 @@ function TaxiReceiptScreen() {
       <div class="meta-row">
         <div>
           <div class="meta-label">Date & Time</div>
-          <div class="meta-value">21 Sep 2026, 09:41 AM</div>
+          <div class="meta-value">${formattedDate}</div>
         </div>
         <div class="pill-card">${isTap ? '⚡ Tap & Go' : '💳 Card'}</div>
       </div>
@@ -346,7 +369,11 @@ function TaxiReceiptScreen() {
     <div class="footer">
       <div class="thank-you">THANK YOU FOR CHOOSING TAXI ${taxiNumber}</div>
       <div class="powered-by">POWERED BY</div>
-      <img class="se-pay-gif-logo" src="${sePayLogoUri}" alt="SE PAY" />
+      ${
+        sePayLogoUri
+          ? `<img class="se-pay-gif-logo" src="${sePayLogoUri}" alt="SE PAY" />`
+          : `<div style="font-weight: 800; font-size: 13px; color: #0F172A; letter-spacing: 1px; margin-top: 4px;">SE PAY</div>`
+      }
     </div>
   </div>
 </body>
@@ -359,39 +386,42 @@ function TaxiReceiptScreen() {
     setIsShareModalVisible(true);
   };
 
-  // 1. Share as Animated Card Photo / HTML image
+  // 1. Share as High-Resolution PNG Image
   const handleSharePhoto = async () => {
     setIsShareModalVisible(false);
     try {
       setIsSharing(true);
 
-      const html = await generateReceiptHtml(true);
-      const sanitize = (name: string) => name.replace(/[^a-zA-Z0-9_-]/g, '_');
-      const filename = `Receipt_Card_${sanitize(businessName)}_${Date.now()}.html`;
-      const targetUri = `${FileSystem.documentDirectory}${filename}`;
+      if (!receiptCardRef.current) {
+        throw new Error('Receipt view is not ready');
+      }
 
-      await FileSystem.writeAsStringAsync(targetUri, html, {
-        encoding: FileSystem.EncodingType.UTF8,
+      // Capture exact rendered card to a real PNG image file
+      const imageUri = await captureRef(receiptCardRef, {
+        format: 'png',
+        quality: 1.0,
+        result: 'tmpfile',
       });
 
       const isAvailable = await Sharing.isAvailableAsync();
       if (isAvailable) {
-        await Sharing.shareAsync(targetUri, {
-          mimeType: 'text/html',
-          dialogTitle: `Share Receipt Card Photo - ${businessName}`,
-          UTI: 'public.html',
+        await Sharing.shareAsync(imageUri, {
+          mimeType: 'image/png',
+          dialogTitle: `Share Receipt Image - ${businessName}`,
+          UTI: 'public.png',
         });
       } else {
         await Share.share({
-          title: `Receipt Card - ${businessName}`,
-          message: `Digital Receipt Card: ${businessName}\nTaxi: ${taxiNumber}\nRoute: ${pickup} to ${dropoff}\nAmount: $${formattedWithComma}.${decimalPart} AUD\nDate: 21 Sep 2026, 09:41 AM\nPayment ID: ${paymentId}`,
+          title: `Receipt Image - ${businessName}`,
+          message: `Digital Receipt: ${businessName}\nTaxi: ${taxiNumber}\nRoute: ${pickup} to ${dropoff}\nAmount: $${formattedWithComma}.${decimalPart} AUD\nDate: ${formattedDate}\nPayment ID: ${paymentId}`,
+          url: imageUri,
         });
       }
     } catch (error) {
-      console.error('Error sharing receipt photo:', error);
+      console.error('Error sharing receipt image:', error);
       showAlert({
         title: 'Share Receipt',
-        message: 'Could not open share menu. Please try again.',
+        message: 'Could not generate receipt image. Please try sharing as PDF.',
         type: 'danger',
       });
     } finally {
@@ -410,13 +440,20 @@ function TaxiReceiptScreen() {
 
       const sanitize = (name: string) => name.replace(/[^a-zA-Z0-9_-]/g, '_');
       const filename = `Receipt_${sanitize(businessName)}_${Date.now()}.pdf`;
-      const targetUri = `${FileSystem.documentDirectory}${filename}`;
+      const targetUri = `${FileSystem.cacheDirectory || FileSystem.documentDirectory}${filename}`;
 
-      await FileSystem.copyAsync({ from: uri, to: targetUri });
+      let shareUri = uri;
+      try {
+        await FileSystem.copyAsync({ from: uri, to: targetUri });
+        shareUri = targetUri;
+      } catch (copyErr) {
+        console.warn('Could not copy PDF with custom name, using original uri:', copyErr);
+        shareUri = uri;
+      }
 
       const isAvailable = await Sharing.isAvailableAsync();
       if (isAvailable) {
-        await Sharing.shareAsync(targetUri, {
+        await Sharing.shareAsync(shareUri, {
           mimeType: 'application/pdf',
           dialogTitle: `Share Receipt PDF - ${businessName}`,
           UTI: '.pdf',
@@ -424,7 +461,8 @@ function TaxiReceiptScreen() {
       } else {
         await Share.share({
           title: `Receipt - ${businessName}`,
-          message: `Taxi Receipt: ${businessName}\nTaxi: ${taxiNumber}\nRoute: ${pickup} to ${dropoff}\nAmount: $${formattedWithComma}.${decimalPart} AUD\nDate: 21 Sep 2026, 09:41 AM\nPayment ID: ${paymentId}`,
+          message: `Taxi Receipt: ${businessName}\nTaxi: ${taxiNumber}\nRoute: ${pickup} to ${dropoff}\nAmount: $${formattedWithComma}.${decimalPart} AUD\nDate: ${formattedDate}\nPayment ID: ${paymentId}`,
+          url: shareUri,
         });
       }
     } catch (error) {
@@ -499,7 +537,11 @@ function TaxiReceiptScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* ── Main Receipt Card (Exact Image Match) ── */}
-          <View style={styles.receiptCard}>
+          <View
+            ref={receiptCardRef}
+            collapsable={false}
+            style={styles.receiptCard}
+          >
             {/* Top Avatar Logo Box */}
             <View style={styles.badgeWrap}>
               <View style={styles.logoBox}>
@@ -682,7 +724,7 @@ function TaxiReceiptScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {/* Option 1: Card Photo with Animated Logo */}
+                {/* Option 1: Card Photo as PNG Image */}
                 <TouchableOpacity
                   style={styles.modalOptionCard}
                   activeOpacity={0.75}
@@ -693,13 +735,13 @@ function TaxiReceiptScreen() {
                   </View>
                   <View style={styles.modalOptionTextWrap}>
                     <View style={styles.modalOptionTitleRow}>
-                      <Text style={styles.modalOptionTitle}>Share as Card Photo</Text>
+                      <Text style={styles.modalOptionTitle}>Share as Image (PNG)</Text>
                       <View style={styles.gifBadge}>
-                        <Text style={styles.gifBadgeText}>GIF LOGO</Text>
+                        <Text style={styles.gifBadgeText}>PNG</Text>
                       </View>
                     </View>
                     <Text style={styles.modalOptionDesc}>
-                      Card-sized receipt featuring your SE PAY animated GIF logo
+                      High-resolution PNG image of your receipt card for WhatsApp, Messages or Email
                     </Text>
                   </View>
                   <Feather name="chevron-right" size={18} color="#94A3B8" />
@@ -722,7 +764,7 @@ function TaxiReceiptScreen() {
                       </View>
                     </View>
                     <Text style={styles.modalOptionDesc}>
-                      Formal A4 printable digital PDF document with full breakdown
+                      Formal printable digital PDF document with full breakdown
                     </Text>
                   </View>
                   <Feather name="chevron-right" size={18} color="#94A3B8" />

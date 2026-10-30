@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import { useLocalSearchParams } from 'expo-router';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
+import { captureRef } from 'react-native-view-shot';
 import { useAuth } from '../../../context/AuthContext';
 import { useConfirmModal } from '../../../context/ConfirmModalContext';
 import HeaderBar from '../../common/HeaderBar';
@@ -27,6 +28,7 @@ export default function OtherBusinessReceiptScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { showAlert } = useConfirmModal();
+  const receiptCardRef = useRef<View>(null);
   const params = useLocalSearchParams<{
     amount?: string;
     method?: string;
@@ -274,7 +276,11 @@ export default function OtherBusinessReceiptScreen() {
 <body>
   <div class="receipt-card">
     <div class="logo-badge">
-      <img src="${crownCutsBadgeUri}" alt="Badge" />
+      ${
+        crownCutsBadgeUri
+          ? `<img src="${crownCutsBadgeUri}" alt="Badge" />`
+          : `<div style="font-size: 26px; line-height: 52px; text-align: center;">👑</div>`
+      }
     </div>
     <div class="biz-name">${businessName}</div>
     <div class="biz-meta">ABN: ${abn} • PH: ${phone}</div>
@@ -317,7 +323,11 @@ export default function OtherBusinessReceiptScreen() {
     <div class="footer">
       <div class="thank-you">THANK YOU FOR CHOOSING ${businessName.toUpperCase()}</div>
       <div class="powered-by">POWERED BY</div>
-      <img class="se-pay-gif-logo" src="${sePayLogoUri}" alt="SE PAY" />
+      ${
+        sePayLogoUri
+          ? `<img class="se-pay-gif-logo" src="${sePayLogoUri}" alt="SE PAY" />`
+          : `<div style="font-weight: 800; font-size: 13px; color: #0F172A; letter-spacing: 1px; margin-top: 4px;">SE PAY</div>`
+      }
     </div>
   </div>
 </body>
@@ -330,39 +340,42 @@ export default function OtherBusinessReceiptScreen() {
     setIsShareModalVisible(true);
   };
 
-  // 1. Share as Animated Card Photo / HTML image
+  // 1. Share as High-Resolution PNG Image
   const handleSharePhoto = async () => {
     setIsShareModalVisible(false);
     try {
       setIsSharing(true);
 
-      const html = await generateReceiptHtml(true);
-      const sanitize = (name: string) => name.replace(/[^a-zA-Z0-9_-]/g, '_');
-      const filename = `Receipt_Card_${sanitize(businessName)}_${Date.now()}.html`;
-      const targetUri = `${FileSystem.documentDirectory}${filename}`;
+      if (!receiptCardRef.current) {
+        throw new Error('Receipt view is not ready');
+      }
 
-      await FileSystem.writeAsStringAsync(targetUri, html, {
-        encoding: FileSystem.EncodingType.UTF8,
+      // Capture exact rendered card to a real PNG image file
+      const imageUri = await captureRef(receiptCardRef, {
+        format: 'png',
+        quality: 1.0,
+        result: 'tmpfile',
       });
 
       const isAvailable = await Sharing.isAvailableAsync();
       if (isAvailable) {
-        await Sharing.shareAsync(targetUri, {
-          mimeType: 'text/html',
-          dialogTitle: `Share Receipt Card Photo - ${businessName}`,
-          UTI: 'public.html',
+        await Sharing.shareAsync(imageUri, {
+          mimeType: 'image/png',
+          dialogTitle: `Share Receipt Image - ${businessName}`,
+          UTI: 'public.png',
         });
       } else {
         await Share.share({
-          title: `Receipt Card - ${businessName}`,
-          message: `Digital Receipt Card: ${businessName}\nAmount: $${formattedWithComma}.${decimalPart} AUD\nDate: ${dateStr}\nPayment ID: ${paymentId}`,
+          title: `Receipt Image - ${businessName}`,
+          message: `Digital Receipt: ${businessName}\nAmount: $${formattedWithComma}.${decimalPart} AUD\nDate: ${dateStr}\nPayment ID: ${paymentId}`,
+          url: imageUri,
         });
       }
     } catch (error) {
-      console.error('Error sharing receipt photo:', error);
+      console.error('Error sharing receipt image:', error);
       showAlert({
         title: 'Share Receipt',
-        message: 'Could not open share menu. Please try again.',
+        message: 'Could not generate receipt image. Please try sharing as PDF.',
         type: 'danger',
       });
     } finally {
@@ -381,13 +394,20 @@ export default function OtherBusinessReceiptScreen() {
 
       const sanitize = (name: string) => name.replace(/[^a-zA-Z0-9_-]/g, '_');
       const filename = `Receipt_${sanitize(businessName)}_${Date.now()}.pdf`;
-      const targetUri = `${FileSystem.documentDirectory}${filename}`;
+      const targetUri = `${FileSystem.cacheDirectory || FileSystem.documentDirectory}${filename}`;
 
-      await FileSystem.copyAsync({ from: uri, to: targetUri });
+      let shareUri = uri;
+      try {
+        await FileSystem.copyAsync({ from: uri, to: targetUri });
+        shareUri = targetUri;
+      } catch (copyErr) {
+        console.warn('Could not copy PDF with custom name, using original uri:', copyErr);
+        shareUri = uri;
+      }
 
       const isAvailable = await Sharing.isAvailableAsync();
       if (isAvailable) {
-        await Sharing.shareAsync(targetUri, {
+        await Sharing.shareAsync(shareUri, {
           mimeType: 'application/pdf',
           dialogTitle: `Share Receipt PDF - ${businessName}`,
           UTI: '.pdf',
@@ -396,6 +416,7 @@ export default function OtherBusinessReceiptScreen() {
         await Share.share({
           title: `Receipt - ${businessName}`,
           message: `Digital Receipt: ${businessName}\nAmount: $${formattedWithComma}.${decimalPart} AUD\nDate: ${dateStr}\nPayment ID: ${paymentId}`,
+          url: shareUri,
         });
       }
     } catch (error) {
@@ -470,7 +491,11 @@ export default function OtherBusinessReceiptScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* ── Main Receipt Card (Exact Match with Uploaded Image) ── */}
-          <View style={styles.receiptCard}>
+          <View
+            ref={receiptCardRef}
+            collapsable={false}
+            style={styles.receiptCard}
+          >
             {/* Top Avatar Logo Box */}
             <View style={styles.logoBadgeContainer}>
               <View style={styles.logoBox}>
@@ -644,7 +669,7 @@ export default function OtherBusinessReceiptScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {/* Option 1: Card Photo with Animated Logo */}
+                {/* Option 1: Card Photo as PNG Image */}
                 <TouchableOpacity
                   style={styles.modalOptionCard}
                   activeOpacity={0.75}
@@ -655,13 +680,13 @@ export default function OtherBusinessReceiptScreen() {
                   </View>
                   <View style={styles.modalOptionTextWrap}>
                     <View style={styles.modalOptionTitleRow}>
-                      <Text style={styles.modalOptionTitle}>Share as Card Photo</Text>
+                      <Text style={styles.modalOptionTitle}>Share as Image (PNG)</Text>
                       <View style={styles.gifBadge}>
-                        <Text style={styles.gifBadgeText}>GIF LOGO</Text>
+                        <Text style={styles.gifBadgeText}>PNG</Text>
                       </View>
                     </View>
                     <Text style={styles.modalOptionDesc}>
-                      Card-sized receipt featuring your SE PAY animated GIF logo
+                      High-resolution PNG image of your receipt card for WhatsApp, Messages or Email
                     </Text>
                   </View>
                   <Feather name="chevron-right" size={18} color="#94A3B8" />
@@ -684,7 +709,7 @@ export default function OtherBusinessReceiptScreen() {
                       </View>
                     </View>
                     <Text style={styles.modalOptionDesc}>
-                      Formal A4 printable digital PDF document with full breakdown
+                      Printable digital PDF document with full transaction breakdown
                     </Text>
                   </View>
                   <Feather name="chevron-right" size={18} color="#94A3B8" />

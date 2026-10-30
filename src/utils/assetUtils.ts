@@ -13,13 +13,19 @@ export async function getAssetDataUri(assetModule: number, mimeType: string): Pr
     if (!asset.localUri) {
       await asset.downloadAsync();
     }
-    const uri = asset.localUri || asset.uri;
-    const base64 = await FileSystem.readAsStringAsync(uri, {
+    let localPath = asset.localUri;
+    if (!localPath && asset.uri && !asset.uri.startsWith('http')) {
+      localPath = asset.uri;
+    }
+    if (!localPath) {
+      return '';
+    }
+    const base64 = await FileSystem.readAsStringAsync(localPath, {
       encoding: FileSystem.EncodingType.Base64,
     });
     return `data:${mimeType};base64,${base64}`;
   } catch (error) {
-    console.error('Failed to resolve asset base64 URI:', error);
+    console.warn('Failed to resolve asset base64 URI:', error);
     return '';
   }
 }

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,12 @@ import { useAuth } from '../../../context/AuthContext';
 import { useConfirmModal } from '../../../context/ConfirmModalContext';
 import HeaderBar from '../../common/HeaderBar';
 import { getAssetDataUri } from '../../../utils/assetUtils';
+import { dashboardService } from '../../../services/dashboardService';
+
+function getExportFilename(prefix: string, bizName: string, ext: string): string {
+  const sanitize = (name: string) => name.replace(/[^a-zA-Z0-9_-]/g, '_');
+  return `${prefix}_${sanitize(bizName)}_${Date.now()}.${ext}`;
+}
 
 export default function OtherBusinessReceiptScreen() {
   const insets = useSafeAreaInsets();
@@ -34,6 +40,7 @@ export default function OtherBusinessReceiptScreen() {
     method?: string;
     paymentId?: string;
     cardLast4?: string;
+    cardBrand?: string;
     dateStr?: string;
     abn?: string;
     phone?: string;
@@ -41,9 +48,15 @@ export default function OtherBusinessReceiptScreen() {
 
   const rawAmount = params.amount || '0.00';
   const numericAmount = parseFloat(rawAmount) || 0;
-  const isTap = params.method === 'tap' || !params.method;
-  const cardLast4 = params.cardLast4 || '••••';
-  const paymentId = params.paymentId || '--';
+  const method = (params.method || 'tap').toLowerCase();
+  const isCash = method === 'cash';
+  const isTap = method === 'tap';
+
+  const cardBrand = isCash
+    ? 'Cash'
+    : (params.cardBrand || (isTap ? 'Contactless' : 'Visa')).trim();
+  const cardLast4 = isCash ? '' : (params.cardLast4 || '••••');
+  const paymentId = params.paymentId || (isCash ? 'CASH-PAYMENT' : '--');
   const dateStr = params.dateStr || '--';
 
   const businessName = user?.businessName || user?.name || '--';
@@ -51,6 +64,12 @@ export default function OtherBusinessReceiptScreen() {
   const phone = params.phone || user?.phone || (user as any)?.phone || (user as any)?.mobileNumber || '--';
   const address = user?.businessAddress || '--';
   const empId = user?.empId || '--';
+
+  useEffect(() => {
+    if (!user?.abn || !user?.phone) {
+      dashboardService.getDashboard().catch(() => {});
+    }
+  }, [user?.abn, user?.phone]);
 
   // Amount formatting: integer and decimal parts
   const formattedWithComma =
@@ -243,6 +262,15 @@ export default function OtherBusinessReceiptScreen() {
       padding: 5px 14px;
       border-radius: 8px;
     }
+    .pill-cash-tag {
+      background: #ECFDF5;
+      border: 1px solid #A7F3D0;
+      color: #059669;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 5px 14px;
+      border-radius: 8px;
+    }
     .pill-visa {
       background: #EFF6FF;
       border: 1px solid #DBEAFE;
@@ -252,6 +280,25 @@ export default function OtherBusinessReceiptScreen() {
       font-weight: 800;
       padding: 4px 12px;
       border-radius: 6px;
+    }
+    .pill-mastercard {
+      background: #FFF1F2;
+      border: 1px solid #FECDD3;
+      color: #E11D48;
+      font-size: 13px;
+      font-weight: 800;
+      padding: 4px 12px;
+      border-radius: 6px;
+    }
+    .pill-cash {
+      background: #ECFDF5;
+      border: 1px solid #A7F3D0;
+      color: #059669;
+      font-size: 14px;
+      font-weight: 800;
+      padding: 4px 12px;
+      border-radius: 6px;
+      letter-spacing: 0.5px;
     }
     .footer {
       margin-top: 36px;
@@ -310,20 +357,26 @@ export default function OtherBusinessReceiptScreen() {
           <div class="meta-label">Date & Time</div>
           <div class="meta-value">${dateStr}</div>
         </div>
-        <div class="pill-card">${isTap ? '✦ Tap & Go' : '💳 Card'}</div>
+        <div class="${isCash ? 'pill-cash-tag' : 'pill-card'}">
+          ${isCash ? '💵 Cash' : isTap ? '✦ Tap & Go' : '💳 Card'}
+        </div>
       </div>
 
       <div class="meta-row">
         <div>
           <div class="meta-label">Payment Method</div>
-          <div class="meta-value">Visa •••• ${cardLast4}</div>
+          <div class="meta-value">
+            ${isCash ? 'Cash Payment' : `${cardBrand} •••• ${cardLast4}`}
+          </div>
         </div>
-        <div class="pill-visa">VISA</div>
+        <div class="${isCash ? 'pill-cash' : cardBrand.toUpperCase() === 'MASTERCARD' ? 'pill-mastercard' : 'pill-visa'}">
+          ${isCash ? 'CASH' : (cardBrand.toUpperCase() || 'VISA')}
+        </div>
       </div>
 
       <div class="meta-row">
         <div>
-          <div class="meta-label">Payment ID</div>
+          <div class="meta-label">${isCash ? 'Receipt ID' : 'Payment ID'}</div>
           <div class="meta-value">${paymentId}</div>
         </div>
       </div>
@@ -366,8 +419,7 @@ export default function OtherBusinessReceiptScreen() {
         result: 'base64',
       });
 
-      const sanitize = (name: string) => name.replace(/[^a-zA-Z0-9_-]/g, '_');
-      const filename = `Receipt_Card_${sanitize(businessName)}_${Date.now()}.png`;
+      const filename = getExportFilename('Receipt_Card', businessName, 'png');
       const targetUri = `${FileSystem.documentDirectory}${filename}`;
 
       await FileSystem.writeAsStringAsync(targetUri, base64Image, {
@@ -384,7 +436,7 @@ export default function OtherBusinessReceiptScreen() {
       } else {
         await Share.share({
           title: `Receipt Image - ${businessName}`,
-          message: `Digital Receipt: ${businessName}\nAmount: $${formattedWithComma}.${decimalPart} AUD\nDate: ${dateStr}\nPayment ID: ${paymentId}`,
+          message: `Digital Receipt: ${businessName}\nAmount: $${formattedWithComma}.${decimalPart} AUD\nMethod: ${isCash ? 'Cash' : isTap ? 'Tap & Go' : 'Card'}\nDate: ${dateStr}\n${isCash ? 'Receipt ID' : 'Payment ID'}: ${paymentId}`,
           url: targetUri,
         });
       }
@@ -413,8 +465,7 @@ export default function OtherBusinessReceiptScreen() {
         base64: true,
       });
 
-      const sanitize = (name: string) => name.replace(/[^a-zA-Z0-9_-]/g, '_');
-      const filename = `Receipt_${sanitize(businessName)}_${Date.now()}.pdf`;
+      const filename = getExportFilename('Receipt', businessName, 'pdf');
       const targetUri = `${FileSystem.documentDirectory}${filename}`;
 
       if (base64) {
@@ -435,7 +486,7 @@ export default function OtherBusinessReceiptScreen() {
       } else {
         await Share.share({
           title: `Receipt - ${businessName}`,
-          message: `Digital Receipt: ${businessName}\nAmount: $${formattedWithComma}.${decimalPart} AUD\nDate: ${dateStr}\nPayment ID: ${paymentId}`,
+          message: `Digital Receipt: ${businessName}\nAmount: $${formattedWithComma}.${decimalPart} AUD\nMethod: ${isCash ? 'Cash' : isTap ? 'Tap & Go' : 'Card'}\nDate: ${dateStr}\n${isCash ? 'Receipt ID' : 'Payment ID'}: ${paymentId}`,
           url: targetUri,
         });
       }
@@ -564,15 +615,15 @@ export default function OtherBusinessReceiptScreen() {
                   <Text style={styles.metaLabel}>Date & Time</Text>
                   <Text style={styles.metaValue}>{dateStr}</Text>
                 </View>
-                <View style={styles.methodCapsule}>
+                <View style={[styles.methodCapsule, isCash && styles.cashMethodCapsule]}>
                   <Ionicons
-                    name="sparkles"
+                    name={isCash ? 'cash-outline' : isTap ? 'sparkles' : 'card'}
                     size={11}
-                    color="#B45309"
+                    color={isCash ? '#059669' : '#B45309'}
                     style={{ marginRight: 4 }}
                   />
-                  <Text style={styles.methodCapsuleText}>
-                    {isTap ? 'Tap & Go' : 'Card'}
+                  <Text style={[styles.methodCapsuleText, isCash && styles.cashMethodCapsuleText]}>
+                    {isCash ? 'Cash' : isTap ? 'Tap & Go' : 'Card'}
                   </Text>
                 </View>
               </View>
@@ -581,17 +632,33 @@ export default function OtherBusinessReceiptScreen() {
               <View style={styles.metaRow}>
                 <View>
                   <Text style={styles.metaLabel}>Payment Method</Text>
-                  <Text style={styles.metaValue}>Visa •••• {cardLast4}</Text>
+                  <Text style={styles.metaValue}>
+                    {isCash ? 'Cash Payment' : `${cardBrand} •••• ${cardLast4}`}
+                  </Text>
                 </View>
-                <View style={styles.visaPill}>
-                  <Text style={styles.visaPillText}>VISA</Text>
-                </View>
+                {isCash ? (
+                  <View style={styles.cashPill}>
+                    <Text style={styles.cashPillText}>CASH</Text>
+                  </View>
+                ) : isTap && cardBrand === 'Contactless' ? (
+                  <View style={styles.tapPill}>
+                    <Text style={styles.tapPillText}>TAP & GO</Text>
+                  </View>
+                ) : cardBrand.toUpperCase() === 'MASTERCARD' ? (
+                  <View style={styles.mastercardPill}>
+                    <Text style={styles.mastercardPillText}>MASTERCARD</Text>
+                  </View>
+                ) : (
+                  <View style={styles.visaPill}>
+                    <Text style={styles.visaPillText}>{cardBrand.toUpperCase() || 'VISA'}</Text>
+                  </View>
+                )}
               </View>
 
               {/* Row 3: Payment ID */}
               <View style={styles.metaRow}>
                 <View>
-                  <Text style={styles.metaLabel}>Payment ID</Text>
+                  <Text style={styles.metaLabel}>{isCash ? 'Receipt ID' : 'Payment ID'}</Text>
                   <Text style={styles.metaValue}>{paymentId}</Text>
                 </View>
                 <TouchableOpacity
@@ -939,6 +1006,54 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     fontWeight: '700',
     color: '#B45309',
+  },
+  cashMethodCapsule: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
+  cashMethodCapsuleText: {
+    color: '#059669',
+  },
+  cashPill: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    borderRadius: 4,
+  },
+  cashPillText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#059669',
+    letterSpacing: 0.5,
+  },
+  tapPill: {
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FEF08A',
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    borderRadius: 4,
+  },
+  tapPillText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#B45309',
+    letterSpacing: 0.5,
+  },
+  mastercardPill: {
+    backgroundColor: '#FFF1F2',
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    borderRadius: 4,
+  },
+  mastercardPillText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#E11D48',
   },
   visaPill: {
     backgroundColor: '#EFF6FF',

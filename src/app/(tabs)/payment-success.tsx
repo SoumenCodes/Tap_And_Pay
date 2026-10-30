@@ -30,10 +30,15 @@ export default function PaymentSuccessScreen() {
 
   const rawAmount = params.amount || '0.00';
   const numericAmount = parseFloat(rawAmount) || 0;
-  const isTap = params.method === 'tap' || !params.method;
-  const cardBrand = params.cardBrand || (isTap ? 'Contactless' : 'Card');
-  const cardLast4 = params.cardLast4 || '••••';
-  const paymentId = params.paymentId || '--';
+  const method = (params.method || 'tap').toLowerCase();
+  const isCash = method === 'cash';
+  const isTap = method === 'tap';
+
+  const cardBrand = isCash
+    ? 'Cash'
+    : params.cardBrand || (isTap ? 'Contactless' : 'Card');
+  const cardLast4 = isCash ? '' : params.cardLast4 || '••••';
+  const paymentId = params.paymentId || (isCash ? 'CASH-PAYMENT' : '--');
 
   // Dynamic formatted timestamp: e.g. "30 Oct 2026, 03:45 PM"
   const formattedDate = useMemo(() => {
@@ -68,7 +73,7 @@ export default function PaymentSuccessScreen() {
       pathname: '/(tabs)/receipt-details',
       params: {
         amount: rawAmount,
-        method: isTap ? 'tap' : 'card',
+        method: isCash ? 'cash' : isTap ? 'tap' : 'card',
         paymentId,
         cardLast4,
         cardBrand,
@@ -122,25 +127,32 @@ export default function PaymentSuccessScreen() {
 
         {/* ── Method Pill Badge ── */}
         <View style={styles.methodBadgeWrap}>
-          <View style={styles.methodBadge}>
+          <View style={[styles.methodBadge, isCash && styles.methodBadgeCash]}>
             <Ionicons
-              name={isTap ? 'flash' : 'card'}
+              name={isCash ? 'cash-outline' : isTap ? 'flash' : 'card'}
               size={12}
-              color="#D97706"
+              color={isCash ? '#059669' : '#D97706'}
               style={{ marginRight: 4 }}
             />
-            <Text style={styles.methodBadgeText}>
-              {isTap ? 'Tap & Go' : 'Card Payment'}
+            <Text style={[styles.methodBadgeText, isCash && styles.methodBadgeTextCash]}>
+              {isCash ? 'Cash Payment' : isTap ? 'Tap & Go' : 'Card Payment'}
             </Text>
           </View>
         </View>
 
         {/* ── Summary Details Card (100% Figma Match) ── */}
         <View style={styles.cardContainer}>
-          {/* Row 1: Card info */}
+          {/* Row 1: Card info or Cash Payment */}
           <View style={styles.cardRow}>
-            <Ionicons name="card-outline" size={20} color="#64748B" style={styles.rowIcon} />
-            <Text style={styles.rowText}>{cardBrand} •••• {cardLast4}</Text>
+            <Ionicons
+              name={isCash ? 'cash-outline' : 'card-outline'}
+              size={20}
+              color="#64748B"
+              style={styles.rowIcon}
+            />
+            <Text style={styles.rowText}>
+              {isCash ? 'Cash Payment' : `${cardBrand} •••• ${cardLast4}`}
+            </Text>
           </View>
 
           <View style={styles.divider} />
@@ -158,7 +170,7 @@ export default function PaymentSuccessScreen() {
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
               <Ionicons name="document-text-outline" size={20} color="#64748B" style={styles.rowIcon} />
               <View>
-                <Text style={styles.idLabel}>Payment ID</Text>
+                <Text style={styles.idLabel}>{isCash ? 'Receipt ID' : 'Payment ID'}</Text>
                 <Text style={styles.rowText}>{paymentId}</Text>
               </View>
             </View>
@@ -269,6 +281,13 @@ const styles = StyleSheet.create({
     color: '#B45309',
     fontSize: 10,
     fontWeight: '700',
+  },
+  methodBadgeCash: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
+  methodBadgeTextCash: {
+    color: '#059669',
   },
   cardContainer: {
     width: '100%',

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { authService } from '../services/authService';
 import { tokenStorage } from '../services/tokenStorage';
-import { onDashboardHeaderSync } from '../services/dashboardService';
+import { onDashboardHeaderSync, dashboardService } from '../services/dashboardService';
 
 export type LoginType =
   | 'taxi_owner'
@@ -168,6 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(storedUser);
           setIsAuthenticated(true);
           console.log('🔐 [AuthContext] Restored encrypted user session:', storedUser.name);
+          dashboardService.getDashboard().catch(() => {});
         }
       } catch (err) {
         console.warn('⚠️ [AuthContext] Could not restore session from storage:', err);
@@ -199,6 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(liveUser);
       setIsAuthenticated(true);
       await tokenStorage.saveUser(liveUser);
+      dashboardService.getDashboard().catch(() => {});
       return { success: true };
     } catch (apiErr: any) {
       console.log('Live login attempt failed:', apiErr.message || apiErr);

@@ -124,7 +124,7 @@ export default function OtherBusinessShiftDetailsScreen({
           <div class="amount-box">
             <div class="status">● PAID / SETTLED</div>
             <div class="amount">$${txn.amount.toFixed(2)} AUD</div>
-            <div style="font-size: 12px; color: #64748B;">${txn.method === 'card' ? 'Chip & PIN Card' : 'Contactless Tap & Go'}</div>
+            <div style="font-size: 12px; color: #64748B;">${(txn.method as string) === 'cash' ? 'Cash Payment' : txn.method === 'card' ? 'Chip & PIN Card' : 'Contactless Tap & Go'}</div>
           </div>
 
           <div class="details">

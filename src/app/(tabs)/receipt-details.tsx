@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,12 @@ import { useConfirmModal } from '../../context/ConfirmModalContext';
 import HeaderBar from '../../components/common/HeaderBar';
 import { OtherBusinessReceiptScreen } from '../../components/other-business';
 import { getAssetDataUri } from '../../utils/assetUtils';
+import { dashboardService } from '../../services/dashboardService';
+
+function getExportFilename(prefix: string, bizName: string, ext: string): string {
+  const sanitize = (name: string) => name.replace(/[^a-zA-Z0-9_-]/g, '_');
+  return `${prefix}_${sanitize(bizName)}_${Date.now()}.${ext}`;
+}
 
 function TaxiReceiptScreen() {
   const insets = useSafeAreaInsets();
@@ -36,6 +42,7 @@ function TaxiReceiptScreen() {
     method?: string;
     paymentId?: string;
     cardLast4?: string;
+    cardBrand?: string;
     pickup?: string;
     dropoff?: string;
     taxiNumber?: string;
@@ -48,9 +55,15 @@ function TaxiReceiptScreen() {
 
   const rawAmount = params.amount || '0.00';
   const numericAmount = parseFloat(rawAmount) || 0;
-  const isTap = params.method === 'tap';
-  const cardLast4 = params.cardLast4 || '••••';
-  const paymentId = params.paymentId || '--';
+  const method = (params.method || 'tap').toLowerCase();
+  const isCash = method === 'cash';
+  const isTap = method === 'tap';
+
+  const cardBrand = isCash
+    ? 'Cash'
+    : (params.cardBrand || (isTap ? 'Contactless' : 'Visa')).trim();
+  const cardLast4 = isCash ? '' : (params.cardLast4 || '••••');
+  const paymentId = params.paymentId || (isCash ? 'CASH-PAYMENT' : '--');
   const pickup = params.pickup || '--';
   const dropoff = params.dropoff || '--';
   const taxiNumber = params.taxiNumber || user?.taxiNumber || '--';
@@ -58,6 +71,12 @@ function TaxiReceiptScreen() {
   const abn = params.abn || user?.abn || (user as any)?.abn || '--';
   const phone = params.phone || user?.phone || (user as any)?.phone || (user as any)?.mobileNumber || '--';
   const businessName = user?.businessName || user?.name || '--';
+
+  useEffect(() => {
+    if (!user?.abn || !user?.phone) {
+      dashboardService.getDashboard().catch(() => {});
+    }
+  }, [user?.abn, user?.phone]);
 
   const formattedDate = useMemo(() => {
     if (params.dateStr) return params.dateStr;
@@ -285,6 +304,15 @@ function TaxiReceiptScreen() {
       padding: 5px 14px;
       border-radius: 8px;
     }
+    .pill-cash-tag {
+      background: #ECFDF5;
+      border: 1px solid #A7F3D0;
+      color: #059669;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 5px 14px;
+      border-radius: 8px;
+    }
     .pill-visa {
       background: #EFF6FF;
       border: 1px solid #BFDBFE;
@@ -294,6 +322,25 @@ function TaxiReceiptScreen() {
       font-weight: 800;
       padding: 4px 12px;
       border-radius: 6px;
+    }
+    .pill-mastercard {
+      background: #FFF1F2;
+      border: 1px solid #FECDD3;
+      color: #E11D48;
+      font-size: 13px;
+      font-weight: 800;
+      padding: 4px 12px;
+      border-radius: 6px;
+    }
+    .pill-cash {
+      background: #ECFDF5;
+      border: 1px solid #A7F3D0;
+      color: #059669;
+      font-size: 14px;
+      font-weight: 800;
+      padding: 4px 12px;
+      border-radius: 6px;
+      letter-spacing: 0.5px;
     }
     .footer {
       margin-top: 36px;
@@ -365,20 +412,26 @@ function TaxiReceiptScreen() {
           <div class="meta-label">Date & Time</div>
           <div class="meta-value">${formattedDate}</div>
         </div>
-        <div class="pill-card">${isTap ? '⚡ Tap & Go' : '💳 Card'}</div>
+        <div class="${isCash ? 'pill-cash-tag' : 'pill-card'}">
+          ${isCash ? '💵 Cash' : isTap ? '⚡ Tap & Go' : '💳 Card'}
+        </div>
       </div>
 
       <div class="meta-row">
         <div>
           <div class="meta-label">Payment Method</div>
-          <div class="meta-value">Visa •••• ${cardLast4}</div>
+          <div class="meta-value">
+            ${isCash ? 'Cash Payment' : `${cardBrand} •••• ${cardLast4}`}
+          </div>
         </div>
-        <div class="pill-visa">VISA</div>
+        <div class="${isCash ? 'pill-cash' : cardBrand.toUpperCase() === 'MASTERCARD' ? 'pill-mastercard' : 'pill-visa'}">
+          ${isCash ? 'CASH' : (cardBrand.toUpperCase() || 'VISA')}
+        </div>
       </div>
 
       <div class="meta-row">
         <div>
-          <div class="meta-label">Payment ID</div>
+          <div class="meta-label">${isCash ? 'Receipt ID' : 'Payment ID'}</div>
           <div class="meta-value">${paymentId}</div>
         </div>
       </div>
@@ -421,8 +474,7 @@ function TaxiReceiptScreen() {
         result: 'base64',
       });
 
-      const sanitize = (name: string) => name.replace(/[^a-zA-Z0-9_-]/g, '_');
-      const filename = `Receipt_Card_${sanitize(businessName)}_${Date.now()}.png`;
+      const filename = getExportFilename('Receipt_Card', businessName, 'png');
       const targetUri = `${FileSystem.documentDirectory}${filename}`;
 
       await FileSystem.writeAsStringAsync(targetUri, base64Image, {
@@ -439,7 +491,7 @@ function TaxiReceiptScreen() {
       } else {
         await Share.share({
           title: `Receipt Image - ${businessName}`,
-          message: `Digital Receipt: ${businessName}\nTaxi: ${taxiNumber}\nRoute: ${pickup} to ${dropoff}\nAmount: $${formattedWithComma}.${decimalPart} AUD\nDate: ${formattedDate}\nPayment ID: ${paymentId}`,
+          message: `Digital Receipt: ${businessName}\nTaxi: ${taxiNumber}\nRoute: ${pickup} to ${dropoff}\nAmount: $${formattedWithComma}.${decimalPart} AUD\nMethod: ${isCash ? 'Cash' : isTap ? 'Tap & Go' : 'Card'}\nDate: ${formattedDate}\n${isCash ? 'Receipt ID' : 'Payment ID'}: ${paymentId}`,
           url: targetUri,
         });
       }
@@ -468,8 +520,7 @@ function TaxiReceiptScreen() {
         base64: true,
       });
 
-      const sanitize = (name: string) => name.replace(/[^a-zA-Z0-9_-]/g, '_');
-      const filename = `Receipt_${sanitize(businessName)}_${Date.now()}.pdf`;
+      const filename = getExportFilename('Receipt', businessName, 'pdf');
       const targetUri = `${FileSystem.documentDirectory}${filename}`;
 
       if (base64) {
@@ -490,7 +541,7 @@ function TaxiReceiptScreen() {
       } else {
         await Share.share({
           title: `Receipt - ${businessName}`,
-          message: `Taxi Receipt: ${businessName}\nTaxi: ${taxiNumber}\nRoute: ${pickup} to ${dropoff}\nAmount: $${formattedWithComma}.${decimalPart} AUD\nDate: ${formattedDate}\nPayment ID: ${paymentId}`,
+          message: `Taxi Receipt: ${businessName}\nTaxi: ${taxiNumber}\nRoute: ${pickup} to ${dropoff}\nAmount: $${formattedWithComma}.${decimalPart} AUD\nMethod: ${isCash ? 'Cash' : isTap ? 'Tap & Go' : 'Card'}\nDate: ${formattedDate}\n${isCash ? 'Receipt ID' : 'Payment ID'}: ${paymentId}`,
           url: targetUri,
         });
       }
@@ -636,16 +687,18 @@ function TaxiReceiptScreen() {
               <View style={styles.metaRow}>
                 <View>
                   <Text style={styles.metaLabel}>Date & Time</Text>
-                  <Text style={styles.metaValue}>21 Sep 2026, 09:41 AM</Text>
+                  <Text style={styles.metaValue}>{formattedDate}</Text>
                 </View>
-                <View style={styles.methodCapsule}>
+                <View style={[styles.methodCapsule, isCash && styles.cashMethodCapsule]}>
                   <Ionicons
-                    name={isTap ? 'flash' : 'card'}
+                    name={isCash ? 'cash-outline' : isTap ? 'flash' : 'card'}
                     size={12}
-                    color="#2563EB"
+                    color={isCash ? '#059669' : '#2563EB'}
                     style={{ marginRight: 4 }}
                   />
-                  <Text style={styles.methodCapsuleText}>{isTap ? 'Tap & Go' : 'Card'}</Text>
+                  <Text style={[styles.methodCapsuleText, isCash && styles.cashMethodCapsuleText]}>
+                    {isCash ? 'Cash' : isTap ? 'Tap & Go' : 'Card'}
+                  </Text>
                 </View>
               </View>
 
@@ -653,17 +706,33 @@ function TaxiReceiptScreen() {
               <View style={styles.metaRow}>
                 <View>
                   <Text style={styles.metaLabel}>Payment Method</Text>
-                  <Text style={styles.metaValue}>Visa •••• {cardLast4}</Text>
+                  <Text style={styles.metaValue}>
+                    {isCash ? 'Cash Payment' : `${cardBrand} •••• ${cardLast4}`}
+                  </Text>
                 </View>
-                <View style={styles.visaPill}>
-                  <Text style={styles.visaPillText}>VISA</Text>
-                </View>
+                {isCash ? (
+                  <View style={styles.cashPill}>
+                    <Text style={styles.cashPillText}>CASH</Text>
+                  </View>
+                ) : isTap && cardBrand === 'Contactless' ? (
+                  <View style={styles.tapPill}>
+                    <Text style={styles.tapPillText}>TAP & GO</Text>
+                  </View>
+                ) : cardBrand.toUpperCase() === 'MASTERCARD' ? (
+                  <View style={styles.mastercardPill}>
+                    <Text style={styles.mastercardPillText}>MASTERCARD</Text>
+                  </View>
+                ) : (
+                  <View style={styles.visaPill}>
+                    <Text style={styles.visaPillText}>{cardBrand.toUpperCase() || 'VISA'}</Text>
+                  </View>
+                )}
               </View>
 
               {/* Row 3: Payment ID */}
               <View style={styles.metaRow}>
                 <View>
-                  <Text style={styles.metaLabel}>Payment ID</Text>
+                  <Text style={styles.metaLabel}>{isCash ? 'Receipt ID' : 'Payment ID'}</Text>
                   <Text style={styles.metaValue}>{paymentId}</Text>
                 </View>
                 <TouchableOpacity
@@ -1004,6 +1073,54 @@ const styles = StyleSheet.create({
     color: '#2563EB',
     fontSize: 9.5,
     fontWeight: '700',
+  },
+  cashMethodCapsule: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
+  cashMethodCapsuleText: {
+    color: '#059669',
+  },
+  cashPill: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+  },
+  cashPillText: {
+    color: '#059669',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  tapPill: {
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FEF08A',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+  },
+  tapPillText: {
+    color: '#B45309',
+    fontSize: 8.5,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  mastercardPill: {
+    backgroundColor: '#FFF1F2',
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+  },
+  mastercardPillText: {
+    color: '#E11D48',
+    fontSize: 9,
+    fontWeight: '800',
   },
   visaPill: {
     backgroundColor: '#EFF6FF',

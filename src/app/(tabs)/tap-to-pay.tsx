@@ -20,6 +20,7 @@ import { Svg, Path, Circle } from 'react-native-svg';
 import { useAuth } from '../../context/AuthContext';
 import HeaderBar from '../../components/common/HeaderBar';
 import { colors } from '../../constants/theme';
+import { addTransaction } from '../../services/transactionStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -170,11 +171,33 @@ export default function TapToPayEnterAmountScreen() {
           },
         });
       } else {
+        const cashPaymentId = `cash_${Date.now()}`;
+        const timestamp = new Date().toISOString();
+        const amt = numericAmount > 0 ? numericAmount : 100.0;
+
+        addTransaction({
+          id: cashPaymentId,
+          amount: amt,
+          currency: '$',
+          status: 'success',
+          paymentMethod: 'Cash',
+          paymentMethodType: 'cash' as any,
+          cardLast4: '----',
+          cardBrand: 'Cash',
+          paymentId: cashPaymentId,
+          storeName: user?.businessName || 'SE PAY',
+          timestamp,
+        });
+
         router.push({
           pathname: '/(tabs)/payment-success',
           params: {
             amount: finalAmountFormatted,
             method: 'cash',
+            paymentId: cashPaymentId,
+            cardBrand: 'Cash',
+            cardLast4: '----',
+            timestamp,
           },
         });
       }
@@ -206,11 +229,35 @@ export default function TapToPayEnterAmountScreen() {
         },
       });
     } else {
+      const cashPaymentId = `cash_${Date.now()}`;
+      const timestamp = new Date().toISOString();
+      const amt = totalAmount;
+
+      addTransaction({
+        id: cashPaymentId,
+        amount: amt,
+        currency: '$',
+        status: 'success',
+        paymentMethod: 'Cash',
+        paymentMethodType: 'cash' as any,
+        cardLast4: '----',
+        cardBrand: 'Cash',
+        paymentId: cashPaymentId,
+        storeName: user?.businessName || 'SE PAY',
+        timestamp,
+      });
+
       router.push({
         pathname: '/(tabs)/payment-success',
         params: {
           amount: totalAmountFormatted,
           method: 'cash',
+          pickup: pickupLocation,
+          dropoff: dropoffLocation,
+          paymentId: cashPaymentId,
+          cardBrand: 'Cash',
+          cardLast4: '----',
+          timestamp,
         },
       });
     }

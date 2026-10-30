@@ -1,5 +1,6 @@
 import { apiClient } from './apiClient';
 import { tokenStorage } from './tokenStorage';
+import { clearStripeCache } from './stripeApi';
 import { LoginType, UserProfile } from '../context/AuthContext';
 
 export interface LoginPayload {
@@ -262,6 +263,7 @@ export const authService = {
       return null;
     } finally {
       await tokenStorage.clearSession();
+      clearStripeCache();
     }
   },
 };

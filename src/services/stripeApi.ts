@@ -17,9 +17,19 @@ export interface CreatePaymentIntentResponse {
 }
 
 let cachedLocationId: string | null = null;
+let cachedPublishableKey: string | null = null;
 
 export function getCachedLocationId(): string | null {
-  return cachedLocationId;
+  return cachedLocationId || config.locationId || null;
+}
+
+export function getCachedPublishableKey(): string | null {
+  return cachedPublishableKey || config.publishableKey || null;
+}
+
+export function clearStripeCache(): void {
+  cachedLocationId = null;
+  cachedPublishableKey = null;
 }
 
 /**
@@ -57,21 +67,16 @@ export async function fetchConnectionToken(): Promise<string> {
   }
 }
 
-let cachedPublishableKey: string | null = null;
-
-export function getCachedPublishableKey(): string | null {
-  return cachedPublishableKey || config.publishableKey || null;
-}
-
 /**
- * Fetch Terminal config including location ID and publishable key from backend
+ * Fetch Terminal config including location ID and publishable key dynamically from backend.
+ * Works seamlessly whether the backend is in Test Mode or Live Mode.
  */
-export async function fetchTerminalConfig(): Promise<{
+export async function fetchTerminalConfig(forceRefresh: boolean = false): Promise<{
   locationId: string;
   publishableKey?: string;
   stripeConfigured: boolean;
 }> {
-  if (cachedLocationId && cachedPublishableKey) {
+  if (!forceRefresh && cachedLocationId && cachedPublishableKey) {
     return {
       locationId: cachedLocationId,
       publishableKey: cachedPublishableKey,
@@ -98,21 +103,27 @@ export async function fetchTerminalConfig(): Promise<{
     if (data?.publishableKey) {
       cachedPublishableKey = data.publishableKey;
     }
-    return data;
-  } catch {
     return {
-      locationId: cachedLocationId || config.locationId || 'loc_simulated',
-      stripeConfigured: false,
+      locationId: data?.locationId || cachedLocationId || '',
+      publishableKey: data?.publishableKey || cachedPublishableKey || undefined,
+      stripeConfigured: Boolean(data?.stripeConfigured ?? (cachedLocationId && cachedPublishableKey)),
+    };
+  } catch (err) {
+    console.warn('⚠️ Could not fetch terminal config from backend:', err);
+    return {
+      locationId: cachedLocationId || config.locationId || '',
+      publishableKey: cachedPublishableKey || config.publishableKey || undefined,
+      stripeConfigured: Boolean(cachedLocationId && cachedPublishableKey),
     };
   }
 }
 
 /**
  * Tokenize card details directly with Stripe using the Publishable Key.
- * Permitted by Stripe because "Enable card data collection with a publishable key" is enabled.
+ * Works dynamically with both Test (pk_test_...) and Live (pk_live_...) keys.
  */
 export async function tokenizeCardWithStripe(
-  card: { number: string; expMonth: string; expYear: string; cvc: string },
+  card: { number: string; expMonth: string | number; expYear: string | number; cvc: string },
   publishableKey?: string
 ): Promise<{ id: string; brand: string; last4: string }> {
   let pk = publishableKey || getCachedPublishableKey();
@@ -122,19 +133,17 @@ export async function tokenizeCardWithStripe(
   }
 
   if (!pk) {
-    throw new Error(
-      'Stripe Publishable Key not found. Please ensure STRIPE_PUBLISHABLE_KEY is configured on Render.'
-    );
+    throw new Error('Stripe Publishable Key not found. Please ensure backend /api/terminal_config is accessible.');
   }
 
   const params = new URLSearchParams();
   params.append('type', 'card');
   params.append('card[number]', card.number.replace(/\s/g, ''));
-  params.append('card[exp_month]', String(parseInt(card.expMonth, 10)));
-  params.append('card[exp_year]', String(parseInt(card.expYear, 10)));
+  params.append('card[exp_month]', String(parseInt(String(card.expMonth), 10)));
+  params.append('card[exp_year]', String(parseInt(String(card.expYear), 10)));
   params.append('card[cvc]', card.cvc.trim());
 
-  console.log('💳 [STRIPE CLIENT TOKENIZE] Tokenizing card directly with Stripe using publishable key...');
+  console.log('💳 [STRIPE CLIENT TOKENIZE] Tokenizing card with backend-provided publishable key...');
   const res = await fetch('https://api.stripe.com/v1/payment_methods', {
     method: 'POST',
     headers: {

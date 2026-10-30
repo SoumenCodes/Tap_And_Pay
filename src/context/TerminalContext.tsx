@@ -3,6 +3,7 @@ import { NativeModules, Platform } from 'react-native';
 import type { Reader } from '@stripe/stripe-terminal-react-native';
 import { config } from '../constants/config';
 import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import {
   createPaymentIntentOnBackend,
   getCachedLocationId,
@@ -43,50 +44,97 @@ async function handleCardPaymentWith3DS(
 ): Promise<any> {
   // If 3D Secure / Bank OTP authentication is required
   if (intentRes.requiresAction && intentRes.redirectUrl) {
-    console.log('🔐 [3DS] Opening in-app browser for bank OTP authorization:', intentRes.redirectUrl);
+    const redirectUrl = intentRes.redirectUrl;
+    console.log('🔐 [3DS] Opening in-app browser for bank OTP authorization:', redirectUrl);
     setStatusMessage('Waiting for Bank OTP verification...');
 
-    // Open in-app browser tab for bank verification
-    try {
-      await WebBrowser.openBrowserAsync(intentRes.redirectUrl, {
-        showTitle: true,
-        enableBarCollapsing: true,
-      });
-    } catch (openErr) {
-      console.error('❌ Could not open in-app browser for 3DS:', openErr);
-    }
+    const returnUrl = Linking.createURL('payment-return');
 
-    setStatusMessage('Please enter your SMS OTP code in the browser...');
-    let attempts = 0;
-    const maxAttempts = 150; // 150 * 2s = 300 seconds (5 minutes timeout)
+    // Run auth session and polling in parallel so verification is caught immediately
     let confirmedPi: any = null;
     let failedReason: string | null = null;
+    let isCompleted = false;
 
-    while (attempts < maxAttempts) {
-      await new Promise((r) => setTimeout(r, 2000));
-      try {
-        const check = await retrievePaymentIntentStatus(intentRes.paymentIntentId);
-        console.log(`🔍 [3DS Check ${attempts + 1}/${maxAttempts}]: Status = ${check.status}`);
+    const pollPromise = (async () => {
+      let attempts = 0;
+      const maxAttempts = 150; // 150 * 2s = 300 seconds (5 minutes timeout)
+      while (attempts < maxAttempts && !isCompleted) {
+        await new Promise((r) => setTimeout(r, 2000));
+        if (isCompleted) break;
+        try {
+          const check = await retrievePaymentIntentStatus(intentRes.paymentIntentId);
+          console.log(`🔍 [3DS Check ${attempts + 1}/${maxAttempts}]: Status = ${check.status}`);
 
-        if (check.status === 'succeeded') {
-          confirmedPi = check;
-          break;
+          if (check.status === 'succeeded') {
+            confirmedPi = check;
+            isCompleted = true;
+            try {
+              await WebBrowser.dismissBrowser();
+            } catch {}
+            break;
+          }
+
+          if (check.status === 'requires_payment_method') {
+            failedReason = 'Bank 3D-Secure authentication was declined or cancelled. The card was not billed.';
+            isCompleted = true;
+            try {
+              await WebBrowser.dismissBrowser();
+            } catch {}
+            break;
+          }
+        } catch (err) {
+          console.warn('⚠️ Error checking PaymentIntent status:', err);
         }
-
-        if (check.status === 'requires_payment_method') {
-          failedReason = 'Bank 3D-Secure authentication was declined or cancelled. The card was not billed.';
-          break;
-        }
-      } catch (err) {
-        console.warn('⚠️ Error checking PaymentIntent status:', err);
+        attempts++;
       }
-      attempts++;
-    }
+    })();
 
-    // Dismiss the browser tab
+    const browserPromise = (async () => {
+      try {
+        await WebBrowser.openAuthSessionAsync(
+          redirectUrl,
+          returnUrl,
+          {
+            showTitle: true,
+            enableBarCollapsing: true,
+            preferEphemeralSession: false,
+          }
+        );
+      } catch {
+        try {
+          await WebBrowser.openBrowserAsync(redirectUrl, {
+            showTitle: true,
+            enableBarCollapsing: true,
+          });
+        } catch {}
+      }
+    })();
+
+    await Promise.race([
+      pollPromise,
+      (async () => {
+        await browserPromise;
+        // If user manually closed browser or redirected, wait brief moment for final poll
+        await new Promise((r) => setTimeout(r, 2000));
+      })(),
+    ]);
+
+    isCompleted = true;
     try {
       await WebBrowser.dismissBrowser();
     } catch {}
+
+    // Final status verification
+    if (!confirmedPi && !failedReason) {
+      try {
+        const finalCheck = await retrievePaymentIntentStatus(intentRes.paymentIntentId);
+        if (finalCheck.status === 'succeeded') {
+          confirmedPi = finalCheck;
+        } else if (finalCheck.status === 'requires_payment_method') {
+          failedReason = 'Bank 3D-Secure authentication was declined or cancelled.';
+        }
+      } catch {}
+    }
 
     if (failedReason) {
       throw new Error(failedReason);
@@ -94,7 +142,7 @@ async function handleCardPaymentWith3DS(
 
     if (!confirmedPi || confirmedPi.status !== 'succeeded') {
       throw new Error(
-        'Bank 3D-Secure authentication timed out after 5 minutes. If you did not receive the OTP, please retry.'
+        'Bank 3D-Secure authentication timed out. If you did not receive the OTP, please retry.'
       );
     }
 

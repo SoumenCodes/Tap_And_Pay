@@ -32,6 +32,30 @@ export interface StartShiftPayload {
   device_id?: string;
 }
 
+export interface EndShiftPayload {
+  shift_session_id: number | string;
+  user_id?: number | string;
+}
+
+export interface EndShiftData {
+  user_id?: number;
+  shift_id?: number;
+  session_uuid?: string;
+  status?: string;
+  start_at?: string;
+  end_at?: string;
+  [key: string]: any;
+}
+
+export interface EndShiftResponse {
+  status: boolean;
+  message: string;
+  data?: EndShiftData;
+}
+
+let lastActiveShift: ActiveShiftData | null = null;
+let lastUserId: number | string | null = null;
+
 export const shiftService = {
   /**
    * Start Shift API (POST /api/shift/start)
@@ -42,6 +66,39 @@ export const shiftService = {
     const response = await apiClient.post<StartShiftResponse>('/api/shift/start', {
       device_id: deviceId,
     });
+    if (response.data?.status && response.data?.data) {
+      lastActiveShift = response.data.data.active_shift;
+      lastUserId = response.data.data.user_id;
+    }
     return response.data;
+  },
+
+  /**
+   * End Shift API (POST /api/shift/end)
+   * Ends an active work session.
+   */
+  endShift: async (payload: EndShiftPayload): Promise<EndShiftResponse> => {
+    const body: Record<string, any> = {
+      shift_session_id: payload.shift_session_id,
+    };
+    if (payload.user_id !== undefined && payload.user_id !== null) {
+      body.user_id = payload.user_id;
+    } else if (lastUserId !== null) {
+      body.user_id = lastUserId;
+    }
+
+    const response = await apiClient.post<EndShiftResponse>('/api/shift/end', body);
+    if (response.data?.status) {
+      lastActiveShift = null;
+    }
+    return response.data;
+  },
+
+  getActiveShift: (): ActiveShiftData | null => lastActiveShift,
+  setActiveShift: (shift: ActiveShiftData | null) => {
+    lastActiveShift = shift;
+  },
+  setUserId: (userId: number | string | null) => {
+    lastUserId = userId;
   },
 };

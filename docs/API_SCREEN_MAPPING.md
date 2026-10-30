@@ -75,7 +75,7 @@ Comprehensive mapping between application screens, backend endpoints, and the 5 
 | **Create Sale / Tap to Pay** | `src/app/(tabs)/tap-to-pay.tsx` | All Roles | Native / Stripe | Stripe Terminal SDK | ✅ Live | Processes in-person card payments (Stripe Tap to Pay). |
 | **Receipt Details** | `src/app/(tabs)/receipt-details.tsx` | All Roles | Local / Print | Local Document Generator | ✅ Live | Generates formatted receipt image and PDF slip for sharing/printing. |
 | **Start Shift** | Dashboard buttons | All Roles | `POST` | `/api/shift/start` | ✅ Live | Starts work shift; records device ID, start timestamp, generates shift ID. |
-| **End Shift** | Dashboard buttons | All Roles | `POST` | `/api/shift/end` | ⏳ Pending Contract | Ends work session and generates shift settlement. |
+| **End Shift** | Dashboard buttons | All Roles | `POST` | `/api/shift/end` | ✅ Live | Closes work session; sends shift_session_id and user_id, updates shift state. |
 | **Transactions & Shifts** | `src/app/(tabs)/transactions.tsx` | All Roles | `GET` | `/api/shifts` or `/api/transactions` | ⏳ Pending Contract | Shift logs, transaction records, and settlement tallies. |
 
 ---

@@ -38,7 +38,7 @@ export const MOCK_ACCOUNTS: Record<
       businessName: 'Zafar Taxi Company',
       taxiNumber: 'EMP2026100720200630',
       empId: 'EMP2026100720200630',
-      sessionStartTime: '7:30 AM',
+      sessionStartTime: '',
     },
   },
   taxi_business: {
@@ -53,7 +53,7 @@ export const MOCK_ACCOUNTS: Record<
       businessName: 'Elite Taxi Service',
       taxiNumber: 'EMP2026100720013735',
       empId: 'EMP2026100720013735',
-      sessionStartTime: '7:30 AM',
+      sessionStartTime: '',
     },
   },
   taxi_business_driver: {
@@ -68,7 +68,7 @@ export const MOCK_ACCOUNTS: Record<
       businessName: 'Elite Taxi Service',
       taxiNumber: 'DC750030',
       empId: 'EMP2026100720200245',
-      sessionStartTime: '7:30 AM',
+      sessionStartTime: '',
     },
   },
   other_business: {
@@ -83,7 +83,7 @@ export const MOCK_ACCOUNTS: Record<
       businessName: 'Habibs',
       businessAddress: '19 WORONORA AVE, LEUMEAH, NSW 2560',
       empId: 'EMP2026100720101831',
-      sessionStartTime: '7:30 AM',
+      sessionStartTime: '',
     },
   },
   other_business_employee: {
@@ -97,7 +97,7 @@ export const MOCK_ACCOUNTS: Record<
       roleLabel: 'Business Employee',
       businessName: 'Habibs',
       businessAddress: '19 WORONORA AVE, LEUMEAH, NSW 2560',
-      sessionStartTime: '7:30 AM',
+      sessionStartTime: '',
       empId: 'EMP2026100720101878',
     },
   },

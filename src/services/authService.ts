@@ -187,7 +187,7 @@ export const authService = {
       businessAddress: formattedAddress,
       taxiNumber: u.dc_number || undefined,
       empId: u.employee_code || undefined,
-      sessionStartTime: '7:30 AM',
+      sessionStartTime: '',
     };
 
     // Save user profile to encrypted storage

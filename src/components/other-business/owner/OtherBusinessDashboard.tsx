@@ -15,12 +15,17 @@ import { Ionicons, Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import HeaderBar from '../../common/HeaderBar';
 import { useConfirmModal } from '../../../context/ConfirmModalContext';
+import { useAuth } from '../../../context/AuthContext';
 import {
   dashboardService,
   DashboardData,
   ActiveEmployeeItem,
 } from '../../../services/dashboardService';
 import { shiftService } from '../../../services/shiftService';
+import {
+  formatSydneyToUserTime,
+  formatSydneyShiftRange,
+} from '../../../utils/dateUtils';
 
 interface OtherBusinessDashboardProps {
   businessName?: string;
@@ -33,12 +38,13 @@ interface OtherBusinessDashboardProps {
 type EmployeeFilterMode = 'all' | 'on_shift' | 'off_shift';
 
 export default function OtherBusinessDashboard({
-  businessName = 'Crown Cuts',
-  userName = 'Soumen Sen',
-  sessionStartTime = '7:30 AM',
-  empId = '93821048',
+  businessName = '',
+  userName = '',
+  sessionStartTime = '',
+  empId = '',
 }: OtherBusinessDashboardProps) {
   const router = useRouter();
+  const { user } = useAuth();
   const { showConfirm, showAlert } = useConfirmModal();
 
   // API State
@@ -98,13 +104,26 @@ export default function OtherBusinessDashboard({
 
   // Derived header data with fallback to props
   const header = dashboardData?.header;
-  const displayBusinessName = header?.business_name || businessName;
-  const displayUserName = header?.full_name || header?.first_name || userName;
-  const displayEmpId = header?.identifier_value || empId;
-  const displayStartTime =
+  const displayBusinessName = header?.business_name || businessName || '--';
+  const displayUserName = header?.full_name || header?.first_name || userName || '--';
+  const displayEmpId = header?.identifier_value || empId || '--';
+
+  // Resolve shift start time in user's local timezone from Sydney timestamps
+  const rawStartAt =
+    dashboardData?.active_shift?.start_at ||
+    (dashboardData as any)?.start_at ||
+    shiftService.getActiveShift()?.start_at;
+  const rawStartTime =
     dashboardData?.active_shift?.start_time ||
     dashboardData?.start_time ||
-    sessionStartTime;
+    shiftService.getActiveShift()?.start_time;
+
+  const displayStartTime = isOnShift
+    ? (rawStartAt ? formatSydneyToUserTime(rawStartAt) : null) ||
+      (rawStartTime ? formatSydneyToUserTime(rawStartTime) : null) ||
+      sessionStartTime ||
+      '--'
+    : '--';
   const activeShiftCode =
     dashboardData?.active_shift?.display_shift_id ||
     header?.active_shift_code ||
@@ -166,6 +185,10 @@ export default function OtherBusinessDashboard({
 
   const handleToggleShift = async () => {
     if (isOnShift) {
+      const shiftSessionId =
+        dashboardData?.active_shift?.id ||
+        shiftService.getActiveShift()?.id;
+
       showConfirm({
         title: 'End Shift',
         message: `Are you sure you want to end your current active shift (${activeShiftCode})?`,
@@ -173,14 +196,81 @@ export default function OtherBusinessDashboard({
         cancelText: 'Cancel',
         type: 'warning',
         icon: 'stop-circle-outline',
-        onConfirm: () => {
-          setIsOnShift(false);
-          showAlert({
-            title: 'Shift Ended',
-            message: 'Shift tally submitted to records.',
-            type: 'success',
-            icon: 'checkmark-circle-outline',
-          });
+        onConfirm: async () => {
+          if (!shiftSessionId) {
+            setIsOnShift(false);
+            showAlert({
+              title: 'Shift Reset',
+              message: 'Active shift state refreshed.',
+              type: 'info',
+              icon: 'information-circle-outline',
+            });
+            await handleRefresh();
+            return;
+          }
+
+          try {
+            const userId = user?.id ? Number(user.id) : undefined;
+            const res = await shiftService.endShift({
+              shift_session_id: shiftSessionId,
+              user_id: userId,
+            });
+
+            if (res.status) {
+              setIsOnShift(false);
+              const shiftTimeRange = formatSydneyShiftRange(
+                res.data?.start_at,
+                res.data?.end_at
+              );
+              showAlert({
+                title: 'Shift Ended',
+                message: shiftTimeRange
+                  ? `Shift tally submitted to records.\nShift: ${shiftTimeRange}`
+                  : res.message || 'Shift tally submitted to records.',
+                type: 'success',
+                icon: 'checkmark-circle-outline',
+              });
+              await handleRefresh();
+            } else {
+              // If backend indicates already closed, synchronize client state
+              if (
+                res.message?.toLowerCase().includes('already ended') ||
+                res.message?.toLowerCase().includes('not active')
+              ) {
+                setIsOnShift(false);
+                const shiftTimeRange = formatSydneyShiftRange(
+                  res.data?.start_at,
+                  res.data?.end_at
+                );
+                showAlert({
+                  title: 'Shift Closed',
+                  message: shiftTimeRange
+                    ? `${res.message}\nShift: ${shiftTimeRange}`
+                    : res.message,
+                  type: 'info',
+                  icon: 'information-circle-outline',
+                });
+                await handleRefresh();
+              } else {
+                showAlert({
+                  title: 'End Shift Failed',
+                  message: res.message || 'Unable to end shift. Please try again.',
+                  type: 'danger',
+                  icon: 'alert-circle-outline',
+                });
+              }
+            }
+          } catch (err: any) {
+            showAlert({
+              title: 'End Shift Failed',
+              message:
+                err?.response?.data?.message ||
+                err?.message ||
+                'Unable to end shift. Please try again.',
+              type: 'danger',
+              icon: 'alert-circle-outline',
+            });
+          }
         },
       });
     } else {
@@ -189,9 +279,14 @@ export default function OtherBusinessDashboard({
         const res = await shiftService.startShift();
         if (res.status && res.data) {
           setIsOnShift(true);
+          const localStartTime = formatSydneyToUserTime(
+            res.data.active_shift?.start_at || res.data.active_shift?.start_time
+          );
           showAlert({
             title: 'Shift Started',
-            message: res.message || 'Active on shift. Ready to accept sales.',
+            message: localStartTime
+              ? `Shift started at ${localStartTime}. Ready to accept sales.`
+              : res.message || 'Active on shift. Ready to accept sales.',
             type: 'success',
             icon: 'checkmark-circle-outline',
           });

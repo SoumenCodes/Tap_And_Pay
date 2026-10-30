@@ -22,10 +22,10 @@ interface TaxiOwnerDashboardProps {
 }
 
 export default function TaxiOwnerDashboard({
-  businessName = 'Harpreet Singh Taxi Service',
-  userName = 'Harpreet Singh',
-  taxiNumber = 'M6022',
-  sessionStartTime = '7:30 AM',
+  businessName = '',
+  userName = '',
+  taxiNumber = '',
+  sessionStartTime = '',
 }: TaxiOwnerDashboardProps) {
   const router = useRouter();
   const { showConfirm, showAlert } = useConfirmModal();
@@ -128,7 +128,9 @@ export default function TaxiOwnerDashboard({
                 <Text style={styles.metaDot}>•</Text>
                 <View style={styles.clockRow}>
                   <Feather name="clock" size={12} color="#64748B" style={styles.clockIcon} />
-                  <Text style={styles.shiftStartText}>Shift Start: {sessionStartTime}</Text>
+                  <Text style={styles.shiftStartText}>
+                    Shift Start: {isOnShift ? (sessionStartTime || '--') : '--'}
+                  </Text>
                 </View>
               </View>
             </View>

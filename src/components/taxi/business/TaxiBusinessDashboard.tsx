@@ -81,10 +81,10 @@ interface TaxiBusinessDashboardProps {
 }
 
 export default function TaxiBusinessDashboard({
-  businessName = 'Elite Taxi Service',
-  userName = 'Lovedeep Khangura',
-  taxiNumber = 'M6061',
-  sessionStartTime = '7:30 AM',
+  businessName = '',
+  userName = '',
+  taxiNumber = '',
+  sessionStartTime = '',
 }: TaxiBusinessDashboardProps) {
   const router = useRouter();
   const { showConfirm, showAlert } = useConfirmModal();
@@ -190,7 +190,9 @@ export default function TaxiBusinessDashboard({
               <Text style={styles.metaDot}>•</Text>
               <View style={styles.clockRow}>
                 <Feather name="clock" size={13} color="#64748B" style={styles.clockIcon} />
-                <Text style={styles.shiftStartText}>Shift Start: {sessionStartTime}</Text>
+                <Text style={styles.shiftStartText}>
+                  Shift Start: {isOnShift ? (sessionStartTime || '--') : '--'}
+                </Text>
               </View>
             </View>
           </View>

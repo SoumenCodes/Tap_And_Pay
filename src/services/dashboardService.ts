@@ -106,6 +106,7 @@ export interface DashboardData {
   is_taxi_service: boolean;
   is_on_shift: boolean;
   start_time?: string | null;
+  start_at?: string | null;
   active_shift?: ActiveShiftData | null;
   active_shift_text?: string;
   shift_status_badge?: string;

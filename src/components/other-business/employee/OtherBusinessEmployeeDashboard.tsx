@@ -203,6 +203,7 @@ export default function OtherBusinessEmployeeDashboard({
                 message: shiftTimeRange
                   ? `Active shift ended.\nShift: ${shiftTimeRange}`
                   : res.message || 'Active shift ended. Summary submitted to records.',
+                buttonText: 'OK',
                 type: 'success',
                 icon: 'checkmark-circle-outline',
               });
@@ -223,6 +224,7 @@ export default function OtherBusinessEmployeeDashboard({
                   message: shiftTimeRange
                     ? `${res.message}\nShift: ${shiftTimeRange}`
                     : res.message,
+                  buttonText: 'OK',
                   type: 'info',
                   icon: 'information-circle-outline',
                 });
@@ -231,6 +233,7 @@ export default function OtherBusinessEmployeeDashboard({
                 showAlert({
                   title: 'End Shift Failed',
                   message: res.message || 'Unable to end shift. Please try again.',
+                  buttonText: 'OK',
                   type: 'danger',
                   icon: 'alert-circle-outline',
                 });
@@ -243,6 +246,7 @@ export default function OtherBusinessEmployeeDashboard({
                 err?.response?.data?.message ||
                 err?.message ||
                 'Unable to end shift. Please try again.',
+              buttonText: 'OK',
               type: 'danger',
               icon: 'alert-circle-outline',
             });
@@ -263,6 +267,7 @@ export default function OtherBusinessEmployeeDashboard({
             message: localStartTime
               ? `Shift started at ${localStartTime}. Ready to accept sales.`
               : res.message || 'Active on shift. Ready to accept sales.',
+            buttonText: 'OK',
             type: 'success',
             icon: 'checkmark-circle-outline',
           });
@@ -272,6 +277,7 @@ export default function OtherBusinessEmployeeDashboard({
           showAlert({
             title: 'Start Shift Failed',
             message: res.message || 'Unable to start shift. Please try again.',
+            buttonText: 'OK',
             type: 'danger',
             icon: 'alert-circle-outline',
           });
@@ -283,6 +289,7 @@ export default function OtherBusinessEmployeeDashboard({
             err?.response?.data?.message ||
             err?.message ||
             'Unable to start shift. Please try again.',
+          buttonText: 'OK',
           type: 'danger',
           icon: 'alert-circle-outline',
         });

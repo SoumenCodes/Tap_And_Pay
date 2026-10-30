@@ -43,8 +43,8 @@ export function ConfirmModalProvider({ children }: { children: ReactNode }) {
   const [visible, setVisible] = useState(false);
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState<string | undefined>('');
-  const [confirmText, setConfirmText] = useState('Confirm');
-  const [cancelText, setCancelText] = useState<string | undefined>('Cancel');
+  const [confirmText, setConfirmText] = useState('OK');
+  const [cancelText, setCancelText] = useState<string | undefined>(undefined);
   const [type, setType] = useState<ConfirmModalType>('danger');
   const [icon, setIcon] = useState<keyof typeof Ionicons.glyphMap | undefined>(undefined);
   const [buttons, setButtons] = useState<ConfirmModalButton[] | undefined>(undefined);
@@ -56,6 +56,7 @@ export function ConfirmModalProvider({ children }: { children: ReactNode }) {
     setVisible(false);
     setIsLoading(false);
     setButtons(undefined);
+    setCancelText(undefined);
   }, []);
 
   const showConfirm = useCallback((opts: ShowConfirmOptions) => {
@@ -92,6 +93,7 @@ export function ConfirmModalProvider({ children }: { children: ReactNode }) {
   const showPrompt = useCallback((opts: ShowPromptOptions) => {
     setTitle(opts.title);
     setMessage(opts.message);
+    setCancelText(undefined);
     setType(opts.type || 'info');
     setIcon(opts.icon);
     // Wrap buttons so clicking them dismisses the modal

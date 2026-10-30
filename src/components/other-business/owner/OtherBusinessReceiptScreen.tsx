@@ -350,16 +350,24 @@ export default function OtherBusinessReceiptScreen() {
         throw new Error('Receipt view is not ready');
       }
 
-      // Capture exact rendered card to a real PNG image file
-      const imageUri = await captureRef(receiptCardRef, {
+      // Capture exact rendered card to base64 and write into sandboxed document directory
+      const base64Image = await captureRef(receiptCardRef, {
         format: 'png',
         quality: 1.0,
-        result: 'tmpfile',
+        result: 'base64',
+      });
+
+      const sanitize = (name: string) => name.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const filename = `Receipt_Card_${sanitize(businessName)}_${Date.now()}.png`;
+      const targetUri = `${FileSystem.documentDirectory}${filename}`;
+
+      await FileSystem.writeAsStringAsync(targetUri, base64Image, {
+        encoding: FileSystem.EncodingType.Base64,
       });
 
       const isAvailable = await Sharing.isAvailableAsync();
       if (isAvailable) {
-        await Sharing.shareAsync(imageUri, {
+        await Sharing.shareAsync(targetUri, {
           mimeType: 'image/png',
           dialogTitle: `Share Receipt Image - ${businessName}`,
           UTI: 'public.png',
@@ -368,7 +376,7 @@ export default function OtherBusinessReceiptScreen() {
         await Share.share({
           title: `Receipt Image - ${businessName}`,
           message: `Digital Receipt: ${businessName}\nAmount: $${formattedWithComma}.${decimalPart} AUD\nDate: ${dateStr}\nPayment ID: ${paymentId}`,
-          url: imageUri,
+          url: targetUri,
         });
       }
     } catch (error) {
@@ -390,24 +398,27 @@ export default function OtherBusinessReceiptScreen() {
       setIsSharing(true);
 
       const html = await generateReceiptHtml(false);
-      const { uri } = await Print.printToFileAsync({ html });
+      // Ask Print module for base64 directly to avoid unreadable cache/Print file permissions in Expo Go
+      const { uri, base64 } = await Print.printToFileAsync({
+        html,
+        base64: true,
+      });
 
       const sanitize = (name: string) => name.replace(/[^a-zA-Z0-9_-]/g, '_');
       const filename = `Receipt_${sanitize(businessName)}_${Date.now()}.pdf`;
-      const targetUri = `${FileSystem.cacheDirectory || FileSystem.documentDirectory}${filename}`;
+      const targetUri = `${FileSystem.documentDirectory}${filename}`;
 
-      let shareUri = uri;
-      try {
+      if (base64) {
+        await FileSystem.writeAsStringAsync(targetUri, base64, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+      } else {
         await FileSystem.copyAsync({ from: uri, to: targetUri });
-        shareUri = targetUri;
-      } catch (copyErr) {
-        console.warn('Could not copy PDF with custom name, using original uri:', copyErr);
-        shareUri = uri;
       }
 
       const isAvailable = await Sharing.isAvailableAsync();
       if (isAvailable) {
-        await Sharing.shareAsync(shareUri, {
+        await Sharing.shareAsync(targetUri, {
           mimeType: 'application/pdf',
           dialogTitle: `Share Receipt PDF - ${businessName}`,
           UTI: '.pdf',
@@ -416,7 +427,7 @@ export default function OtherBusinessReceiptScreen() {
         await Share.share({
           title: `Receipt - ${businessName}`,
           message: `Digital Receipt: ${businessName}\nAmount: $${formattedWithComma}.${decimalPart} AUD\nDate: ${dateStr}\nPayment ID: ${paymentId}`,
-          url: shareUri,
+          url: targetUri,
         });
       }
     } catch (error) {

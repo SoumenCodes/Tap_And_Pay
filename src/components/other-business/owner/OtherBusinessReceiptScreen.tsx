@@ -63,7 +63,7 @@ export default function OtherBusinessReceiptScreen() {
   const [isPrinting, setIsPrinting] = useState(false);
   const [isShareModalVisible, setIsShareModalVisible] = useState(false);
 
-  // Generate HTML for Card-sized photo or PDF document
+  // Generate HTML for full-page PDF document
   const generateReceiptHtml = async (isPhotoCard = false) => {
     const crownCutsBadgeUri = await getAssetDataUri(
       require('../../../../assets/crown_cuts_badge_hd.png'),
@@ -87,39 +87,44 @@ export default function OtherBusinessReceiptScreen() {
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
     }
+    @page {
+      size: A4 portrait;
+      margin: 12mm 16mm;
+    }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       margin: 0;
-      padding: ${isPhotoCard ? '16px' : '24px 16px'};
-      background-color: ${isPhotoCard ? '#FFFFFF' : '#F8FAFC'};
+      padding: 0;
+      background-color: #FFFFFF;
       color: #0F172A;
       display: flex;
       justify-content: center;
-      align-items: center;
+      align-items: flex-start;
+      width: 100%;
     }
     .receipt-card {
       width: 100%;
-      max-width: 380px;
+      max-width: 640px;
+      margin: 0 auto;
       background: #FFFDF7;
-      border: 1.5px solid #FEF08A;
-      border-radius: 24px;
-      padding: 22px 20px 24px;
-      box-shadow: 0 8px 24px rgba(245, 158, 11, 0.12);
+      border: 2px solid #FEF08A;
+      border-radius: 28px;
+      padding: 36px 36px 40px;
       text-align: center;
       box-sizing: border-box;
     }
     .logo-badge {
-      width: 52px;
-      height: 52px;
+      width: 76px;
+      height: 76px;
       background: #FEF9C3;
-      border: 1px solid #FDE047;
-      border-radius: 14px;
-      margin: 0 auto 10px;
+      border: 1.5px solid #FDE047;
+      border-radius: 20px;
+      margin: 0 auto 16px;
       display: flex;
       align-items: center;
       justify-content: center;
       overflow: hidden;
-      padding: 4px;
+      padding: 8px;
     }
     .logo-badge img {
       width: 100%;
@@ -127,54 +132,56 @@ export default function OtherBusinessReceiptScreen() {
       object-fit: contain;
     }
     .biz-name {
-      font-size: 16px;
+      font-size: 26px;
       font-weight: 800;
       color: #0F172A;
-      margin-bottom: 4px;
+      margin-bottom: 6px;
+      letter-spacing: -0.3px;
     }
     .biz-meta {
-      font-size: 11px;
+      font-size: 14px;
       color: #64748B;
-      font-weight: 500;
-      margin-bottom: 3px;
+      font-weight: 600;
+      margin-bottom: 5px;
     }
     .biz-address {
-      font-size: 10.5px;
+      font-size: 13.5px;
       color: #94A3B8;
       font-weight: 500;
-      margin-bottom: 3px;
+      margin-bottom: 5px;
     }
     .emp-id {
-      font-size: 10.5px;
+      font-size: 13.5px;
       color: #94A3B8;
       font-weight: 500;
-      margin-bottom: 14px;
+      margin-bottom: 22px;
     }
     .emp-id span {
       color: #0F172A;
       font-weight: 700;
     }
     .total-paid-label {
-      font-size: 10.5px;
+      font-size: 13px;
       color: #64748B;
       font-weight: 700;
-      letter-spacing: 0.5px;
-      margin-bottom: 4px;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
     }
     .amount {
-      font-size: 38px;
+      font-size: 58px;
       font-weight: 900;
       color: #0F172A;
       letter-spacing: -0.5px;
-      margin-bottom: 6px;
+      margin-bottom: 12px;
     }
     .dollar {
       color: #D97706;
       font-weight: 800;
-      font-size: 26px;
+      font-size: 38px;
+      margin-right: 4px;
     }
     .decimal {
-      font-size: 22px;
+      font-size: 34px;
       color: #64748B;
       font-weight: 700;
     }
@@ -182,27 +189,27 @@ export default function OtherBusinessReceiptScreen() {
       display: inline-flex;
       align-items: center;
       background: #DCFCE7;
-      border: 1px solid #A7F3D0;
+      border: 1.5px solid #A7F3D0;
       color: #166534;
-      font-size: 10.5px;
+      font-size: 14px;
       font-weight: 800;
-      padding: 3px 10px;
-      border-radius: 12px;
-      letter-spacing: 0.5px;
-      margin-bottom: 18px;
+      padding: 6px 18px;
+      border-radius: 18px;
+      letter-spacing: 0.8px;
+      margin-bottom: 24px;
     }
     .paid-dot {
-      width: 6px;
-      height: 6px;
+      width: 9px;
+      height: 9px;
       border-radius: 50%;
       background: #10B981;
       display: inline-block;
-      margin-right: 5px;
+      margin-right: 8px;
     }
     .divider {
-      height: 1px;
+      height: 1.5px;
       background: #F1F5F9;
-      margin: 16px 0;
+      margin: 26px 0;
     }
     .meta-list {
       text-align: left;
@@ -211,65 +218,65 @@ export default function OtherBusinessReceiptScreen() {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 14px;
+      margin-bottom: 18px;
     }
     .meta-row:last-child {
       margin-bottom: 0;
     }
     .meta-label {
-      font-size: 11px;
+      font-size: 14px;
       color: #94A3B8;
       font-weight: 600;
     }
     .meta-value {
-      font-size: 13.5px;
+      font-size: 16.5px;
       font-weight: 700;
       color: #0F172A;
-      margin-top: 2px;
+      margin-top: 3px;
     }
     .pill-card {
       background: #FFFBEB;
       border: 1px solid #FEF08A;
       color: #B45309;
-      font-size: 10.5px;
+      font-size: 13px;
       font-weight: 700;
-      padding: 3px 8px;
-      border-radius: 6px;
+      padding: 5px 14px;
+      border-radius: 8px;
     }
     .pill-visa {
       background: #EFF6FF;
       border: 1px solid #DBEAFE;
       color: #1D4ED8;
-      font-size: 11px;
+      font-size: 14px;
       font-style: italic;
       font-weight: 800;
-      padding: 2.5px 8px;
-      border-radius: 4px;
+      padding: 4px 12px;
+      border-radius: 6px;
     }
     .footer {
-      margin-top: 22px;
-      padding-top: 16px;
-      border-top: 1px solid #F1F5F9;
+      margin-top: 36px;
+      padding-top: 24px;
+      border-top: 1.5px solid #F1F5F9;
       text-align: center;
     }
     .thank-you {
-      font-size: 11px;
+      font-size: 13.5px;
       font-weight: 800;
-      letter-spacing: 0.4px;
-      margin: 0 0 4px;
+      letter-spacing: 0.8px;
+      margin: 0 0 6px;
       color: #0F172A;
     }
     .powered-by {
-      font-size: 9.5px;
+      font-size: 11px;
       color: #94A3B8;
       font-weight: 700;
-      letter-spacing: 0.8px;
-      margin: 0 0 6px;
+      letter-spacing: 1.2px;
+      margin: 0 0 10px;
     }
     .se-pay-gif-logo {
       display: block;
       margin: 0 auto;
-      width: 105px;
+      width: 140px;
       height: auto;
       object-fit: contain;
     }

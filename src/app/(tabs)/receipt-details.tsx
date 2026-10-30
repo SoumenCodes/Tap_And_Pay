@@ -104,105 +104,122 @@ function TaxiReceiptScreen() {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Receipt - ${businessName}</title>
   <style>
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    @page {
+      size: A4 portrait;
+      margin: 12mm 16mm;
+    }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       margin: 0;
-      padding: ${isPhotoCard ? '24px 16px' : '0'};
-      background-color: ${isPhotoCard ? '#F8FAFC' : '#FFFFFF'};
+      padding: 0;
+      background-color: #FFFFFF;
       color: #0F172A;
       display: flex;
       justify-content: center;
+      align-items: flex-start;
+      width: 100%;
     }
     .receipt-card {
       width: 100%;
-      max-width: 380px;
+      max-width: 640px;
+      margin: 0 auto;
       background: #FFFDF7;
-      border: 1.5px solid #FEF08A;
-      border-radius: 24px;
-      padding: 24px 20px 28px;
-      box-shadow: ${isPhotoCard ? '0 12px 32px rgba(245, 158, 11, 0.16)' : 'none'};
+      border: 2px solid #FEF08A;
+      border-radius: 28px;
+      padding: 36px 36px 40px;
       text-align: center;
       box-sizing: border-box;
     }
     .logo-badge {
-      width: 52px;
-      height: 52px;
+      width: 76px;
+      height: 76px;
       background: #FEF9C3;
-      border: 1px solid #FDE047;
-      border-radius: 14px;
-      margin: 0 auto 10px;
+      border: 1.5px solid #FDE047;
+      border-radius: 20px;
+      margin: 0 auto 16px;
       display: flex;
       align-items: center;
       justify-content: center;
       overflow: hidden;
+      padding: 8px;
     }
     .logo-badge img {
-      width: 32px;
-      height: 32px;
+      width: 100%;
+      height: 100%;
       object-fit: contain;
     }
     .biz-name {
-      font-size: 18px;
+      font-size: 26px;
       font-weight: 800;
-      margin: 0 0 4px;
       color: #0F172A;
+      margin-bottom: 6px;
+      letter-spacing: -0.3px;
     }
     .biz-meta {
-      font-size: 11px;
+      font-size: 14px;
       color: #64748B;
       font-weight: 600;
-      margin: 2px 0;
+      margin-bottom: 5px;
       line-height: 1.4;
     }
     .total-paid-label {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.8px;
+      font-size: 13px;
       color: #64748B;
-      margin-top: 18px;
-      margin-bottom: 4px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      margin-top: 24px;
+      margin-bottom: 6px;
     }
     .amount {
-      font-size: 40px;
-      font-weight: 800;
+      font-size: 58px;
+      font-weight: 900;
       color: #0F172A;
-      margin: 0 0 8px;
+      letter-spacing: -0.5px;
+      margin: 0 0 12px;
       display: flex;
       align-items: baseline;
       justify-content: center;
     }
     .dollar {
       color: #D97706;
-      font-size: 28px;
+      font-size: 38px;
+      font-weight: 800;
       margin-right: 4px;
     }
     .decimal {
-      font-size: 26px;
+      font-size: 34px;
       color: #475569;
+      font-weight: 700;
     }
     .paid-badge {
       display: inline-flex;
       align-items: center;
       background: #ECFDF5;
       color: #059669;
-      padding: 3px 12px;
-      border-radius: 12px;
-      font-size: 11px;
+      padding: 6px 18px;
+      border-radius: 18px;
+      font-size: 14px;
       font-weight: 800;
-      letter-spacing: 0.5px;
-      gap: 5px;
+      letter-spacing: 0.8px;
+      gap: 7px;
+      margin-bottom: 24px;
     }
     .paid-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 3px;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
       background: #10B981;
       display: inline-block;
     }
     .divider {
-      height: 1px;
+      height: 1.5px;
       background-color: #F1F5F9;
-      margin: 18px 0;
+      margin: 24px 0;
       width: 100%;
     }
     .route-row {
@@ -210,6 +227,7 @@ function TaxiReceiptScreen() {
       justify-content: space-between;
       align-items: center;
       text-align: left;
+      padding: 8px 0;
     }
     .route-col {
       flex: 1;
@@ -218,22 +236,22 @@ function TaxiReceiptScreen() {
       text-align: right;
     }
     .route-label {
-      font-size: 10px;
+      font-size: 13px;
       font-weight: 700;
-      letter-spacing: 0.6px;
+      letter-spacing: 1px;
       color: #94A3B8;
+      margin-bottom: 4px;
     }
     .route-val {
-      font-size: 15px;
+      font-size: 18px;
       font-weight: 700;
       color: #0F172A;
-      margin-top: 3px;
     }
     .arrow {
       color: #F59E0B;
-      font-size: 18px;
+      font-size: 24px;
       font-weight: bold;
-      padding: 0 10px;
+      padding: 0 18px;
     }
     .meta-list {
       text-align: left;
@@ -242,65 +260,65 @@ function TaxiReceiptScreen() {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 14px;
+      margin-bottom: 18px;
     }
     .meta-row:last-child {
       margin-bottom: 0;
     }
     .meta-label {
-      font-size: 11px;
+      font-size: 14px;
       color: #94A3B8;
       font-weight: 600;
     }
     .meta-value {
-      font-size: 13.5px;
+      font-size: 16.5px;
       font-weight: 700;
       color: #0F172A;
-      margin-top: 2px;
+      margin-top: 3px;
     }
     .pill-card {
       background: #EFF6FF;
       border: 1px solid #DBEAFE;
       color: #2563EB;
-      font-size: 11px;
+      font-size: 13px;
       font-weight: 700;
-      padding: 2px 8px;
-      border-radius: 6px;
+      padding: 5px 14px;
+      border-radius: 8px;
     }
     .pill-visa {
       background: #EFF6FF;
       border: 1px solid #BFDBFE;
       color: #1D4ED8;
-      font-size: 10.5px;
+      font-size: 14px;
       font-style: italic;
       font-weight: 800;
-      padding: 2px 7px;
-      border-radius: 4px;
+      padding: 4px 12px;
+      border-radius: 6px;
     }
     .footer {
-      margin-top: 22px;
-      padding-top: 16px;
-      border-top: 1px solid #F1F5F9;
+      margin-top: 36px;
+      padding-top: 24px;
+      border-top: 1.5px solid #F1F5F9;
       text-align: center;
     }
     .thank-you {
-      font-size: 11.5px;
+      font-size: 13.5px;
       font-weight: 800;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.8px;
       margin: 0 0 6px;
       color: #0F172A;
     }
     .powered-by {
-      font-size: 9.5px;
+      font-size: 11px;
       color: #94A3B8;
       font-weight: 700;
-      letter-spacing: 0.8px;
-      margin: 0 0 6px;
+      letter-spacing: 1.2px;
+      margin: 0 0 10px;
     }
     .se-pay-gif-logo {
       display: block;
       margin: 0 auto;
-      width: 105px;
+      width: 140px;
       height: auto;
       object-fit: contain;
     }

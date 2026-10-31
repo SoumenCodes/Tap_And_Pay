@@ -195,6 +195,26 @@ export default function TapReadyScreen() {
         })
       : rawAmount;
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/tap-to-pay');
+    }
+  };
+
+  const handleProceedToProcess = () => {
+    router.push({
+      pathname: '/(tabs)/processing',
+      params: {
+        amount: rawAmount,
+        method: 'tap',
+        pickup: params.pickup || 'Hospital',
+        dropoff: params.dropoff || 'Home',
+      },
+    });
+  };
+
   return (
     <View
       style={[
@@ -211,7 +231,7 @@ export default function TapReadyScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backBtn}
-          onPress={() => router.back()}
+          onPress={handleBack}
           activeOpacity={0.6}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
@@ -240,17 +260,7 @@ export default function TapReadyScreen() {
         {/* Tap Illustration (Tappable to simulate tap read) */}
         <TouchableOpacity
           activeOpacity={0.9}
-          onPress={() => {
-            router.push({
-              pathname: '/(tabs)/processing',
-              params: {
-                amount: rawAmount,
-                method: 'tap',
-                pickup: params.pickup || 'Hospital',
-                dropoff: params.dropoff || 'Home',
-              },
-            });
-          }}
+          onPress={handleProceedToProcess}
         >
           <TapIllustration />
         </TouchableOpacity>
@@ -260,7 +270,7 @@ export default function TapReadyScreen() {
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.cancelBtn}
-          onPress={() => router.back()}
+          onPress={handleBack}
           activeOpacity={0.7}
         >
           <Text style={styles.cancelText}>Cancel</Text>

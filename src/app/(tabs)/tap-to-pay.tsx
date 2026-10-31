@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,12 +15,14 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Svg, Path, Circle } from 'react-native-svg';
 import { useAuth } from '../../context/AuthContext';
 import HeaderBar from '../../components/common/HeaderBar';
 import { colors } from '../../constants/theme';
 import { addTransaction } from '../../services/transactionStore';
+import { paymentSession } from '../../services/paymentSession';
+import { dashboardService } from '../../services/dashboardService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -55,6 +57,7 @@ const POPULAR_LOCATIONS: LocationItem[] = [
 
 export default function TapToPayEnterAmountScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ reset?: string }>();
   const { user } = useAuth();
 
   const isOtherBusiness =
@@ -78,6 +81,34 @@ export default function TapToPayEnterAmountScreen() {
   const [isLocationModalVisible, setIsLocationModalVisible] = useState<boolean>(false);
   const [activePickerType, setActivePickerType] = useState<'pickup' | 'dropoff'>('pickup');
   const [searchLocationQuery, setSearchLocationQuery] = useState<string>('');
+
+  // Reset payment state helper
+  const resetPaymentState = useCallback(() => {
+    setAmountStr('0');
+    setScreenStep('amount');
+    setSelectedMethod('tap');
+    setPickupLocation('Hospital');
+    setDropoffLocation('Home');
+    setSearchLocationQuery('');
+    setIsLocationModalVisible(false);
+  }, []);
+
+  // Subscribe to external payment reset events (e.g. from payment completion)
+  useEffect(() => {
+    const unsub = paymentSession.onReset(() => {
+      resetPaymentState();
+    });
+    return () => unsub();
+  }, [resetPaymentState]);
+
+  // Reset when gaining focus if previous payment was completed or reset was requested
+  useFocusEffect(
+    useCallback(() => {
+      if (paymentSession.consumePaymentReset() || params?.reset === '1') {
+        resetPaymentState();
+      }
+    }, [params?.reset, resetPaymentState])
+  );
 
   // Blinking cursor state
   const [cursorVisible, setCursorVisible] = useState<boolean>(true);
@@ -189,6 +220,9 @@ export default function TapToPayEnterAmountScreen() {
           timestamp,
         });
 
+        paymentSession.markPaymentCompleted();
+        dashboardService.getDashboard().catch(() => {});
+
         router.push({
           pathname: '/(tabs)/payment-success',
           params: {
@@ -247,6 +281,9 @@ export default function TapToPayEnterAmountScreen() {
         timestamp,
       });
 
+      paymentSession.markPaymentCompleted();
+      dashboardService.getDashboard().catch(() => {});
+
       router.push({
         pathname: '/(tabs)/payment-success',
         params: {
@@ -266,8 +303,10 @@ export default function TapToPayEnterAmountScreen() {
   const handleCancel = () => {
     if (screenStep === 'confirm') {
       setScreenStep('amount');
-    } else {
+    } else if (router.canGoBack()) {
       router.back();
+    } else {
+      router.replace('/(tabs)');
     }
   };
 
@@ -336,8 +375,10 @@ export default function TapToPayEnterAmountScreen() {
         onBack={() => {
           if (screenStep === 'confirm') {
             setScreenStep('amount');
-          } else {
+          } else if (router.canGoBack()) {
             router.back();
+          } else {
+            router.replace('/(tabs)');
           }
         }}
         rightAction={

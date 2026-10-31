@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,10 +13,12 @@ import {
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useTerminal } from '../../context/TerminalContext';
 import { addTransaction } from '../../services/transactionStore';
 import { calculateFee, type PaymentMethodType } from '../../utils/feeCalculator';
+import { paymentSession } from '../../services/paymentSession';
+import { dashboardService } from '../../services/dashboardService';
 
 const RING_SIZE = 210;
 const STROKE_WIDTH = 5.5;
@@ -95,7 +97,22 @@ export default function ProcessingScreen() {
     };
   });
 
+  const [executionToken, setExecutionToken] = useState(0);
   const hasExecutedRef = useRef(false);
+
+  // Every time processing screen gains focus, reset execution state and trigger fresh process
+  useFocusEffect(
+    useCallback(() => {
+      hasExecutedRef.current = false;
+      setIsFailed(false);
+      setErrorReason(null);
+      setExecutionToken((t) => t + 1);
+
+      return () => {
+        hasExecutedRef.current = false;
+      };
+    }, [])
+  );
 
   useEffect(() => {
     if (hasExecutedRef.current) return;
@@ -148,6 +165,10 @@ export default function ProcessingScreen() {
             timestamp,
           });
 
+          // Proactively refresh dashboard and notify payment listeners
+          paymentSession.markPaymentCompleted();
+          dashboardService.getDashboard().catch(() => {});
+
           // Transition to Payment Successful screen after brief display of success state
           setTimeout(() => {
             navRouter.replace({
@@ -175,13 +196,22 @@ export default function ProcessingScreen() {
     }
 
     process();
-  }, [retryCount, errorMessage]);
+  }, [executionToken, retryCount, errorMessage]);
 
   const handleRetry = () => {
     hasExecutedRef.current = false;
     setIsFailed(false);
     setErrorReason(null);
     setRetryCount((c) => c + 1);
+  };
+
+  const handleCancel = () => {
+    hasExecutedRef.current = false;
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/tap-to-pay');
+    }
   };
 
   return (
@@ -209,7 +239,7 @@ export default function ProcessingScreen() {
               <Text style={styles.retryBtnText}>Try Again</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.cancelBtn} onPress={() => router.back()} activeOpacity={0.85}>
+            <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel} activeOpacity={0.85}>
               <Text style={styles.cancelBtnText}>Cancel</Text>
             </TouchableOpacity>
           </View>

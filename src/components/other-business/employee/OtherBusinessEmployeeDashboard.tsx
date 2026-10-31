@@ -12,10 +12,11 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import HeaderBar from '../../common/HeaderBar';
 import { useConfirmModal } from '../../../context/ConfirmModalContext';
 import { useAuth } from '../../../context/AuthContext';
+import { paymentSession } from '../../../services/paymentSession';
 import {
   dashboardService,
   DashboardData,
@@ -106,6 +107,13 @@ export default function OtherBusinessEmployeeDashboard({
     return () => unsub();
   }, [handleRefresh]);
 
+  // Refresh dashboard metrics every time this screen gains focus (e.g. after payment or tab switch)
+  useFocusEffect(
+    useCallback(() => {
+      handleRefresh();
+    }, [handleRefresh])
+  );
+
   // Header data
   const header = dashboardData?.header;
   const displayBusinessName = header?.business_name || businessName || '--';
@@ -163,6 +171,7 @@ export default function OtherBusinessEmployeeDashboard({
     dashboardData?.recent_transactions?.list || [];
 
   const handleCreateSale = () => {
+    paymentSession.markPaymentCompleted();
     router.push('/(tabs)/tap-to-pay');
   };
 

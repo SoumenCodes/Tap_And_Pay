@@ -13,6 +13,7 @@ import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import HeaderBar from '../../common/HeaderBar';
 import { useConfirmModal } from '../../../context/ConfirmModalContext';
+import { paymentSession } from '../../../services/paymentSession';
 
 interface TaxiDriverDashboardProps {
   businessName?: string;
@@ -32,6 +33,7 @@ export default function TaxiDriverDashboard({
   const [isOnShift, setIsOnShift] = useState(true);
 
   const handleStartTaxiFare = () => {
+    paymentSession.markPaymentCompleted();
     router.push('/(tabs)/tap-to-pay');
   };
 

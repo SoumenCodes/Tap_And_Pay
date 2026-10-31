@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -37,6 +37,7 @@ function getExportFilename(prefix: string, bizName: string, ext: string): string
 }
 
 export default function OtherBusinessReceiptScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { showAlert } = useConfirmModal();
@@ -659,6 +660,13 @@ export default function OtherBusinessReceiptScreen() {
       <HeaderBar
         title="Receipt"
         showBack
+        onBack={() => {
+          if (router.canGoBack()) {
+            router.back();
+          } else {
+            router.replace('/(tabs)');
+          }
+        }}
         rightAction={
           <TouchableOpacity
             style={styles.headerBtn}

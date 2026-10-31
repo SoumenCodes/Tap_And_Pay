@@ -248,7 +248,7 @@ export default function LoginScreen() {
             </View>
 
             {/* Quick Test Accounts Section for 5 User Types */}
-            <View style={styles.testSectionWrap}>
+            {/* <View style={styles.testSectionWrap}>
               <Text style={styles.testSectionTitle}>Quick Role Switch (1-Tap Login)</Text>
               <View style={styles.testButtonsRow}>
                 <TouchableOpacity
@@ -301,7 +301,7 @@ export default function LoginScreen() {
                   <Text style={styles.testChipText}>✂️ Employee</Text>
                 </TouchableOpacity>
               </View>
-            </View>
+            </View> */}
 
 
           </ScrollView>

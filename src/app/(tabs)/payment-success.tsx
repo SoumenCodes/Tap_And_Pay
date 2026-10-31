@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,13 +7,15 @@ import {
   StatusBar,
   Platform,
   ScrollView,
+  BackHandler,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
-import { getCachedDashboardHeader } from '../../services/dashboardService';
+import { getCachedDashboardHeader, dashboardService } from '../../services/dashboardService';
 import { tokenStorage } from '../../services/tokenStorage';
+import { paymentSession } from '../../services/paymentSession';
 
 export default function PaymentSuccessScreen() {
   const insets = useSafeAreaInsets();
@@ -104,9 +106,24 @@ export default function PaymentSuccessScreen() {
     });
   };
 
-  const handleDone = () => {
-    router.push('/(tabs)');
-  };
+  const handleDone = useCallback(() => {
+    paymentSession.markPaymentCompleted();
+    dashboardService.getDashboard().catch(() => {});
+    router.replace('/(tabs)');
+  }, [router]);
+
+  useEffect(() => {
+    // Proactively refresh dashboard metrics in background as soon as payment is confirmed
+    dashboardService.getDashboard().catch(() => {});
+    paymentSession.markPaymentCompleted();
+
+    const onBackPress = () => {
+      handleDone();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [handleDone]);
 
   return (
     <View

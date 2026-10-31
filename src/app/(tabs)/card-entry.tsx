@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,10 +13,11 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import HeaderBar from '../../components/common/HeaderBar';
 import { useConfirmModal } from '../../context/ConfirmModalContext';
 import { colors } from '../../constants/theme';
+import { paymentSession } from '../../services/paymentSession';
 
 export default function CardEntryScreen() {
   const router = useRouter();
@@ -50,6 +51,41 @@ export default function CardEntryScreen() {
   const [isFraudWarningVisible, setIsFraudWarningVisible] = useState(false);
   const [isFraudRiskAccepted, setIsFraudRiskAccepted] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Reset card fields helper
+  const resetCardFields = useCallback(() => {
+    setCardNumber('');
+    setExpiry('');
+    setCvc('');
+    setCardholder('');
+    setIsFraudWarningVisible(false);
+    setIsProcessing(false);
+  }, []);
+
+  // Subscribe to external payment reset events
+  useEffect(() => {
+    const unsub = paymentSession.onReset(() => {
+      resetCardFields();
+    });
+    return () => unsub();
+  }, [resetCardFields]);
+
+  // Reset when gaining focus if reset flag is set
+  useFocusEffect(
+    useCallback(() => {
+      if (paymentSession.consumePaymentReset()) {
+        resetCardFields();
+      }
+    }, [resetCardFields])
+  );
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/tap-to-pay');
+    }
+  };
 
   // Format card number with spaces every 4 digits
   const handleCardNumberChange = (text: string) => {
@@ -143,7 +179,7 @@ export default function CardEntryScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* ── Top Header ── */}
-      <HeaderBar title="Enter Card Details" showBack />
+      <HeaderBar title="Enter Card Details" showBack onBack={handleBack} />
 
       <View style={styles.root}>
         <ScrollView
@@ -249,7 +285,7 @@ export default function CardEntryScreen() {
 
             <TouchableOpacity
               style={styles.cancelBtn}
-              onPress={() => router.back()}
+              onPress={handleBack}
               activeOpacity={0.7}
             >
               <Text style={styles.cancelBtnText}>Cancel</Text>

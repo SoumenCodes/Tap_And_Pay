@@ -21,7 +21,10 @@ import {
   employeeService,
   EmployeeDetail,
 } from '../../../services/employeeService';
-import { formatSubmittedDate } from '../../../utils/dateUtils';
+import {
+  formatSubmittedDate,
+  formatSydneyToUserDateTime,
+} from '../../../utils/dateUtils';
 
 export default function EmployeeDetailsScreen() {
   const router = useRouter();
@@ -310,7 +313,8 @@ export default function EmployeeDetailsScreen() {
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Registration Date</Text>
                 <Text style={styles.infoValue}>
-                  {formatSubmittedDate(employee?.created_ts)}
+                  {formatSydneyToUserDateTime(employee?.created_ts) ||
+                    formatSubmittedDate(employee?.created_ts)}
                 </Text>
               </View>
             )}

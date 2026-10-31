@@ -669,7 +669,7 @@ export default function OtherBusinessProfileScreen() {
                 } else if (item.action === 'navigate_manage_employees' || item.key === 'manage_staff') {
                   router.push('/manage-employee');
                 } else if (item.action === 'navigate_shift_history' || item.key === 'history') {
-                  router.push('/(tabs)/history');
+                  router.push('/(tabs)/transactions');
                 } else {
                   router.push('/(tabs)/transactions');
                 }

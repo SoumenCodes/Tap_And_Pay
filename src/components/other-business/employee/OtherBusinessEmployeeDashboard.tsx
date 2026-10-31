@@ -387,13 +387,17 @@ export default function OtherBusinessEmployeeDashboard({
               <Text style={styles.empIdMetaLabel}>
                 EMP ID: <Text style={styles.empIdHighlight}>{displayEmpId}</Text>
               </Text>
-              <Text style={styles.metaDot}>•</Text>
-              <View style={styles.clockRow}>
-                <Feather name="clock" size={12} color="#64748B" style={styles.clockIcon} />
-                <Text style={styles.shiftStartText}>
-                  Shift Start: {displayStartTime || '--'}
-                </Text>
-              </View>
+              {isOnShift && (
+                <>
+                  <Text style={styles.metaDot}>•</Text>
+                  <View style={styles.clockRow}>
+                    <Feather name="clock" size={12} color="#64748B" style={styles.clockIcon} />
+                    <Text style={styles.shiftStartText}>
+                      Shift Start: {displayStartTime || '--'}
+                    </Text>
+                  </View>
+                </>
+              )}
             </View>
           </View>
 

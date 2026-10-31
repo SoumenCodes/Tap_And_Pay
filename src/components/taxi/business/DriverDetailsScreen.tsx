@@ -468,7 +468,7 @@ export default function DriverDetailsScreen() {
 
         <TouchableOpacity
           style={styles.bottomTabItem}
-          onPress={() => router.replace('/(tabs)/history')}
+          onPress={() => router.replace('/(tabs)/transactions')}
           activeOpacity={0.7}
         >
           <Ionicons name="receipt-outline" size={20} color="#64748B" />

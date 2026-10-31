@@ -120,13 +120,17 @@ export default function TaxiDriverDashboard({
                 <Text style={styles.taxiMetaLabel}>
                   Taxi No.: <Text style={styles.taxiNoHighlight}>{taxiNumber}</Text>
                 </Text>
-                <Text style={styles.metaDot}>•</Text>
-                <View style={styles.clockRow}>
-                  <Feather name="clock" size={12} color="#64748B" style={styles.clockIcon} />
-                  <Text style={styles.shiftStartText}>
-                    Shift Start: {isOnShift ? (sessionStartTime || '--') : '--'}
-                  </Text>
-                </View>
+                {isOnShift && (
+                  <>
+                    <Text style={styles.metaDot}>•</Text>
+                    <View style={styles.clockRow}>
+                      <Feather name="clock" size={12} color="#64748B" style={styles.clockIcon} />
+                      <Text style={styles.shiftStartText}>
+                        Shift Start: {sessionStartTime || '--'}
+                      </Text>
+                    </View>
+                  </>
+                )}
               </View>
             </View>
 

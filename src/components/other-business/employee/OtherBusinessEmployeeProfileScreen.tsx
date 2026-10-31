@@ -524,7 +524,7 @@ export default function OtherBusinessEmployeeProfileScreen() {
               activeOpacity={0.8}
               onPress={() => {
                 if (item.action === 'navigate_shift_history' || item.key === 'history') {
-                  router.push('/(tabs)/history');
+                  router.push('/(tabs)/transactions');
                 } else {
                   router.push('/(tabs)/transactions');
                 }

@@ -331,6 +331,69 @@ export function parseDate(
 }
 
 /**
+ * Formats an Australia/Sydney timestamp into standard submitted format:
+ * e.g. "31 Oct 2026 6.40pm" (in user device local timezone)
+ */
+export function formatSydneySubmittedDate(
+  input: string | number | Date | null | undefined
+): string {
+  const date = parseSydneyDate(input);
+  if (!date) return '';
+
+  const day = date.getDate();
+  const month = MONTH_NAMES_SHORT[date.getMonth()];
+  const year = date.getFullYear();
+
+  let hours = date.getHours();
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  const ampm = hours >= 12 ? 'pm' : 'am';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+
+  return `${day} ${month} ${year} ${hours}.${minutes}${ampm}`;
+}
+
+/**
+ * Formats an Australia/Sydney timestamp explicitly into UTC:
+ * e.g. "31 Oct 2026 1.10pm UTC"
+ */
+export function formatSydneyToUtcDateTime(
+  input: string | number | Date | null | undefined,
+  includeSuffix = false
+): string {
+  const date = parseSydneyDate(input);
+  if (!date) return '';
+
+  const day = date.getUTCDate();
+  const month = MONTH_NAMES_SHORT[date.getUTCMonth()];
+  const year = date.getUTCFullYear();
+
+  let hours = date.getUTCHours();
+  const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+  const ampm = hours >= 12 ? 'pm' : 'am';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+
+  return `${day} ${month} ${year} ${hours}.${minutes}${ampm}${includeSuffix ? ' UTC' : ''}`;
+}
+
+/**
+ * Formats a date portion only in UTC from Sydney date: "31 Oct 2026"
+ */
+export function formatSydneyToUtcDate(
+  input: string | number | Date | null | undefined
+): string {
+  const date = parseSydneyDate(input);
+  if (!date) return '';
+
+  const day = date.getUTCDate();
+  const month = MONTH_NAMES_SHORT[date.getUTCMonth()];
+  const year = date.getUTCFullYear();
+
+  return `${day} ${month} ${year}`;
+}
+
+/**
  * Formats a date/timestamp to standard user format: "26 Oct 2026 10.30pm"
  * @param input ISO string, SQL date string, timestamp, or Date
  * @returns e.g. "26 Oct 2026 10.30pm" or empty string if invalid

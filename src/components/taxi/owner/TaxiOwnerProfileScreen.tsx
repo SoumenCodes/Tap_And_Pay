@@ -495,7 +495,7 @@ export default function TaxiOwnerProfileScreen() {
               style={{ marginRight: 8 }}
             />
             <Text style={styles.endShiftBtnText}>
-              {session?.end_button_title || (isOnShift ? 'End Shift' : 'Start Shift')}
+              {isOnShift ? session?.end_button_title || 'End Shift' : 'Start Shift'}
             </Text>
           </TouchableOpacity>
         </View>

@@ -45,6 +45,8 @@ Comprehensive mapping between application screens, backend endpoints, and the 5 
 | **User Profile** | All 5 Profile Screens (`src/components/*/profile/`) | All 5 Roles | `GET` | `/api/user/profile` | ✅ Live | Fetches user info, business details, bank details, and active session revenue. |
 | **Bank Details** | Profile Bank Modal | All 5 Roles | `GET` | `/api/user/bank-details` | ✅ Live | Current bank account name, BSB, masked account number, approval status. |
 | **Update Bank** | Profile Bank Edit Modal | All 5 Roles | `POST` | `/api/user/update-bank-details` | ✅ Live | Submits updated bank details for admin approval. |
+| **Start Shift** | Profile Shift Card (`OtherBusinessProfileScreen.tsx`, `OtherBusinessEmployeeProfileScreen.tsx`) | `other_business`, `other_business_employee` | `POST` | `/api/shift/start` | ✅ Live | Starts session and records start timestamp and shift code. |
+| **End Shift** | Profile Shift Card (`OtherBusinessProfileScreen.tsx`, `OtherBusinessEmployeeProfileScreen.tsx`) | `other_business`, `other_business_employee` | `POST` | `/api/shift/end` | ✅ Live | Closes session and registers shift duration and tallies to history. |
 | **Logout** | All Profile Screens | All 5 Roles | `POST` | `/api/logout` | ✅ Live | Invalidates active user session and clears stored tokens. |
 
 ---

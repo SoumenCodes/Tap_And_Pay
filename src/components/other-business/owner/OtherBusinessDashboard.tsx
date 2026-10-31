@@ -21,7 +21,7 @@ import {
   DashboardData,
   ActiveEmployeeItem,
 } from '../../../services/dashboardService';
-import { shiftService } from '../../../services/shiftService';
+import { shiftService, onShiftChange } from '../../../services/shiftService';
 import {
   formatSydneyToUserTime,
   formatSydneyShiftRange,
@@ -101,6 +101,13 @@ export default function OtherBusinessDashboard({
       setIsRefreshing(false);
     }
   }, []);
+
+  useEffect(() => {
+    const unsub = onShiftChange(() => {
+      handleRefresh();
+    });
+    return () => unsub();
+  }, [handleRefresh]);
 
   // Derived header data with fallback to props
   const header = dashboardData?.header;

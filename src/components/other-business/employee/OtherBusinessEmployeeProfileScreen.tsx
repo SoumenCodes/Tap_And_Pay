@@ -19,6 +19,16 @@ import {
   profileService,
   ProfileResponseData,
 } from '../../../services/profileService';
+import {
+  shiftService,
+  onShiftChange,
+} from '../../../services/shiftService';
+import { dashboardService } from '../../../services/dashboardService';
+import {
+  formatSydneyToUserDateTime,
+  formatSydneyToUserTime,
+  formatSydneyShiftRange,
+} from '../../../utils/dateUtils';
 
 export default function OtherBusinessEmployeeProfileScreen() {
   const router = useRouter();
@@ -30,6 +40,7 @@ export default function OtherBusinessEmployeeProfileScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isOnShift, setIsOnShift] = useState(false);
+  const [isShiftActionLoading, setIsShiftActionLoading] = useState(false);
 
   const applyProfileData = useCallback((data: ProfileResponseData) => {
     setProfileData(data);
@@ -62,6 +73,14 @@ export default function OtherBusinessEmployeeProfileScreen() {
     };
   }, [fetchProfile]);
 
+  // Synchronize employee profile state when shift status is changed across the app
+  useEffect(() => {
+    const unsub = onShiftChange(() => {
+      fetchProfile();
+    });
+    return () => unsub();
+  }, [fetchProfile]);
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
@@ -88,12 +107,19 @@ export default function OtherBusinessEmployeeProfileScreen() {
     }
   };
 
-  const handleToggleShift = () => {
-    const shiftCode =
-      profileData?.current_session?.display_shift_id ||
-      profileData?.current_session?.shift_id ||
-      '--';
+  const handleToggleShift = async () => {
     if (isOnShift) {
+      const shiftCode =
+        profileData?.current_session?.display_shift_id ||
+        profileData?.current_session?.session_uuid ||
+        profileData?.current_session?.shift_id ||
+        shiftService.getActiveShift()?.display_shift_id ||
+        '--';
+
+      const shiftSessionId =
+        profileData?.current_session?.shift_id ||
+        shiftService.getActiveShift()?.id;
+
       showConfirm({
         title: 'End Shift',
         message: `Are you sure you want to end your current active shift (${shiftCode})?`,
@@ -101,24 +127,128 @@ export default function OtherBusinessEmployeeProfileScreen() {
         cancelText: 'Cancel',
         type: 'warning',
         icon: 'stop-circle-outline',
-        onConfirm: () => {
-          setIsOnShift(false);
-          showAlert({
-            title: 'Shift Ended',
-            message: 'Active shift ended. Summary submitted to records.',
-            type: 'success',
-            icon: 'checkmark-circle-outline',
-          });
+        onConfirm: async () => {
+          if (!shiftSessionId) {
+            setIsOnShift(false);
+            showAlert({
+              title: 'Shift Reset',
+              message: 'Active shift state refreshed.',
+              type: 'info',
+              icon: 'information-circle-outline',
+            });
+            await fetchProfile();
+            return;
+          }
+
+          setIsShiftActionLoading(true);
+          try {
+            const userId = profileData?.user?.id ? Number(profileData.user.id) : undefined;
+            const res = await shiftService.endShift({
+              shift_session_id: shiftSessionId,
+              user_id: userId,
+            });
+
+            if (res.status) {
+              setIsOnShift(false);
+              const shiftTimeRange = formatSydneyShiftRange(
+                res.data?.start_at,
+                res.data?.end_at
+              );
+              showAlert({
+                title: 'Shift Ended',
+                message: shiftTimeRange
+                  ? `Shift tally submitted to records.\nShift: ${shiftTimeRange}`
+                  : res.message || 'Active shift ended. Summary submitted to records.',
+                buttonText: 'OK',
+                type: 'success',
+                icon: 'checkmark-circle-outline',
+              });
+              await fetchProfile();
+              dashboardService.getDashboard().catch(() => {});
+            } else {
+              if (
+                res.message?.toLowerCase().includes('already ended') ||
+                res.message?.toLowerCase().includes('not active')
+              ) {
+                setIsOnShift(false);
+                showAlert({
+                  title: 'Shift Closed',
+                  message: res.message,
+                  buttonText: 'OK',
+                  type: 'info',
+                  icon: 'information-circle-outline',
+                });
+                await fetchProfile();
+                dashboardService.getDashboard().catch(() => {});
+              } else {
+                showAlert({
+                  title: 'End Shift Failed',
+                  message: res.message || 'Unable to end shift. Please try again.',
+                  buttonText: 'OK',
+                  type: 'danger',
+                  icon: 'alert-circle-outline',
+                });
+              }
+            }
+          } catch (err: any) {
+            showAlert({
+              title: 'End Shift Failed',
+              message:
+                err?.response?.data?.message ||
+                err?.message ||
+                'Unable to end shift. Please try again.',
+              buttonText: 'OK',
+              type: 'danger',
+              icon: 'alert-circle-outline',
+            });
+          } finally {
+            setIsShiftActionLoading(false);
+          }
         },
       });
     } else {
-      setIsOnShift(true);
-      showAlert({
-        title: 'Shift Started',
-        message: 'You are now on shift and ready to accept sales.',
-        type: 'success',
-        icon: 'checkmark-circle-outline',
-      });
+      setIsShiftActionLoading(true);
+      try {
+        const res = await shiftService.startShift();
+        if (res.status && res.data) {
+          setIsOnShift(true);
+          const localStartTime = formatSydneyToUserTime(
+            res.data.active_shift?.start_at || res.data.active_shift?.start_time
+          );
+          showAlert({
+            title: 'Shift Started',
+            message: localStartTime
+              ? `Shift started at ${localStartTime}. Ready to accept sales.`
+              : res.message || 'You are now on shift and ready to accept sales.',
+            buttonText: 'OK',
+            type: 'success',
+            icon: 'checkmark-circle-outline',
+          });
+          await fetchProfile();
+          dashboardService.getDashboard().catch(() => {});
+        } else {
+          showAlert({
+            title: 'Start Shift Failed',
+            message: res.message || 'Unable to start shift. Please try again.',
+            buttonText: 'OK',
+            type: 'danger',
+            icon: 'alert-circle-outline',
+          });
+        }
+      } catch (err: any) {
+        showAlert({
+          title: 'Start Shift Failed',
+          message:
+            err?.response?.data?.message ||
+            err?.message ||
+            'Unable to start shift. Please try again.',
+          buttonText: 'OK',
+          type: 'danger',
+          icon: 'alert-circle-outline',
+        });
+      } finally {
+        setIsShiftActionLoading(false);
+      }
     }
   };
 
@@ -140,13 +270,23 @@ export default function OtherBusinessEmployeeProfileScreen() {
   const user = profileData?.user;
   const session = profileData?.current_session;
 
-  const businessName = user?.business_name || user?.header_business_name || '--';
+  const businessName =
+    user?.business_name?.trim() ||
+    user?.header_business_name?.trim() ||
+    user?.parent_business?.business_name?.trim() ||
+    '--';
   const employeeName =
     user?.display_name ||
     (user?.first_name ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : '') ||
     '--';
-  const abnText = user?.abn || '--';
-  const phoneText = user?.phone_no || '--';
+  const abnText =
+    user?.abn?.trim() ||
+    user?.parent_business?.abn?.trim() ||
+    '--';
+  const phoneText =
+    user?.phone_no?.trim() ||
+    user?.parent_business?.phone_no?.trim() ||
+    '--';
   const empIdText = user?.emp_id || user?.employee_code || '--';
   const emailText = user?.email || '--';
   const addressText =
@@ -157,7 +297,13 @@ export default function OtherBusinessEmployeeProfileScreen() {
   const avatarUri = user?.profile_photo_url || user?.logo_url;
 
   // Session metrics
-  const shiftId = session?.display_shift_id || session?.shift_id || '--';
+  const shiftId = isOnShift
+    ? session?.display_shift_id ||
+      session?.session_uuid ||
+      (session?.shift_id ? `SH${session.shift_id}` : null) ||
+      shiftService.getActiveShift()?.display_shift_id ||
+      '--'
+    : 'No Active Shift';
   const totalAmountStr = session?.revenue?.total_amount_formatted || '$0.00';
   const txnsLabel = session?.revenue?.transaction_label || '0 Txns';
   const cardAmountStr = session?.revenue?.card?.amount_formatted || '$0.00';
@@ -255,14 +401,20 @@ export default function OtherBusinessEmployeeProfileScreen() {
                 !isOnShift && styles.statusTextOff,
               ]}
             >
-              {session?.status_badge || (isOnShift ? 'Active • On Shift' : 'Off Shift • Inactive')}
+              {isOnShift
+                ? session?.status_badge || 'Active • On Shift'
+                : 'Off Shift • Inactive'}
             </Text>
           </View>
 
           {/* Shift Start Duration Text */}
           <Text style={styles.shiftDurationText}>
-            {session?.started_at_formatted
-              ? `Started ${session.started_at_formatted}${session.duration ? ` (${session.duration})` : ''}`
+            {isOnShift
+              ? session?.started_at
+                ? `Started ${formatSydneyToUserDateTime(session.started_at)}${session.duration ? ` (${session.duration})` : ''}`
+                : session?.started_at_formatted
+                ? `Started ${session.started_at_formatted}${session.duration ? ` (${session.duration})` : ''}`
+                : 'Active • Ready for sales'
               : 'Off Shift • Standby'}
           </Text>
 
@@ -331,7 +483,7 @@ export default function OtherBusinessEmployeeProfileScreen() {
             </View>
           </View>
 
-          {/* End Shift Button */}
+          {/* End / Start Shift Button */}
           <TouchableOpacity
             style={[
               styles.endShiftButton,
@@ -339,15 +491,26 @@ export default function OtherBusinessEmployeeProfileScreen() {
             ]}
             onPress={handleToggleShift}
             activeOpacity={0.85}
+            disabled={isShiftActionLoading}
           >
-            <Feather
-              name={isOnShift ? 'log-out' : 'log-in'}
-              size={16}
-              color="#FFFFFF"
-              style={{ marginRight: 8 }}
-            />
+            {isShiftActionLoading ? (
+              <ActivityIndicator size="small" color="#FFFFFF" style={{ marginRight: 8 }} />
+            ) : (
+              <Feather
+                name={isOnShift ? 'log-out' : 'log-in'}
+                size={16}
+                color="#FFFFFF"
+                style={{ marginRight: 8 }}
+              />
+            )}
             <Text style={styles.endShiftButtonText}>
-              {session?.end_button_title || (isOnShift ? 'End Shift' : 'Start Shift')}
+              {isShiftActionLoading
+                ? isOnShift
+                  ? 'Ending Shift...'
+                  : 'Starting Shift...'
+                : isOnShift
+                ? session?.end_button_title || 'End Shift'
+                : 'Start Shift'}
             </Text>
           </TouchableOpacity>
         </View>

@@ -254,6 +254,29 @@ export interface ShiftDetailsResponse {
 let lastActiveShift: ActiveShiftData | null = null;
 let lastUserId: number | string | null = null;
 
+export type ShiftChangeCallback = (activeShift: ActiveShiftData | null) => void;
+let shiftChangeListeners: ShiftChangeCallback[] = [];
+
+export function onShiftChange(callback: ShiftChangeCallback): () => void {
+  shiftChangeListeners.push(callback);
+  return () => {
+    shiftChangeListeners = shiftChangeListeners.filter((cb) => cb !== callback);
+  };
+}
+
+function notifyShiftChange(shift: ActiveShiftData | null) {
+  shiftChangeListeners.forEach((cb) => {
+    try {
+      cb(shift);
+    } catch (e) {
+      console.warn('Error in shiftChange listener:', e);
+    }
+  });
+}
+
+/**
+ * Shift Service with unified APIs for managing shifts
+ */
 export const shiftService = {
   /**
    * Shift History API (GET /api/shift/history)
@@ -314,6 +337,7 @@ export const shiftService = {
     if (response.data?.status && response.data?.data) {
       lastActiveShift = response.data.data.active_shift;
       lastUserId = response.data.data.user_id;
+      notifyShiftChange(lastActiveShift);
     }
     return response.data;
   },
@@ -335,6 +359,7 @@ export const shiftService = {
     const response = await apiClient.post<EndShiftResponse>('/api/shift/end', body);
     if (response.data?.status) {
       lastActiveShift = null;
+      notifyShiftChange(null);
     }
     return response.data;
   },
@@ -342,6 +367,7 @@ export const shiftService = {
   getActiveShift: (): ActiveShiftData | null => lastActiveShift,
   setActiveShift: (shift: ActiveShiftData | null) => {
     lastActiveShift = shift;
+    notifyShiftChange(shift);
   },
   setUserId: (userId: number | string | null) => {
     lastUserId = userId;

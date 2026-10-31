@@ -33,6 +33,6 @@ export default function ProfileTabScreen() {
     return <OtherBusinessEmployeeProfileScreen />;
   }
 
-  // Role 4: Other Business Merchant Owner (Crown Cuts)
+  // Role 4: Other Business Merchant Owner
   return <OtherBusinessProfileScreen />;
 }

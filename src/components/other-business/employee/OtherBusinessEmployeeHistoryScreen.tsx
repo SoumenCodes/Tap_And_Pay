@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,17 +8,25 @@ import {
   TouchableOpacity,
   Modal,
   Pressable,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import HeaderBar from '../../common/HeaderBar';
+import {
+  shiftService,
+  ShiftHistoryData,
+  ShiftRecordItem,
+} from '../../../services/shiftService';
+import { formatShiftRecordTime } from '../../../utils/dateUtils';
 
 export interface EmployeeShiftItem {
   id: string;
   dateKey: string;
   dateText: string;
   timeRange: string;
-  status: 'paid' | 'unpaid';
+  status: 'paid' | 'unpaid' | string;
   paidDate?: string;
   totalAmount: number;
   txnsCount: number;
@@ -28,175 +36,6 @@ export interface EmployeeShiftItem {
   tapAmount: number;
 }
 
-const MOCK_EMPLOYEE_SHIFTS: EmployeeShiftItem[] = [
-  {
-    id: '26102026/93822048/537384',
-    dateKey: '26102026',
-    dateText: '26 Oct 2026',
-    timeRange: '07:30 AM – 05:00 PM',
-    status: 'paid',
-    paidDate: '30 Oct 2026',
-    totalAmount: 485.0,
-    txnsCount: 14,
-    cardTxns: 9,
-    cardAmount: 320.0,
-    tapTxns: 5,
-    tapAmount: 165.0,
-  },
-  {
-    id: '25102026/93822048/537383',
-    dateKey: '25102026',
-    dateText: '25 Oct 2026',
-    timeRange: '05:30 PM – 02:00 AM',
-    status: 'paid',
-    paidDate: '30 Oct 2026',
-    totalAmount: 390.0,
-    txnsCount: 11,
-    cardTxns: 7,
-    cardAmount: 250.0,
-    tapTxns: 4,
-    tapAmount: 140.0,
-  },
-  {
-    id: '24102026/93822048/537382',
-    dateKey: '24102026',
-    dateText: '24 Oct 2026',
-    timeRange: '08:00 AM – 04:30 PM',
-    status: 'unpaid',
-    totalAmount: 240.0,
-    txnsCount: 8,
-    cardTxns: 5,
-    cardAmount: 155.0,
-    tapTxns: 3,
-    tapAmount: 85.0,
-  },
-  {
-    id: '23102026/93822048/537381',
-    dateKey: '23102026',
-    dateText: '23 Oct 2026',
-    timeRange: '09:00 AM – 05:30 PM',
-    status: 'unpaid',
-    totalAmount: 120.0,
-    txnsCount: 4,
-    cardTxns: 2,
-    cardAmount: 60.0,
-    tapTxns: 2,
-    tapAmount: 60.0,
-  },
-  {
-    id: '22102026/93822048/537380',
-    dateKey: '22102026',
-    dateText: '22 Oct 2026',
-    timeRange: '08:00 AM – 05:00 PM',
-    status: 'paid',
-    paidDate: '26 Oct 2026',
-    totalAmount: 410.0,
-    txnsCount: 12,
-    cardTxns: 8,
-    cardAmount: 280.0,
-    tapTxns: 4,
-    tapAmount: 130.0,
-  },
-  {
-    id: '21102026/93822048/537379',
-    dateKey: '21102026',
-    dateText: '21 Oct 2026',
-    timeRange: '08:30 AM – 05:00 PM',
-    status: 'paid',
-    paidDate: '26 Oct 2026',
-    totalAmount: 380.0,
-    txnsCount: 10,
-    cardTxns: 6,
-    cardAmount: 240.0,
-    tapTxns: 4,
-    tapAmount: 140.0,
-  },
-  {
-    id: '20102026/93822048/537378',
-    dateKey: '20102026',
-    dateText: '20 Oct 2026',
-    timeRange: '08:00 AM – 04:30 PM',
-    status: 'paid',
-    paidDate: '26 Oct 2026',
-    totalAmount: 350.0,
-    txnsCount: 9,
-    cardTxns: 6,
-    cardAmount: 230.0,
-    tapTxns: 3,
-    tapAmount: 120.0,
-  },
-  {
-    id: '19102026/93822048/537377',
-    dateKey: '19102026',
-    dateText: '19 Oct 2026',
-    timeRange: '08:00 AM – 05:00 PM',
-    status: 'paid',
-    paidDate: '23 Oct 2026',
-    totalAmount: 395.0,
-    txnsCount: 11,
-    cardTxns: 7,
-    cardAmount: 265.0,
-    tapTxns: 4,
-    tapAmount: 130.0,
-  },
-  {
-    id: '18102026/93822048/537376',
-    dateKey: '18102026',
-    dateText: '18 Oct 2026',
-    timeRange: '09:00 AM – 04:00 PM',
-    status: 'paid',
-    paidDate: '23 Oct 2026',
-    totalAmount: 290.0,
-    txnsCount: 8,
-    cardTxns: 5,
-    cardAmount: 180.0,
-    tapTxns: 3,
-    tapAmount: 110.0,
-  },
-  {
-    id: '17102026/93822048/537375',
-    dateKey: '17102026',
-    dateText: '17 Oct 2026',
-    timeRange: '08:00 AM – 05:30 PM',
-    status: 'paid',
-    paidDate: '23 Oct 2026',
-    totalAmount: 430.0,
-    txnsCount: 13,
-    cardTxns: 9,
-    cardAmount: 300.0,
-    tapTxns: 4,
-    tapAmount: 130.0,
-  },
-  {
-    id: '16102026/93822048/537374',
-    dateKey: '16102026',
-    dateText: '16 Oct 2026',
-    timeRange: '08:30 AM – 05:00 PM',
-    status: 'paid',
-    paidDate: '23 Oct 2026',
-    totalAmount: 370.0,
-    txnsCount: 10,
-    cardTxns: 6,
-    cardAmount: 240.0,
-    tapTxns: 4,
-    tapAmount: 130.0,
-  },
-  {
-    id: '15102026/93822048/537373',
-    dateKey: '15102026',
-    dateText: '15 Oct 2026',
-    timeRange: '08:00 AM – 04:30 PM',
-    status: 'paid',
-    paidDate: '23 Oct 2026',
-    totalAmount: 370.0,
-    txnsCount: 9,
-    cardTxns: 6,
-    cardAmount: 230.0,
-    tapTxns: 3,
-    tapAmount: 140.0,
-  },
-];
-
 interface OtherBusinessEmployeeHistoryScreenProps {
   userName?: string;
   empId?: string;
@@ -204,42 +43,133 @@ interface OtherBusinessEmployeeHistoryScreenProps {
 }
 
 export default function OtherBusinessEmployeeHistoryScreen({
-  empId = '93822048',
+  empId = 'EMP2026100720101878',
   onSelectShift,
 }: OtherBusinessEmployeeHistoryScreenProps) {
+  const [shiftHistoryData, setShiftHistoryData] = useState<ShiftHistoryData | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'paid' | 'unpaid'>('all');
-  const [selectedDateRange, setSelectedDateRange] = useState('20–26 Oct 2026');
+  const [selectedDateRange, setSelectedDateRange] = useState('All Dates');
   const [isDateModalVisible, setIsDateModalVisible] = useState(false);
 
-  // Filtered shifts based on search query and status filter
-  const filteredShifts = useMemo(() => {
-    return MOCK_EMPLOYEE_SHIFTS.filter((shift) => {
-      // Status filter
-      if (filterStatus === 'paid' && shift.status !== 'paid') return false;
-      if (filterStatus === 'unpaid' && shift.status !== 'unpaid') return false;
+  const fetchHistory = useCallback(
+    async (status?: string, search?: string, isRefresh = false) => {
+      try {
+        if (isRefresh) {
+          setIsRefreshing(true);
+        } else {
+          setIsLoading(true);
+        }
+        setErrorMessage(null);
 
-      // Search query filter (matches Shift ID, Date text, amount)
-      if (searchQuery.trim()) {
-        const query = searchQuery.trim().toLowerCase();
-        const idMatches = shift.id.toLowerCase().includes(query);
-        const dateMatches = shift.dateText.toLowerCase().includes(query);
-        return idMatches || dateMatches;
+        const params: any = {};
+        if (status && status !== 'all') {
+          params.status = status;
+        }
+        if (search && search.trim().length > 0) {
+          params.search = search.trim();
+        }
+
+        const res = await shiftService.getShiftHistory(params);
+        if (res?.data) {
+          setShiftHistoryData(res.data);
+          if (res.data.filters?.date_range) {
+            setSelectedDateRange(res.data.filters.date_range);
+          }
+        }
+      } catch (err: any) {
+        console.warn('Failed to load employee shift history:', err?.message || err);
+        setErrorMessage(err?.message || 'Unable to load shift history.');
+      } finally {
+        setIsLoading(false);
+        setIsRefreshing(false);
       }
+    },
+    []
+  );
 
-      return true;
+  // Initial load via asynchronous promise resolution to comply with React 19 effect purity
+  useEffect(() => {
+    let isMounted = true;
+    shiftService
+      .getShiftHistory({
+        status: filterStatus !== 'all' ? filterStatus : undefined,
+        search: searchQuery.trim() || undefined,
+      })
+      .then((res) => {
+        if (!isMounted || !res?.data) return;
+        setShiftHistoryData(res.data);
+        if (res.data.filters?.date_range) {
+          setSelectedDateRange(res.data.filters.date_range);
+        }
+      })
+      .catch((err) => {
+        if (!isMounted) return;
+        console.warn('Failed to load employee shift history:', err?.message || err);
+        setErrorMessage(err?.message || 'Unable to load shift history.');
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [filterStatus, searchQuery]);
+
+  const handleRefresh = () => {
+    fetchHistory(filterStatus, searchQuery, true);
+  };
+
+  const handleTabPress = (type: 'all' | 'paid' | 'unpaid') => {
+    setFilterStatus(type);
+    fetchHistory(type, searchQuery);
+  };
+
+  const handleSearchSubmit = () => {
+    fetchHistory(filterStatus, searchQuery);
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    fetchHistory(filterStatus, '');
+  };
+
+  const filteredShifts: ShiftRecordItem[] = useMemo(() => {
+    const list = shiftHistoryData?.shift_records || [];
+    if (!searchQuery.trim()) return list;
+
+    const query = searchQuery.toLowerCase().trim();
+    return list.filter((shift) => {
+      const matchId = (shift.display_shift_id || '').toLowerCase().includes(query);
+      const matchDate = (shift.session_date || '').toLowerCase().includes(query);
+      const matchTime = (shift.time_range || '').toLowerCase().includes(query);
+      const matchAmount = (shift.amount_formatted || '').toLowerCase().includes(query);
+      return matchId || matchDate || matchTime || matchAmount;
     });
-  }, [searchQuery, filterStatus]);
+  }, [shiftHistoryData?.shift_records, searchQuery]);
 
-  const allCount = MOCK_EMPLOYEE_SHIFTS.length;
-  const paidCount = MOCK_EMPLOYEE_SHIFTS.filter((s) => s.status === 'paid').length;
-  const unpaidCount = MOCK_EMPLOYEE_SHIFTS.filter((s) => s.status === 'unpaid').length;
+  const allCount = shiftHistoryData?.filters?.tabs?.all_shifts?.count ?? 0;
+  const paidCount = shiftHistoryData?.filters?.tabs?.paid_shifts?.count ?? 0;
+  const unpaidCount = shiftHistoryData?.filters?.tabs?.unpaid_shifts?.count ?? 0;
 
-  const handleCardPress = (shift: EmployeeShiftItem) => {
+  const summary = shiftHistoryData?.summary;
+  const totalCollections = summary?.total_shift_collections ?? 0;
+  const wholeAmount = Math.floor(totalCollections).toLocaleString('en-US');
+  const centsAmount = (totalCollections.toFixed(2)).split('.')[1] || '00';
+  const paidPercentage = summary?.paid_percentage ?? 0;
+
+  const handleCardPress = (shift: ShiftRecordItem) => {
     if (onSelectShift) {
-      onSelectShift({ id: shift.id });
+      onSelectShift({ id: shift.display_shift_id || String(shift.id) });
     }
   };
+
+  const displayEmpId = shiftHistoryData?.header?.emp_id || empId;
 
   return (
     <View style={styles.root}>
@@ -247,12 +177,12 @@ export default function OtherBusinessEmployeeHistoryScreen({
 
       {/* ── HEADER BAR (Centered Title & EMP ID Subtitle) ── */}
       <HeaderBar
-        title="Shift History"
+        title={shiftHistoryData?.header?.title || 'Shift History'}
         showBack={false}
         subtitle={
           <View style={styles.headerSubtitleRow}>
             <Text style={styles.empIdLabel}>EMP ID: </Text>
-            <Text style={styles.empIdValue}>{empId}</Text>
+            <Text style={styles.empIdValue}>{displayEmpId}</Text>
           </View>
         }
       />
@@ -261,6 +191,14 @@ export default function OtherBusinessEmployeeHistoryScreen({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor="#D97706"
+            colors={['#D97706']}
+          />
+        }
       >
         {/* ── 1. SEARCH & DATE FILTER ROW ── */}
         <View style={styles.searchDateRow}>
@@ -273,12 +211,14 @@ export default function OtherBusinessEmployeeHistoryScreen({
               placeholderTextColor="#94A3B8"
               value={searchQuery}
               onChangeText={setSearchQuery}
+              onSubmitEditing={handleSearchSubmit}
+              returnKeyType="search"
               autoCapitalize="none"
               autoCorrect={false}
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity
-                onPress={() => setSearchQuery('')}
+                onPress={handleClearSearch}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 <Ionicons name="close-circle" size={16} color="#94A3B8" />
@@ -286,15 +226,13 @@ export default function OtherBusinessEmployeeHistoryScreen({
             )}
           </View>
 
-          {/* Date Range Button */}
-          <TouchableOpacity
-            style={styles.datePickerBtn}
-            activeOpacity={0.75}
-            onPress={() => setIsDateModalVisible(true)}
-          >
+          {/* Date Range Badge */}
+          <View style={styles.datePickerBtn}>
             <Ionicons name="calendar-outline" size={16} color="#0F172A" style={{ marginRight: 6 }} />
-            <Text style={styles.datePickerText}>{selectedDateRange}</Text>
-          </TouchableOpacity>
+            <Text style={styles.datePickerText} numberOfLines={1}>
+              {selectedDateRange}
+            </Text>
+          </View>
         </View>
 
         {/* ── 2. FILTER PILLS (All, Paid, Unpaid) ── */}
@@ -305,7 +243,7 @@ export default function OtherBusinessEmployeeHistoryScreen({
               styles.filterPill,
               filterStatus === 'all' ? styles.filterPillActive : styles.filterPillInactive,
             ]}
-            onPress={() => setFilterStatus('all')}
+            onPress={() => handleTabPress('all')}
             activeOpacity={0.7}
           >
             <Text
@@ -324,7 +262,7 @@ export default function OtherBusinessEmployeeHistoryScreen({
               styles.filterPill,
               filterStatus === 'paid' ? styles.filterPillActive : styles.filterPillInactive,
             ]}
-            onPress={() => setFilterStatus('paid')}
+            onPress={() => handleTabPress('paid')}
             activeOpacity={0.7}
           >
             <Text
@@ -343,7 +281,7 @@ export default function OtherBusinessEmployeeHistoryScreen({
               styles.filterPill,
               filterStatus === 'unpaid' ? styles.filterPillActive : styles.filterPillInactive,
             ]}
-            onPress={() => setFilterStatus('unpaid')}
+            onPress={() => handleTabPress('unpaid')}
             activeOpacity={0.7}
           >
             <Text
@@ -362,14 +300,30 @@ export default function OtherBusinessEmployeeHistoryScreen({
           <Text style={styles.summaryCardLabel}>TOTAL SHIFT COLLECTIONS</Text>
           <View style={styles.bigAmountRow}>
             <Text style={styles.bigAmountDollar}>$</Text>
-            <Text style={styles.bigAmountWhole}>3,840</Text>
-            <Text style={styles.bigAmountCents}>.00</Text>
+            <Text style={styles.bigAmountWhole}>{wholeAmount}</Text>
+            <Text style={styles.bigAmountCents}>.{centsAmount}</Text>
           </View>
 
           {/* Dual Segment Progress Bar */}
           <View style={styles.progressBarTrack}>
-            <View style={[styles.progressBarGreen, { flex: 3480 }]} />
-            <View style={[styles.progressBarOrange, { flex: 360 }]} />
+            {summary && summary.total_shift_collections > 0 ? (
+              <>
+                <View
+                  style={[
+                    styles.progressBarGreen,
+                    { flex: Math.max(0.01, paidPercentage) },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.progressBarOrange,
+                    { flex: Math.max(0.01, 100 - paidPercentage) },
+                  ]}
+                />
+              </>
+            ) : (
+              <View style={[styles.progressBarNeutral, { flex: 1 }]} />
+            )}
           </View>
 
           {/* 2 Bottom Metric Boxes */}
@@ -380,8 +334,12 @@ export default function OtherBusinessEmployeeHistoryScreen({
                 <View style={styles.dotGreen} />
                 <Text style={styles.metricBoxTitle}>Settled / Paid</Text>
               </View>
-              <Text style={styles.metricPaidAmount}>$3,480.00</Text>
-              <Text style={styles.metricBoxSub}>10 shifts completed</Text>
+              <Text style={styles.metricPaidAmount}>
+                {summary?.settled_paid_formatted || '$0.00'}
+              </Text>
+              <Text style={styles.metricBoxSub}>
+                {summary?.settled_paid_subtitle || '0 shifts completed'}
+              </Text>
             </View>
 
             {/* Pending / Unpaid */}
@@ -390,8 +348,12 @@ export default function OtherBusinessEmployeeHistoryScreen({
                 <View style={styles.dotOrange} />
                 <Text style={styles.metricBoxTitle}>Pending / Unpaid</Text>
               </View>
-              <Text style={styles.metricUnpaidAmount}>$360.00</Text>
-              <Text style={styles.metricBoxSub}>2 shifts awaiting</Text>
+              <Text style={styles.metricUnpaidAmount}>
+                {summary?.pending_unpaid_formatted || '$0.00'}
+              </Text>
+              <Text style={styles.metricBoxSub}>
+                {summary?.pending_unpaid_subtitle || '0 shifts awaiting'}
+              </Text>
             </View>
           </View>
         </View>
@@ -401,119 +363,169 @@ export default function OtherBusinessEmployeeHistoryScreen({
           <Text style={styles.recordsSectionTitle}>SHIFT RECORDS</Text>
         </View>
 
+        {/* Loading Spinner */}
+        {isLoading && !shiftHistoryData && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#D97706" />
+            <Text style={styles.loadingText}>Loading shift history...</Text>
+          </View>
+        )}
+
+        {/* Error Alert */}
+        {errorMessage && !isLoading && (
+          <View style={styles.errorBanner}>
+            <Ionicons name="alert-circle-outline" size={20} color="#DC2626" />
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          </View>
+        )}
+
         {/* ── 5. SHIFT RECORDS LIST ── */}
         <View style={styles.shiftsList}>
-          {filteredShifts.map((shift) => {
-            const isPaid = shift.status === 'paid';
+          {!isLoading &&
+            filteredShifts.map((shift) => {
+              const isPaid = shift.status === 'PAID';
+              const { dateText, timeRangeText } = formatShiftRecordTime({
+                start_at: shift.start_at,
+                end_at: shift.end_at,
+                time_range: shift.time_range,
+                session_date: shift.session_date,
+              });
 
-            return (
-              <TouchableOpacity
-                key={shift.id}
-                style={[
-                  styles.shiftCard,
-                  !isPaid && styles.shiftCardUnpaid,
-                ]}
-                activeOpacity={0.88}
-                onPress={() => handleCardPress(shift)}
-              >
-                {/* Top Row: Shift ID + Status Badge */}
-                <View style={styles.cardHeaderRow}>
-                  <Text style={[styles.cardShiftId, !isPaid && styles.cardShiftIdUnpaid]}>
-                    {shift.id}
-                  </Text>
-
-                  {isPaid ? (
-                    <View style={styles.paidBadge}>
-                      <View style={styles.paidDot} />
-                      <Text style={styles.paidBadgeText}>
-                        PAID <Text style={styles.paidDateText}>on {shift.paidDate}</Text>
-                      </Text>
-                    </View>
-                  ) : (
-                    <View style={styles.unpaidBadge}>
-                      <View style={styles.unpaidDot} />
-                      <Text style={styles.unpaidBadgeText}>UNPAID</Text>
-                    </View>
-                  )}
-                </View>
-
-                {/* Middle Row: Date/Time + Txns + Total/Pending + View Trips Button */}
-                <View style={styles.cardMiddleRow}>
-                  <View style={styles.middleLeftCol}>
-                    <Text style={styles.cardDateTime}>
-                      {shift.dateText} • {shift.timeRange}
+              return (
+                <TouchableOpacity
+                  key={String(shift.id)}
+                  style={[
+                    styles.shiftCard,
+                    !isPaid && styles.shiftCardUnpaid,
+                  ]}
+                  activeOpacity={0.88}
+                  onPress={() => handleCardPress(shift)}
+                >
+                  {/* Top Row: Shift ID + Status Badge */}
+                  <View style={styles.cardHeaderRow}>
+                    <Text style={[styles.cardShiftId, !isPaid && styles.cardShiftIdUnpaid]}>
+                      {shift.display_shift_id}
                     </Text>
 
-                    <View style={styles.txnsTotalRow}>
-                      <View style={[styles.txnsCountPill, !isPaid && styles.txnsCountPillUnpaid]}>
-                        <Text style={[styles.txnsCountText, !isPaid && styles.txnsCountTextUnpaid]}>
-                          {shift.txnsCount} Txns
+                    {isPaid ? (
+                      <View style={styles.paidBadge}>
+                        <View style={styles.paidDot} />
+                        <Text style={styles.paidBadgeText}>
+                          PAID{shift.paid_date ? ` on ${shift.paid_date}` : ''}
                         </Text>
                       </View>
+                    ) : (
+                      <View style={styles.unpaidBadge}>
+                        <View style={styles.unpaidDot} />
+                        <Text style={styles.unpaidBadgeText}>UNPAID</Text>
+                      </View>
+                    )}
+                  </View>
 
-                      <Text style={styles.totalLabel}>
-                        {isPaid ? 'Total: ' : 'Pending: '}
-                        <Text style={[styles.totalValue, !isPaid && styles.totalValueUnpaid]}>
-                          ${shift.totalAmount.toFixed(2)}
+                  {/* Middle Row: Date/Time + Txns + Total/Pending + View Trips Button */}
+                  <View style={styles.cardMiddleRow}>
+                    <View style={styles.middleLeftCol}>
+                      {shift.user_name ? (
+                        <View style={styles.shiftCardEmployeeRow}>
+                          <Ionicons
+                            name="person-outline"
+                            size={12}
+                            color="#475569"
+                            style={{ marginRight: 4 }}
+                          />
+                          <Text style={styles.shiftCardEmployeeName} numberOfLines={1}>
+                            {shift.user_name}
+                            {shift.employee_code ? (
+                              <Text style={styles.shiftCardEmployeeCode}>
+                                {' '}• {shift.employee_code}
+                              </Text>
+                            ) : null}
+                          </Text>
+                        </View>
+                      ) : null}
+
+                      <Text style={styles.cardDateTime}>
+                        {dateText} • {timeRangeText}
+                      </Text>
+
+                      <View style={styles.txnsTotalRow}>
+                        <View style={[styles.txnsCountPill, !isPaid && styles.txnsCountPillUnpaid]}>
+                          <Text style={[styles.txnsCountText, !isPaid && styles.txnsCountTextUnpaid]}>
+                            {shift.total_txns} Txns
+                          </Text>
+                        </View>
+
+                        <Text style={styles.totalLabel}>
+                          {isPaid ? 'Total: ' : 'Pending: '}
+                          <Text style={[styles.totalValue, !isPaid && styles.totalValueUnpaid]}>
+                            {shift.amount_formatted}
+                          </Text>
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* View Trips Button */}
+                    <TouchableOpacity
+                      style={[styles.viewTripsBtn, !isPaid && styles.viewTripsBtnUnpaid]}
+                      activeOpacity={0.7}
+                      onPress={() => handleCardPress(shift)}
+                    >
+                      <Text style={[styles.viewTripsText, !isPaid && styles.viewTripsTextUnpaid]}>
+                        View Trips
+                      </Text>
+                      <Feather
+                        name="chevron-right"
+                        size={15}
+                        color={isPaid ? '#2563EB' : '#B45309'}
+                      />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Bottom Row: Card & Tap & Go Breakdowns */}
+                  <View style={styles.breakdownRow}>
+                    {/* Card Pill */}
+                    <View style={[styles.breakdownPill, !isPaid && styles.breakdownPillUnpaid]}>
+                      <Ionicons
+                        name="card-outline"
+                        size={13}
+                        color={isPaid ? '#64748B' : '#B45309'}
+                        style={{ marginRight: 4 }}
+                      />
+                      <Text style={[styles.breakdownText, !isPaid && styles.breakdownTextUnpaid]}>
+                        Card:{' '}
+                        <Text style={styles.breakdownBold}>
+                          {shift.card?.txns ?? 0} txns • {shift.card?.amount_formatted ?? '$0.00'}
+                        </Text>
+                      </Text>
+                    </View>
+
+                    {/* Tap & Go Pill */}
+                    <View style={[styles.breakdownPill, !isPaid && styles.breakdownPillUnpaid]}>
+                      <Ionicons
+                        name="radio-outline"
+                        size={13}
+                        color={isPaid ? '#64748B' : '#B45309'}
+                        style={{ marginRight: 4 }}
+                      />
+                      <Text style={[styles.breakdownText, !isPaid && styles.breakdownTextUnpaid]}>
+                        Tap & Go:{' '}
+                        <Text style={styles.breakdownBold}>
+                          {shift.tap_and_go?.txns ?? 0} txns • {shift.tap_and_go?.amount_formatted ?? '$0.00'}
                         </Text>
                       </Text>
                     </View>
                   </View>
+                </TouchableOpacity>
+              );
+            })}
 
-                  {/* View Trips Button */}
-                  <TouchableOpacity
-                    style={[styles.viewTripsBtn, !isPaid && styles.viewTripsBtnUnpaid]}
-                    activeOpacity={0.7}
-                    onPress={() => handleCardPress(shift)}
-                  >
-                    <Text style={[styles.viewTripsText, !isPaid && styles.viewTripsTextUnpaid]}>
-                      View Trips
-                    </Text>
-                    <Feather
-                      name="chevron-right"
-                      size={15}
-                      color={isPaid ? '#2563EB' : '#B45309'}
-                    />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Bottom Row: Card & Tap & Go Breakdowns */}
-                <View style={styles.breakdownRow}>
-                  {/* Card Pill */}
-                  <View style={[styles.breakdownPill, !isPaid && styles.breakdownPillUnpaid]}>
-                    <Ionicons
-                      name="card-outline"
-                      size={13}
-                      color={isPaid ? '#64748B' : '#B45309'}
-                      style={{ marginRight: 4 }}
-                    />
-                    <Text style={[styles.breakdownText, !isPaid && styles.breakdownTextUnpaid]}>
-                      Card:{' '}
-                      <Text style={styles.breakdownBold}>
-                        {shift.cardTxns} txns • ${shift.cardAmount.toFixed(2)}
-                      </Text>
-                    </Text>
-                  </View>
-
-                  {/* Tap & Go Pill */}
-                  <View style={[styles.breakdownPill, !isPaid && styles.breakdownPillUnpaid]}>
-                    <Ionicons
-                      name="radio-outline"
-                      size={13}
-                      color={isPaid ? '#64748B' : '#B45309'}
-                      style={{ marginRight: 4 }}
-                    />
-                    <Text style={[styles.breakdownText, !isPaid && styles.breakdownTextUnpaid]}>
-                      Tap & Go:{' '}
-                      <Text style={styles.breakdownBold}>
-                        {shift.tapTxns} txns • ${shift.tapAmount.toFixed(2)}
-                      </Text>
-                    </Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
+          {!isLoading && filteredShifts.length === 0 && (
+            <View style={styles.emptyContainer}>
+              <Feather name="search" size={32} color="#CBD5E1" />
+              <Text style={styles.emptyTitle}>No Shifts Found</Text>
+              <Text style={styles.emptySubtitle}>Try adjusting your search criteria</Text>
+            </View>
+          )}
         </View>
 
         <View style={{ height: 32 }} />
@@ -532,33 +544,31 @@ export default function OtherBusinessEmployeeHistoryScreen({
         >
           <View style={styles.dateModalBox}>
             <Text style={styles.dateModalTitle}>Select Date Range</Text>
-            {['20–26 Oct 2026', '13–19 Oct 2026', '06–12 Oct 2026', 'All Dates'].map(
-              (range) => (
-                <TouchableOpacity
-                  key={range}
+            {['All Dates'].map((range) => (
+              <TouchableOpacity
+                key={range}
+                style={[
+                  styles.dateOptionRow,
+                  selectedDateRange === range && styles.dateOptionRowActive,
+                ]}
+                onPress={() => {
+                  setSelectedDateRange(range);
+                  setIsDateModalVisible(false);
+                }}
+              >
+                <Text
                   style={[
-                    styles.dateOptionRow,
-                    selectedDateRange === range && styles.dateOptionRowActive,
+                    styles.dateOptionText,
+                    selectedDateRange === range && styles.dateOptionTextActive,
                   ]}
-                  onPress={() => {
-                    setSelectedDateRange(range);
-                    setIsDateModalVisible(false);
-                  }}
                 >
-                  <Text
-                    style={[
-                      styles.dateOptionText,
-                      selectedDateRange === range && styles.dateOptionTextActive,
-                    ]}
-                  >
-                    {range}
-                  </Text>
-                  {selectedDateRange === range && (
-                    <Ionicons name="checkmark-circle" size={18} color="#2563EB" />
-                  )}
-                </TouchableOpacity>
-              )
-            )}
+                  {range}
+                </Text>
+                {selectedDateRange === range && (
+                  <Ionicons name="checkmark" size={18} color="#D97706" />
+                )}
+              </TouchableOpacity>
+            ))}
           </View>
         </Pressable>
       </Modal>
@@ -571,33 +581,33 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 24,
+    backgroundColor: '#F8FAFC',
+  },
   headerSubtitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     marginTop: 2,
   },
   empIdLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#475569',
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
   },
   empIdValue: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#D97706',
-  },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 32,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0F172A',
   },
 
   /* 1. Search & Date Filter Row */
   searchDateRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
     marginBottom: 12,
   },
   searchBox: {
@@ -609,12 +619,13 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     borderRadius: 12,
     paddingHorizontal: 12,
-    height: 44,
+    height: 42,
   },
   searchInput: {
     flex: 1,
     fontSize: 13,
     color: '#0F172A',
+    fontWeight: '500',
     paddingVertical: 0,
   },
   datePickerBtn: {
@@ -625,11 +636,11 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     borderRadius: 12,
     paddingHorizontal: 12,
-    height: 44,
+    height: 42,
   },
   datePickerText: {
     fontSize: 12.5,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#0F172A',
   },
 
@@ -641,14 +652,14 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   filterPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 1,
   },
   filterPillActive: {
-    backgroundColor: '#2563EB',
-    borderColor: '#2563EB',
+    backgroundColor: '#0F172A',
+    borderColor: '#0F172A',
   },
   filterPillInactive: {
     backgroundColor: '#FFFFFF',
@@ -663,66 +674,70 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   filterPillTextInactive: {
-    color: '#475569',
+    color: '#64748B',
   },
 
   /* 3. Summary Card */
   summaryCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#FEF08A',
+    borderColor: '#E2E8F0',
     padding: 16,
-    marginBottom: 16,
-    shadowColor: '#F59E0B',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
+    marginBottom: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
     elevation: 2,
   },
   summaryCardLabel: {
     fontSize: 10.5,
-    fontWeight: '800',
-    color: '#94A3B8',
+    fontWeight: '700',
+    color: '#64748B',
     letterSpacing: 0.5,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   bigAmountRow: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'flex-start',
     marginBottom: 12,
   },
   bigAmountDollar: {
-    fontSize: 24,
-    fontWeight: '900',
+    fontSize: 22,
+    fontWeight: '700',
     color: '#0F172A',
+    marginTop: 2,
+    marginRight: 2,
   },
   bigAmountWhole: {
-    fontSize: 30,
-    fontWeight: '900',
+    fontSize: 32,
+    fontWeight: '800',
     color: '#0F172A',
     letterSpacing: -0.5,
   },
   bigAmountCents: {
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 20,
+    fontWeight: '700',
     color: '#64748B',
+    marginTop: 4,
   },
   progressBarTrack: {
+    flexDirection: 'row',
     height: 7,
     borderRadius: 4,
-    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
     overflow: 'hidden',
-    backgroundColor: '#E2E8F0',
     marginBottom: 14,
   },
   progressBarGreen: {
-    backgroundColor: '#059669',
-    height: '100%',
+    backgroundColor: '#10B981',
   },
   progressBarOrange: {
     backgroundColor: '#F59E0B',
-    height: '100%',
+  },
+  progressBarNeutral: {
+    backgroundColor: '#CBD5E1',
   },
   metricsBoxesRow: {
     flexDirection: 'row',
@@ -730,59 +745,58 @@ const styles = StyleSheet.create({
   },
   metricBoxPaid: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 12,
+    backgroundColor: '#ECFDF5',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#A7F3D0',
+    borderRadius: 12,
+    padding: 10,
   },
   metricBoxUnpaid: {
     flex: 1,
-    backgroundColor: '#FFFDF7',
-    borderRadius: 12,
-    padding: 12,
+    backgroundColor: '#FFFBEB',
     borderWidth: 1,
-    borderColor: '#FEF08A',
+    borderColor: '#FDE68A',
+    borderRadius: 12,
+    padding: 10,
   },
   metricBoxHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    gap: 5,
+    marginBottom: 4,
   },
   dotGreen: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#10B981',
-    marginRight: 6,
+    backgroundColor: '#059669',
   },
   dotOrange: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#F59E0B',
-    marginRight: 6,
+    backgroundColor: '#D97706',
   },
   metricBoxTitle: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '700',
     color: '#475569',
   },
   metricPaidAmount: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#059669',
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#065F46',
     marginBottom: 2,
   },
   metricUnpaidAmount: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#D97706',
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#92400E',
     marginBottom: 2,
   },
   metricBoxSub: {
     fontSize: 10,
-    color: '#94A3B8',
+    color: '#64748B',
     fontWeight: '500',
   },
 
@@ -791,32 +805,59 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   recordsSectionTitle: {
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 11,
+    fontWeight: '700',
     color: '#64748B',
     letterSpacing: 0.5,
   },
+  loadingContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '600',
+    marginTop: 10,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
+  },
+  errorText: {
+    fontSize: 12.5,
+    color: '#DC2626',
+    fontWeight: '600',
+    flex: 1,
+  },
 
-  /* 5. Shifts List & Cards */
+  /* 5. Shifts List */
   shiftsList: {
     gap: 10,
   },
   shiftCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     padding: 14,
-    shadowColor: '#000000',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
-    shadowRadius: 4,
+    shadowRadius: 3,
     elevation: 1,
   },
   shiftCardUnpaid: {
-    backgroundColor: '#FFFDF7',
-    borderColor: '#FEF08A',
-    borderWidth: 1.2,
+    borderColor: '#FDE68A',
+    backgroundColor: '#FFFEFA',
   },
   cardHeaderRow: {
     flexDirection: 'row',
@@ -825,12 +866,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   cardShiftId: {
-    fontSize: 12.5,
+    fontSize: 12,
     fontWeight: '800',
     color: '#0F172A',
   },
   cardShiftIdUnpaid: {
-    color: '#B45309',
+    color: '#0F172A',
   },
   paidBadge: {
     flexDirection: 'row',
@@ -850,18 +891,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#10B981',
   },
   paidBadgeText: {
-    fontSize: 10.5,
+    fontSize: 10,
     fontWeight: '800',
     color: '#065F46',
   },
   paidDateText: {
-    fontWeight: '600',
-    color: '#059669',
+    fontWeight: '500',
+    color: '#047857',
   },
   unpaidBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#FFFBEB',
     borderWidth: 1,
     borderColor: '#FDE68A',
     borderRadius: 12,
@@ -873,26 +914,41 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#D97706',
+    backgroundColor: '#F59E0B',
   },
   unpaidBadgeText: {
-    fontSize: 10.5,
+    fontSize: 10,
     fontWeight: '800',
     color: '#B45309',
   },
   cardMiddleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 10,
   },
   middleLeftCol: {
     flex: 1,
   },
-  cardDateTime: {
+  shiftCardEmployeeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  shiftCardEmployeeName: {
     fontSize: 12.5,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#0F172A',
+  },
+  shiftCardEmployeeCode: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  cardDateTime: {
+    fontSize: 11.5,
+    color: '#64748B',
+    fontWeight: '600',
     marginBottom: 6,
   },
   txnsTotalRow: {
@@ -903,50 +959,50 @@ const styles = StyleSheet.create({
   txnsCountPill: {
     backgroundColor: '#F1F5F9',
     borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
   },
   txnsCountPillUnpaid: {
     backgroundColor: '#FEF3C7',
   },
   txnsCountText: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '700',
     color: '#475569',
   },
   txnsCountTextUnpaid: {
-    color: '#B45309',
+    color: '#92400E',
   },
   totalLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748B',
-    fontWeight: '500',
+    fontWeight: '600',
   },
   totalValue: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#059669',
   },
   totalValueUnpaid: {
-    color: '#B45309',
+    color: '#D97706',
   },
   viewTripsBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#EFF6FF',
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
     borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
     gap: 2,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
   },
   viewTripsBtnUnpaid: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#FFFBEB',
     borderColor: '#FDE68A',
   },
   viewTripsText: {
-    fontSize: 11.5,
+    fontSize: 11,
     fontWeight: '700',
     color: '#2563EB',
   },
@@ -956,25 +1012,29 @@ const styles = StyleSheet.create({
   breakdownRow: {
     flexDirection: 'row',
     gap: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    paddingTop: 8,
   },
   breakdownPill: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   breakdownPillUnpaid: {
-    backgroundColor: '#FFFBEB',
     borderColor: '#FDE68A',
+    backgroundColor: '#FFFDF7',
   },
   breakdownText: {
-    fontSize: 10.5,
+    fontSize: 10,
     color: '#64748B',
+    fontWeight: '500',
   },
   breakdownTextUnpaid: {
     color: '#92400E',
@@ -983,32 +1043,43 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0F172A',
   },
+  emptyContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#475569',
+    marginTop: 10,
+  },
+  emptySubtitle: {
+    fontSize: 11.5,
+    color: '#94A3B8',
+    marginTop: 3,
+  },
 
-  /* Modal Backdrop & Date Options */
+  /* Date Modal */
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 24,
   },
   dateModalBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
     width: '100%',
     maxWidth: 320,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 16,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 5,
   },
   dateModalTitle: {
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#0F172A',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   dateOptionRow: {
     flexDirection: 'row',
@@ -1019,18 +1090,17 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F1F5F9',
   },
   dateOptionRowActive: {
-    backgroundColor: '#EFF6FF',
-    marginHorizontal: -8,
-    paddingHorizontal: 8,
+    backgroundColor: '#FFFBEB',
     borderRadius: 8,
+    paddingHorizontal: 8,
   },
   dateOptionText: {
-    fontSize: 13.5,
+    fontSize: 13,
     color: '#334155',
     fontWeight: '500',
   },
   dateOptionTextActive: {
-    color: '#2563EB',
+    color: '#D97706',
     fontWeight: '700',
   },
 });

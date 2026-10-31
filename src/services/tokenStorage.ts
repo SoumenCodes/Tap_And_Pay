@@ -13,6 +13,7 @@ const STORAGE_KEYS = {
 // In-memory cache for synchronous token retrieval in Axios request interceptors
 let cachedAccessToken: string | null = null;
 let cachedRefreshToken: string | null = null;
+let cachedUser: UserProfile | null = null;
 
 export const tokenStorage = {
   /**
@@ -27,6 +28,13 @@ export const tokenStorage = {
    */
   getRefreshToken: (): string | null => {
     return cachedRefreshToken;
+  },
+
+  /**
+   * Fast synchronous retrieval for current user profile
+   */
+  getCachedUser: (): UserProfile | null => {
+    return cachedUser;
   },
 
   /**
@@ -52,6 +60,7 @@ export const tokenStorage = {
    * Save user profile data to encrypted SecureStore
    */
   saveUser: async (user: UserProfile): Promise<void> => {
+    cachedUser = user;
     try {
       await SecureStore.setItemAsync(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
     } catch (error) {
@@ -81,6 +90,7 @@ export const tokenStorage = {
       if (userDataStr) {
         try {
           user = JSON.parse(userDataStr) as UserProfile;
+          cachedUser = user;
         } catch {
           user = null;
         }

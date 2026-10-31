@@ -37,6 +37,7 @@ export interface BackendUserData {
   business_name?: string;
   email?: string;
   phone_no?: string;
+  phone?: string;
   dob?: string | null;
   abn?: string;
   dc_number?: string;
@@ -190,7 +191,7 @@ export const authService = {
       empId: u.employee_code || undefined,
       sessionStartTime: '',
       abn: u.abn || undefined,
-      phone: u.phone_no || undefined,
+      phone: u.phone_no || u.phone || undefined,
       logoUrl: u.logo_url || null,
     };
 

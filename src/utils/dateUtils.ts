@@ -236,6 +236,55 @@ export function formatSydneyShiftRange(
 }
 
 /**
+ * Formats a shift's Sydney timestamps (start_at, end_at, time_range) into the user's local timezone.
+ * Returns formatted date text (e.g. "31 Oct 2026") and time range (e.g. "2:43 PM – 2:46 PM").
+ */
+export function formatShiftRecordTime(record: {
+  start_at?: string | null;
+  end_at?: string | null;
+  time_range?: string | null;
+  session_date?: string | null;
+}): { dateText: string; timeRangeText: string } {
+  let startDate: Date | null = null;
+  let endDate: Date | null = null;
+
+  if (record.start_at) {
+    startDate = parseSydneyDate(record.start_at);
+  }
+  if (record.end_at) {
+    endDate = parseSydneyDate(record.end_at);
+  }
+
+  // If start_at or end_at are missing, try to parse from time_range (e.g. "2026-10-31 20:13:42 - 2026-10-31 20:16:36")
+  if ((!startDate || !endDate) && record.time_range) {
+    const parts = record.time_range.split(' - ');
+    if (parts[0] && !startDate) {
+      startDate = parseSydneyDate(parts[0].trim());
+    }
+    if (parts[1] && !endDate) {
+      endDate = parseSydneyDate(parts[1].trim());
+    }
+  }
+
+  const dateText = startDate
+    ? formatSydneyToUserDate(startDate)
+    : record.session_date
+    ? formatSydneyToUserDate(record.session_date)
+    : '--';
+
+  let timeRangeText = '--';
+  if (startDate && endDate) {
+    timeRangeText = formatSydneyShiftRange(startDate, endDate);
+  } else if (startDate) {
+    timeRangeText = formatSydneyToUserTime(startDate);
+  } else if (record.time_range) {
+    timeRangeText = record.time_range;
+  }
+
+  return { dateText, timeRangeText };
+}
+
+/**
  * Safely parses various date formats (ISO string, SQL "YYYY-MM-DD HH:mm:ss", timestamp number, or Date object)
  */
 export function parseDate(

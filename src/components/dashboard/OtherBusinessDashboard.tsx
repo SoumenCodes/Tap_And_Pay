@@ -20,9 +20,9 @@ interface OtherBusinessDashboardProps {
 }
 
 export default function OtherBusinessDashboard({
-  businessName = 'Crown Cuts',
-  businessAddress = 'Suite 4, 120 Collins Street, Melbourne VIC',
-  userName = 'Soumen',
+  businessName = 'Habibs',
+  businessAddress = '19 WORONORA AVE, LEUMEAH, NSW 2560',
+  userName = 'Merchant Owner',
   sessionStartTime = '7:30 AM',
 }: OtherBusinessDashboardProps) {
   // Session & Online state (defaults to Online as shown in Figma 76:12635)
@@ -52,7 +52,7 @@ export default function OtherBusinessDashboard({
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* 1. Crown Cuts Barber Salon Hero Banner */}
+        {/* 1. Business Hero Banner */}
         <View style={styles.bannerContainer}>
           <Image
             source={require('../../../assets/crown_cuts_hero.png')}

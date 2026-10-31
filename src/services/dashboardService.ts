@@ -131,9 +131,21 @@ export interface DashboardResponse {
 export type DashboardHeaderSyncCallback = (header: DashboardHeader) => void;
 let headerSyncListeners: DashboardHeaderSyncCallback[] = [];
 let activeDashboardPromise: Promise<DashboardResponse> | null = null;
+let cachedDashboardHeader: DashboardHeader | null = null;
+
+export function getCachedDashboardHeader(): DashboardHeader | null {
+  return cachedDashboardHeader;
+}
 
 export function onDashboardHeaderSync(callback: DashboardHeaderSyncCallback): () => void {
   headerSyncListeners.push(callback);
+  if (cachedDashboardHeader) {
+    try {
+      callback(cachedDashboardHeader);
+    } catch (err) {
+      console.warn('⚠️ Error in initial dashboard header callback:', err);
+    }
+  }
   return () => {
     headerSyncListeners = headerSyncListeners.filter((cb) => cb !== callback);
   };
@@ -159,6 +171,7 @@ export const dashboardService = {
 
         if (resData?.data?.header) {
           const h = resData.data.header;
+          cachedDashboardHeader = h;
 
           // 1. Persist abn, phone and business details to stored session on device
           tokenStorage

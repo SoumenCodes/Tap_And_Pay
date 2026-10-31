@@ -89,6 +89,8 @@ export const MOCK_ACCOUNTS: Record<
       businessAddress: '19 WORONORA AVE, LEUMEAH, NSW 2560',
       empId: 'EMP2026100720101831',
       sessionStartTime: '',
+      abn: '50110219475',
+      phone: '9932783473',
     },
   },
   other_business_employee: {
@@ -104,6 +106,8 @@ export const MOCK_ACCOUNTS: Record<
       businessAddress: '19 WORONORA AVE, LEUMEAH, NSW 2560',
       sessionStartTime: '',
       empId: 'EMP2026100720101878',
+      abn: '50110219475',
+      phone: '9932783473',
     },
   },
 };

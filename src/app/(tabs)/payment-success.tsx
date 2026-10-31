@@ -12,6 +12,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+import { getCachedDashboardHeader } from '../../services/dashboardService';
+import { tokenStorage } from '../../services/tokenStorage';
 
 export default function PaymentSuccessScreen() {
   const insets = useSafeAreaInsets();
@@ -69,6 +71,11 @@ export default function PaymentSuccessScreen() {
   const businessName = user?.businessName || user?.name || '--';
 
   const handleViewReceipt = () => {
+    const cachedHeader = getCachedDashboardHeader();
+    const cachedUser = tokenStorage.getCachedUser();
+    const abnValue = user?.abn || cachedHeader?.abn || cachedUser?.abn || '';
+    const phoneValue = user?.phone || cachedHeader?.phone || cachedUser?.phone || '';
+
     router.push({
       pathname: '/(tabs)/receipt-details',
       params: {
@@ -80,8 +87,8 @@ export default function PaymentSuccessScreen() {
         dateStr: formattedDate,
         pickup: params.pickup || '',
         dropoff: params.dropoff || '',
-        abn: user?.abn || '',
-        phone: user?.phone || '',
+        abn: abnValue,
+        phone: phoneValue,
       },
     });
   };

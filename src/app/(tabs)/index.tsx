@@ -62,7 +62,7 @@ export default function DashboardScreen() {
     );
   }
 
-  // Role 4 (Default): Other Business Owner (Crown Cuts / Soumen Sen)
+  // Role 4 (Default): Other Business Owner (Merchant)
   return (
     <OtherBusinessDashboard
       businessName={user.businessName}

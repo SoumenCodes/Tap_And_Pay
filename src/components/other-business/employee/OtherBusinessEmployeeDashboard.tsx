@@ -332,7 +332,7 @@ export default function OtherBusinessEmployeeDashboard({
 
         {/* 1. Combined Hero Banner & Employee Welcome Card */}
         <View style={styles.topCardContainer}>
-          {/* Top Banner Image with Barber Salon & Crown Cuts */}
+          {/* Top Banner Image */}
           <View style={styles.bannerContainer}>
             <Image
               source={

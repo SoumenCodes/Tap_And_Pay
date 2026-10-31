@@ -20,7 +20,7 @@ import {
   MOCK_BUSINESS_STATS,
 } from '../../../data/mockBusinessTransactions';
 import { BusinessTransaction } from '../../../types/businessTransaction';
-import { SALON_EMPLOYEES } from './OtherBusinessTransactionsScreen';
+import { DEFAULT_BUSINESS_EMPLOYEES } from './OtherBusinessTransactionsScreen';
 
 interface OtherBusinessShiftDetailsScreenProps {
   shiftId: string;
@@ -34,8 +34,8 @@ type TxnFilterType = 'all' | 'card' | 'tap_and_go';
 export default function OtherBusinessShiftDetailsScreen({
   shiftId = '26102026/93821048/537384',
   onBack,
-  businessName = 'Crown Cuts',
-  userName = 'Soumen Sen',
+  businessName = 'Business',
+  userName = 'Staff Member',
 }: OtherBusinessShiftDetailsScreenProps) {
   const { showAlert } = useConfirmModal();
   const [searchQuery, setSearchQuery] = useState('');
@@ -49,8 +49,8 @@ export default function OtherBusinessShiftDetailsScreen({
 
   const employee = useMemo(() => {
     return (
-      SALON_EMPLOYEES.find((e) => e.empId === empId) ||
-      SALON_EMPLOYEES[0]
+      DEFAULT_BUSINESS_EMPLOYEES.find((e) => e.empId === empId) ||
+      DEFAULT_BUSINESS_EMPLOYEES[0]
     );
   }, [empId]);
 

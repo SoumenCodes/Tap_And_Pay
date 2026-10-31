@@ -471,8 +471,8 @@ export default function TapToPayEnterAmountScreen() {
                 />
               </View>
               <View style={styles.merchantTextCol}>
-                <Text style={styles.merchantTitleText}>{user.businessName || 'Crown Cuts'}</Text>
-                <Text style={styles.merchantSubtitleText}>{user.name || 'Soumen Sen'} • POS Terminal</Text>
+                <Text style={styles.merchantTitleText}>{user.businessName || 'SE PAY Business'}</Text>
+                <Text style={styles.merchantSubtitleText}>{user.name || 'Merchant Owner'} • POS Terminal</Text>
               </View>
             </View>
           )}

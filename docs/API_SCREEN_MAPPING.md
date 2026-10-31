@@ -80,7 +80,8 @@ Comprehensive mapping between application screens, backend endpoints, and the 5 
 | **Receipt Details** | `src/app/(tabs)/receipt-details.tsx` | All Roles | Local / Print | Local Document Generator | ✅ Live | Generates formatted receipt image and PDF slip for sharing/printing. |
 | **Start Shift** | Dashboard buttons | All Roles | `POST` | `/api/shift/start` | ✅ Live | Starts work shift; records device ID, start timestamp, generates shift ID. |
 | **End Shift** | Dashboard buttons | All Roles | `POST` | `/api/shift/end` | ✅ Live | Closes work session; sends shift_session_id and user_id, updates shift state. |
-| **Transactions & Shifts** | `src/app/(tabs)/transactions.tsx` | All Roles | `GET` | `/api/shifts` or `/api/transactions` | ⏳ Pending Contract | Shift logs, transaction records, and settlement tallies. |
+| **Shift History** | `src/components/other-business/owner/OtherBusinessTransactionsScreen.tsx` | `other_business`, `other_business_employee` | `GET` | `/api/shift/history` | ✅ Live | Team/employee shift history with `?employee_id=<id>` dropdown filter (defaults to ALL), status tabs (all, paid, unpaid), collections summary, and shift breakdown cards. |
+| **Shift Detail** | `src/components/other-business/owner/OtherBusinessShiftDetailsScreen.tsx` | `other_business`, `other_business_employee` | `GET` | `/api/shift/detail/:id` | ⏳ Pending Backend (404) | Full line-item breakdown of individual transactions inside a shift. |
 
 ---
 

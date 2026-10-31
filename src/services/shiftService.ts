@@ -53,10 +53,147 @@ export interface EndShiftResponse {
   data?: EndShiftData;
 }
 
+/**
+ * Shift History Types & Interfaces (GET /api/shift/history)
+ */
+export interface ShiftSelectorEmployee {
+  id: number;
+  name: string;
+  code: string;
+  photo: string | null;
+  initials: string;
+}
+
+export interface ShiftHistoryHeaderSelector {
+  is_visible: boolean;
+  type: string;
+  title: string;
+  total_count: number;
+  employee_list: ShiftSelectorEmployee[];
+}
+
+export interface ShiftHistoryHeader {
+  title: string;
+  emp_id: string | null;
+  taxi_no: string | null;
+  selector?: ShiftHistoryHeaderSelector;
+}
+
+export interface ShiftFilterTab {
+  key: string;
+  label: string;
+  count: number;
+}
+
+export interface ShiftHistoryFilters {
+  search: string;
+  date_range: string;
+  start_date: string | null;
+  end_date: string | null;
+  active_tab: string;
+  tabs: {
+    all_shifts: ShiftFilterTab;
+    paid_shifts: ShiftFilterTab;
+    unpaid_shifts: ShiftFilterTab;
+  };
+}
+
+export interface ShiftHistorySummary {
+  total_shift_collections: number;
+  total_shift_collections_formatted: string;
+  settled_paid: number;
+  settled_paid_formatted: string;
+  settled_paid_shifts_count: number;
+  settled_paid_subtitle: string;
+  pending_unpaid: number;
+  pending_unpaid_formatted: string;
+  pending_unpaid_shifts_count: number;
+  pending_unpaid_subtitle: string;
+  paid_percentage: number;
+}
+
+export interface ShiftMethodBreakdown {
+  txns: number;
+  amount: number;
+  amount_formatted: string;
+}
+
+export interface ShiftRecordItem {
+  id: number;
+  shift_id: number;
+  display_shift_id: string;
+  user_name: string;
+  employee_code: string;
+  session_date: string;
+  start_at: string;
+  end_at: string | null;
+  time_range: string;
+  is_paid: boolean;
+  status: 'PAID' | 'UNPAID' | string;
+  paid_date: string | null;
+  total_txns: number;
+  amount: number;
+  amount_formatted: string;
+  card?: ShiftMethodBreakdown;
+  tap_and_go?: ShiftMethodBreakdown;
+  cash?: ShiftMethodBreakdown;
+}
+
+export interface ShiftHistoryData {
+  user_type_key: string;
+  role_id: number;
+  is_taxi_service: boolean;
+  header: ShiftHistoryHeader;
+  filters: ShiftHistoryFilters;
+  summary: ShiftHistorySummary;
+  shift_records: ShiftRecordItem[];
+}
+
+export interface ShiftHistoryResponse {
+  status: boolean;
+  message: string;
+  data: ShiftHistoryData;
+}
+
+export interface ShiftHistoryParams {
+  employee_id?: number | string;
+  status?: 'all' | 'paid' | 'unpaid' | string;
+  search?: string;
+  start_date?: string;
+  end_date?: string;
+}
+
 let lastActiveShift: ActiveShiftData | null = null;
 let lastUserId: number | string | null = null;
 
 export const shiftService = {
+  /**
+   * Shift History API (GET /api/shift/history)
+   * Fetches unified shift records, employee selector, filter tabs, and collections summary
+   */
+  getShiftHistory: async (params?: ShiftHistoryParams): Promise<ShiftHistoryResponse> => {
+    const queryParams: Record<string, any> = {};
+    if (params?.employee_id !== undefined && params?.employee_id !== null && params?.employee_id !== '') {
+      queryParams.employee_id = params.employee_id;
+    }
+    if (params?.status) {
+      queryParams.status = params.status;
+    }
+    if (params?.search && params.search.trim().length > 0) {
+      queryParams.search = params.search.trim();
+    }
+    if (params?.start_date) {
+      queryParams.start_date = params.start_date;
+    }
+    if (params?.end_date) {
+      queryParams.end_date = params.end_date;
+    }
+
+    const response = await apiClient.get<ShiftHistoryResponse>('/api/shift/history', {
+      params: queryParams,
+    });
+    return response.data;
+  },
   /**
    * Start Shift API (POST /api/shift/start)
    * Starts a new work session and captures start time and shift ID.

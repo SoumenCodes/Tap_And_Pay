@@ -67,7 +67,7 @@ export default function TransactionsTabScreen() {
     );
   }
 
-  // Role 4: Other Business Owner (Soumen Sen / Crown Cuts)
+  // Role 4: Other Business Owner (Merchant)
   if (user.loginType === 'other_business') {
     if (params.shiftId) {
       return (

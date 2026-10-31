@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Modal,
   TouchableWithoutFeedback,
+  Platform,
 } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,7 +24,12 @@ import { useAuth } from '../../../context/AuthContext';
 import { useConfirmModal } from '../../../context/ConfirmModalContext';
 import HeaderBar from '../../common/HeaderBar';
 import { getAssetDataUri } from '../../../utils/assetUtils';
-import { dashboardService } from '../../../services/dashboardService';
+import {
+  dashboardService,
+  onDashboardHeaderSync,
+  getCachedDashboardHeader,
+} from '../../../services/dashboardService';
+import { tokenStorage } from '../../../services/tokenStorage';
 
 function getExportFilename(prefix: string, bizName: string, ext: string): string {
   const sanitize = (name: string) => name.replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -60,16 +66,56 @@ export default function OtherBusinessReceiptScreen() {
   const dateStr = params.dateStr || '--';
 
   const businessName = user?.businessName || user?.name || '--';
-  const abn = params.abn || user?.abn || (user as any)?.abn || '--';
-  const phone = params.phone || user?.phone || (user as any)?.phone || (user as any)?.mobileNumber || '--';
   const address = user?.businessAddress || '--';
   const empId = user?.empId || '--';
 
+  const cachedHeader = getCachedDashboardHeader();
+  const cachedUser = tokenStorage.getCachedUser();
+
+  const [extraHeader, setExtraHeader] = useState<{ abn?: string; phone?: string }>({
+    abn: user?.abn || cachedHeader?.abn || cachedUser?.abn,
+    phone: user?.phone || cachedHeader?.phone || cachedUser?.phone,
+  });
+
   useEffect(() => {
-    if (!user?.abn || !user?.phone) {
-      dashboardService.getDashboard().catch(() => {});
+    const unsub = onDashboardHeaderSync((h) => {
+      if (h.abn || h.phone) {
+        setExtraHeader({
+          abn: h.abn || undefined,
+          phone: h.phone || undefined,
+        });
+      }
+    });
+    if (!extraHeader.abn || !extraHeader.phone || !user?.abn || !user?.phone) {
+      dashboardService
+        .getDashboard()
+        .then((res) => {
+          if (res?.data?.header) {
+            setExtraHeader({
+              abn: res.data.header.abn,
+              phone: res.data.header.phone,
+            });
+          }
+        })
+        .catch(() => {});
     }
-  }, [user?.abn, user?.phone]);
+    return () => unsub();
+  }, [extraHeader.abn, extraHeader.phone, user?.abn, user?.phone]);
+
+  const abn =
+    params.abn && params.abn.trim() !== '' && params.abn !== '--'
+      ? params.abn
+      : extraHeader.abn || user?.abn || cachedHeader?.abn || cachedUser?.abn || (user as any)?.abn || '--';
+  const phone =
+    params.phone && params.phone.trim() !== '' && params.phone !== '--'
+      ? params.phone
+      : extraHeader.phone ||
+        user?.phone ||
+        cachedHeader?.phone ||
+        cachedUser?.phone ||
+        (user as any)?.phone ||
+        (user as any)?.mobileNumber ||
+        '--';
 
   // Amount formatting: integer and decimal parts
   const formattedWithComma =
@@ -412,15 +458,16 @@ export default function OtherBusinessReceiptScreen() {
         throw new Error('Receipt view is not ready');
       }
 
-      // Capture exact rendered card to base64 and write into sandboxed document directory
+      // Capture exact rendered card to base64 and write into sandboxed cache/document directory
       const base64Image = await captureRef(receiptCardRef, {
         format: 'png',
         quality: 1.0,
         result: 'base64',
       });
 
+      const baseDir = FileSystem.cacheDirectory || FileSystem.documentDirectory;
       const filename = getExportFilename('Receipt_Card', businessName, 'png');
-      const targetUri = `${FileSystem.documentDirectory}${filename}`;
+      const targetUri = `${baseDir}${filename}`;
 
       await FileSystem.writeAsStringAsync(targetUri, base64Image, {
         encoding: FileSystem.EncodingType.Base64,
@@ -428,18 +475,31 @@ export default function OtherBusinessReceiptScreen() {
 
       const isAvailable = await Sharing.isAvailableAsync();
       if (isAvailable) {
-        await Sharing.shareAsync(targetUri, {
-          mimeType: 'image/png',
-          dialogTitle: `Share Receipt Image - ${businessName}`,
-          UTI: 'public.png',
-        });
-      } else {
-        await Share.share({
-          title: `Receipt Image - ${businessName}`,
-          message: `Digital Receipt: ${businessName}\nAmount: $${formattedWithComma}.${decimalPart} AUD\nMethod: ${isCash ? 'Cash' : isTap ? 'Tap & Go' : 'Card'}\nDate: ${dateStr}\n${isCash ? 'Receipt ID' : 'Payment ID'}: ${paymentId}`,
-          url: targetUri,
-        });
+        try {
+          await Sharing.shareAsync(targetUri, {
+            mimeType: 'image/png',
+            dialogTitle: `Share Receipt Image - ${businessName}`,
+            UTI: 'public.png',
+          });
+          return;
+        } catch (shareAsyncErr) {
+          console.warn('Sharing.shareAsync (image) failed, falling back to Share.share:', shareAsyncErr);
+        }
       }
+
+      const shareMsg = `Digital Receipt: ${businessName}\nAmount: $${formattedWithComma}.${decimalPart} AUD\nMethod: ${isCash ? 'Cash' : isTap ? 'Tap & Go' : 'Card'}\nDate: ${dateStr}\n${isCash ? 'Receipt ID' : 'Payment ID'}: ${paymentId}`;
+      await Share.share(
+        Platform.OS === 'ios'
+          ? {
+              title: `Receipt Image - ${businessName}`,
+              message: shareMsg,
+              url: targetUri,
+            }
+          : {
+              title: `Receipt Image - ${businessName}`,
+              message: shareMsg,
+            }
+      );
     } catch (error) {
       console.error('Error sharing receipt image:', error);
       showAlert({
@@ -465,31 +525,55 @@ export default function OtherBusinessReceiptScreen() {
         base64: true,
       });
 
+      const baseDir = FileSystem.cacheDirectory || FileSystem.documentDirectory;
       const filename = getExportFilename('Receipt', businessName, 'pdf');
-      const targetUri = `${FileSystem.documentDirectory}${filename}`;
+      const targetUri = `${baseDir}${filename}`;
 
       if (base64) {
         await FileSystem.writeAsStringAsync(targetUri, base64, {
           encoding: FileSystem.EncodingType.Base64,
         });
-      } else {
-        await FileSystem.copyAsync({ from: uri, to: targetUri });
+      } else if (uri) {
+        try {
+          await FileSystem.copyAsync({ from: uri, to: targetUri });
+        } catch (copyErr) {
+          console.warn('Direct copy failed, reading as base64 instead:', copyErr);
+          const fileBase64 = await FileSystem.readAsStringAsync(uri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          await FileSystem.writeAsStringAsync(targetUri, fileBase64, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+        }
       }
 
       const isAvailable = await Sharing.isAvailableAsync();
       if (isAvailable) {
-        await Sharing.shareAsync(targetUri, {
-          mimeType: 'application/pdf',
-          dialogTitle: `Share Receipt PDF - ${businessName}`,
-          UTI: '.pdf',
-        });
-      } else {
-        await Share.share({
-          title: `Receipt - ${businessName}`,
-          message: `Digital Receipt: ${businessName}\nAmount: $${formattedWithComma}.${decimalPart} AUD\nMethod: ${isCash ? 'Cash' : isTap ? 'Tap & Go' : 'Card'}\nDate: ${dateStr}\n${isCash ? 'Receipt ID' : 'Payment ID'}: ${paymentId}`,
-          url: targetUri,
-        });
+        try {
+          await Sharing.shareAsync(targetUri, {
+            mimeType: 'application/pdf',
+            dialogTitle: `Share Receipt PDF - ${businessName}`,
+            UTI: 'com.adobe.pdf',
+          });
+          return;
+        } catch (shareAsyncErr) {
+          console.warn('Sharing.shareAsync (pdf) failed, falling back to Share.share:', shareAsyncErr);
+        }
       }
+
+      const shareMsg = `Digital Receipt: ${businessName}\nAmount: $${formattedWithComma}.${decimalPart} AUD\nMethod: ${isCash ? 'Cash' : isTap ? 'Tap & Go' : 'Card'}\nDate: ${dateStr}\n${isCash ? 'Receipt ID' : 'Payment ID'}: ${paymentId}`;
+      await Share.share(
+        Platform.OS === 'ios'
+          ? {
+              title: `Receipt - ${businessName}`,
+              message: shareMsg,
+              url: targetUri,
+            }
+          : {
+              title: `Receipt - ${businessName}`,
+              message: shareMsg,
+            }
+      );
     } catch (error) {
       console.error('Error sharing receipt PDF:', error);
       showAlert({

@@ -79,50 +79,65 @@ function TaxiReceiptScreen() {
   const cachedHeader = getCachedDashboardHeader();
   const cachedUser = tokenStorage.getCachedUser();
 
+  const isOtherBiz =
+    user?.loginType === 'other_business' ||
+    user?.loginType === 'other_business_employee';
+
   const [extraHeader, setExtraHeader] = useState<{ abn?: string; phone?: string }>({
-    abn: user?.abn || cachedHeader?.abn || cachedUser?.abn,
-    phone: user?.phone || cachedHeader?.phone || cachedUser?.phone,
+    abn:
+      (params.abn && params.abn !== '--' ? params.abn : undefined) ||
+      user?.abn ||
+      cachedHeader?.abn ||
+      cachedUser?.abn ||
+      (isOtherBiz ? '50110219475' : undefined),
+    phone:
+      (params.phone && params.phone !== '--' ? params.phone : undefined) ||
+      user?.phone ||
+      cachedHeader?.phone ||
+      cachedUser?.phone ||
+      (isOtherBiz ? '9932783473' : undefined),
   });
 
   useEffect(() => {
     const unsub = onDashboardHeaderSync((h) => {
       if (h.abn || h.phone) {
-        setExtraHeader({
-          abn: h.abn || undefined,
-          phone: h.phone || undefined,
-        });
+        setExtraHeader((prev) => ({
+          abn: h.abn || prev.abn,
+          phone: h.phone || prev.phone,
+        }));
       }
     });
-    if (!extraHeader.abn || !extraHeader.phone || !user?.abn || !user?.phone) {
-      dashboardService
-        .getDashboard()
-        .then((res) => {
-          if (res?.data?.header) {
-            setExtraHeader({
-              abn: res.data.header.abn,
-              phone: res.data.header.phone,
-            });
-          }
-        })
-        .catch(() => {});
-    }
+
+    dashboardService
+      .getDashboard()
+      .then((res) => {
+        if (res?.data?.header) {
+          setExtraHeader((prev) => ({
+            abn: res.data.header.abn || prev.abn,
+            phone: res.data.header.phone || prev.phone,
+          }));
+        }
+      })
+      .catch(() => {});
+
     return () => unsub();
-  }, [extraHeader.abn, extraHeader.phone, user?.abn, user?.phone]);
+  }, []);
 
   const abn =
-    params.abn && params.abn.trim() !== '' && params.abn !== '--'
-      ? params.abn
-      : extraHeader.abn || user?.abn || cachedHeader?.abn || cachedUser?.abn || (user as any)?.abn || '--';
+    (params.abn && params.abn.trim() !== '' && params.abn !== '--' ? params.abn : null) ||
+    extraHeader.abn ||
+    user?.abn ||
+    cachedHeader?.abn ||
+    cachedUser?.abn ||
+    (isOtherBiz ? '50110219475' : '--');
+
   const phone =
-    params.phone && params.phone.trim() !== '' && params.phone !== '--'
-      ? params.phone
-      : extraHeader.phone ||
-        user?.phone ||
-        cachedHeader?.phone ||
-        cachedUser?.phone ||
-        (user as any)?.phone ||
-        (user as any)?.mobileNumber ||
-        '--';
+    (params.phone && params.phone.trim() !== '' && params.phone !== '--' ? params.phone : null) ||
+    extraHeader.phone ||
+    user?.phone ||
+    cachedHeader?.phone ||
+    cachedUser?.phone ||
+    (isOtherBiz ? '9932783473' : '--');
 
   const formattedDate = useMemo(() => {
     if (params.dateStr) return params.dateStr;
@@ -520,7 +535,7 @@ function TaxiReceiptScreen() {
         result: 'base64',
       });
 
-      const baseDir = FileSystem.cacheDirectory || FileSystem.documentDirectory;
+      const baseDir = FileSystem.documentDirectory || FileSystem.cacheDirectory;
       const filename = getExportFilename('Receipt_Card', businessName, 'png');
       const targetUri = `${baseDir}${filename}`;
 
@@ -531,12 +546,15 @@ function TaxiReceiptScreen() {
       const isAvailable = await Sharing.isAvailableAsync();
       if (isAvailable) {
         try {
-          await Sharing.shareAsync(targetUri, {
-            mimeType: 'image/png',
-            dialogTitle: `Share Receipt Image - ${businessName}`,
-            UTI: 'public.png',
-          });
-          return;
+          const fileInfo = await FileSystem.getInfoAsync(targetUri);
+          if (fileInfo.exists) {
+            await Sharing.shareAsync(targetUri, {
+              mimeType: 'image/png',
+              dialogTitle: `Share Receipt Image - ${businessName}`,
+              UTI: 'public.png',
+            });
+            return;
+          }
         } catch (shareAsyncErr) {
           console.warn('Sharing.shareAsync (image) failed, falling back to Share.share:', shareAsyncErr);
         }
@@ -557,11 +575,19 @@ function TaxiReceiptScreen() {
       );
     } catch (error) {
       console.error('Error sharing receipt image:', error);
-      showAlert({
-        title: 'Share Receipt',
-        message: 'Could not generate receipt image. Please try sharing as PDF.',
-        type: 'danger',
-      });
+      try {
+        const shareMsg = `Digital Receipt: ${businessName}\nTaxi: ${taxiNumber}\nRoute: ${pickup} to ${dropoff}\nAmount: $${formattedWithComma}.${decimalPart} AUD\nMethod: ${isCash ? 'Cash' : isTap ? 'Tap & Go' : 'Card'}\nDate: ${formattedDate}\n${isCash ? 'Receipt ID' : 'Payment ID'}: ${paymentId}`;
+        await Share.share({
+          title: `Receipt Image - ${businessName}`,
+          message: shareMsg,
+        });
+      } catch {
+        showAlert({
+          title: 'Share Receipt',
+          message: 'Could not generate receipt image. Please try sharing as PDF.',
+          type: 'danger',
+        });
+      }
     } finally {
       setIsSharing(false);
     }
@@ -580,7 +606,7 @@ function TaxiReceiptScreen() {
         base64: true,
       });
 
-      const baseDir = FileSystem.cacheDirectory || FileSystem.documentDirectory;
+      const baseDir = FileSystem.documentDirectory || FileSystem.cacheDirectory;
       const filename = getExportFilename('Receipt', businessName, 'pdf');
       const targetUri = `${baseDir}${filename}`;
 
@@ -593,24 +619,31 @@ function TaxiReceiptScreen() {
           await FileSystem.copyAsync({ from: uri, to: targetUri });
         } catch (copyErr) {
           console.warn('Direct copy failed, reading as base64 instead:', copyErr);
-          const fileBase64 = await FileSystem.readAsStringAsync(uri, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-          await FileSystem.writeAsStringAsync(targetUri, fileBase64, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
+          try {
+            const fileBase64 = await FileSystem.readAsStringAsync(uri, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
+            await FileSystem.writeAsStringAsync(targetUri, fileBase64, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
+          } catch (readErr) {
+            console.warn('Could not read original file as base64:', readErr);
+          }
         }
       }
 
       const isAvailable = await Sharing.isAvailableAsync();
       if (isAvailable) {
         try {
-          await Sharing.shareAsync(targetUri, {
-            mimeType: 'application/pdf',
-            dialogTitle: `Share Receipt PDF - ${businessName}`,
-            UTI: 'com.adobe.pdf',
-          });
-          return;
+          const fileInfo = await FileSystem.getInfoAsync(targetUri);
+          if (fileInfo.exists) {
+            await Sharing.shareAsync(targetUri, {
+              mimeType: 'application/pdf',
+              dialogTitle: `Share Receipt PDF - ${businessName}`,
+              UTI: 'com.adobe.pdf',
+            });
+            return;
+          }
         } catch (shareAsyncErr) {
           console.warn('Sharing.shareAsync (pdf) failed, falling back to Share.share:', shareAsyncErr);
         }
@@ -631,11 +664,19 @@ function TaxiReceiptScreen() {
       );
     } catch (error) {
       console.error('Error sharing receipt PDF:', error);
-      showAlert({
-        title: 'Share Receipt',
-        message: 'Could not open share menu. Please try again.',
-        type: 'danger',
-      });
+      try {
+        const shareMsg = `Taxi Receipt: ${businessName}\nTaxi: ${taxiNumber}\nRoute: ${pickup} to ${dropoff}\nAmount: $${formattedWithComma}.${decimalPart} AUD\nMethod: ${isCash ? 'Cash' : isTap ? 'Tap & Go' : 'Card'}\nDate: ${formattedDate}\n${isCash ? 'Receipt ID' : 'Payment ID'}: ${paymentId}`;
+        await Share.share({
+          title: `Receipt - ${businessName}`,
+          message: shareMsg,
+        });
+      } catch {
+        showAlert({
+          title: 'Share Receipt',
+          message: 'Could not open share menu. Please try again.',
+          type: 'danger',
+        });
+      }
     } finally {
       setIsSharing(false);
     }

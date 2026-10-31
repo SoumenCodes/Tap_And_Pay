@@ -73,8 +73,19 @@ export default function PaymentSuccessScreen() {
   const handleViewReceipt = () => {
     const cachedHeader = getCachedDashboardHeader();
     const cachedUser = tokenStorage.getCachedUser();
-    const abnValue = user?.abn || cachedHeader?.abn || cachedUser?.abn || '';
-    const phoneValue = user?.phone || cachedHeader?.phone || cachedUser?.phone || '';
+    const isOtherBiz =
+      user?.loginType === 'other_business' ||
+      user?.loginType === 'other_business_employee';
+    const abnValue =
+      user?.abn ||
+      cachedHeader?.abn ||
+      cachedUser?.abn ||
+      (isOtherBiz ? '50110219475' : '');
+    const phoneValue =
+      user?.phone ||
+      cachedHeader?.phone ||
+      cachedUser?.phone ||
+      (isOtherBiz ? '9932783473' : '');
 
     router.push({
       pathname: '/(tabs)/receipt-details',

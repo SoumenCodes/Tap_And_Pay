@@ -169,7 +169,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const { user: storedUser, accessToken } = await tokenStorage.loadStoredSession();
         if (storedUser && accessToken) {
-          setUser(storedUser);
+          const isOtherBiz =
+            storedUser.loginType === 'other_business' ||
+            storedUser.loginType === 'other_business_employee';
+          const userWithDefaults: UserProfile = {
+            ...storedUser,
+            abn: storedUser.abn || (isOtherBiz ? '50110219475' : undefined),
+            phone: storedUser.phone || (isOtherBiz ? '9932783473' : undefined),
+          };
+          setUser(userWithDefaults);
           setIsAuthenticated(true);
           console.log('🔐 [AuthContext] Restored encrypted user session:', storedUser.name);
           dashboardService.getDashboard().catch(() => {});

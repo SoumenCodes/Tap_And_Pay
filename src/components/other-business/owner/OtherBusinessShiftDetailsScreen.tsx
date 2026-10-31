@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,10 @@ import {
   TextInput,
   TouchableOpacity,
   Image,
+  ActivityIndicator,
+  RefreshControl,
+  Platform,
+  Share,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -16,11 +20,16 @@ import * as FileSystem from 'expo-file-system/legacy';
 import HeaderBar from '../../common/HeaderBar';
 import { useConfirmModal } from '../../../context/ConfirmModalContext';
 import {
-  MOCK_BUSINESS_TRANSACTIONS,
-  MOCK_BUSINESS_STATS,
-} from '../../../data/mockBusinessTransactions';
-import { BusinessTransaction } from '../../../types/businessTransaction';
-import { DEFAULT_BUSINESS_EMPLOYEES } from './OtherBusinessTransactionsScreen';
+  shiftService,
+  ShiftDetailsData,
+  ShiftDetailsTransactionItem,
+} from '../../../services/shiftService';
+import {
+  formatSydneyToUserDate,
+  formatSydneyToUserTime,
+  formatSydneyToUserDateTime,
+  formatShiftRecordTime,
+} from '../../../utils/dateUtils';
 
 interface OtherBusinessShiftDetailsScreenProps {
   shiftId: string;
@@ -29,59 +38,136 @@ interface OtherBusinessShiftDetailsScreenProps {
   userName?: string;
 }
 
-type TxnFilterType = 'all' | 'card' | 'tap_and_go';
+type TxnFilterType = 'all' | 'card' | 'tap';
 
 export default function OtherBusinessShiftDetailsScreen({
-  shiftId = '26102026/93821048/537384',
+  shiftId = '13',
   onBack,
   businessName = 'Business',
   userName = 'Staff Member',
 }: OtherBusinessShiftDetailsScreenProps) {
   const { showAlert } = useConfirmModal();
+
+  // API State
+  const [shiftDetails, setShiftDetails] = useState<ShiftDetailsData | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Filters State
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<TxnFilterType>('all');
 
-  // Derive employee from shiftId (e.g. "26102026/93821048/537384" -> "93821048")
-  const empId = useMemo(() => {
-    const parts = shiftId.split('/');
-    return parts.length >= 2 ? parts[1] : '93821048';
+  // Fetch shift details from live API (GET /api/shift/history/details/:id)
+  const fetchShiftDetails = useCallback(
+    async (methodFilter?: string, isRefresh = false) => {
+      try {
+        if (isRefresh) {
+          setIsRefreshing(true);
+        } else {
+          setIsLoading(true);
+        }
+        setErrorMessage(null);
+
+        const methodParam = methodFilter !== undefined ? methodFilter : filterType;
+        const res = await shiftService.getShiftDetails(shiftId, {
+          method: methodParam !== 'all' ? methodParam : undefined,
+        });
+
+        if (res?.data) {
+          setShiftDetails(res.data);
+        }
+      } catch (err: any) {
+        console.warn('Failed to load shift details:', err?.message || err);
+        setErrorMessage(err?.message || 'Unable to load shift details.');
+      } finally {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
+    },
+    [shiftId, filterType]
+  );
+
+  // Initial load
+  useEffect(() => {
+    let isMounted = true;
+    shiftService
+      .getShiftDetails(shiftId)
+      .then((res) => {
+        if (isMounted && res?.data) {
+          setShiftDetails(res.data);
+        }
+      })
+      .catch((err: any) => {
+        if (isMounted) {
+          console.warn('Failed to load shift details:', err?.message || err);
+          setErrorMessage(err?.message || 'Unable to load shift details.');
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [shiftId]);
 
-  const employee = useMemo(() => {
-    return (
-      DEFAULT_BUSINESS_EMPLOYEES.find((e) => e.empId === empId) ||
-      DEFAULT_BUSINESS_EMPLOYEES[0]
-    );
-  }, [empId]);
+  const handleRefresh = () => {
+    fetchShiftDetails(filterType, true);
+  };
 
-  // Filter transactions
-  const filteredTransactions = useMemo(() => {
-    return MOCK_BUSINESS_TRANSACTIONS.filter((txn) => {
-      if (filterType === 'card' && txn.method !== 'card') return false;
-      if (filterType === 'tap_and_go' && txn.method !== 'tap_and_go') return false;
+  const handleFilterChange = (newFilter: TxnFilterType) => {
+    setFilterType(newFilter);
+    fetchShiftDetails(newFilter);
+  };
 
-      if (searchQuery.trim().length > 0) {
-        const query = searchQuery.toLowerCase().trim();
-        const matchId = txn.id.toLowerCase().includes(query);
-        const matchAmount = txn.amount.toString().includes(query);
-        const matchVerification = txn.verification.toLowerCase().includes(query);
-        if (!matchId && !matchAmount && !matchVerification) return false;
-      }
-
-      return true;
+  // Convert shift start_at & end_at from Australia/Sydney to user device local time
+  const shiftTime = useMemo(() => {
+    if (!shiftDetails?.shift_info) {
+      return { dateText: '--', timeRangeText: '--' };
+    }
+    return formatShiftRecordTime({
+      start_at: shiftDetails.shift_info.start_at,
+      end_at: shiftDetails.shift_info.end_at,
+      time_range: shiftDetails.shift_info.time_range,
+      session_date: shiftDetails.shift_info.session_date,
     });
-  }, [filterType, searchQuery]);
+  }, [
+    shiftDetails?.shift_info?.start_at,
+    shiftDetails?.shift_info?.end_at,
+    shiftDetails?.shift_info?.time_range,
+    shiftDetails?.shift_info?.session_date,
+  ]);
 
-  // Group transactions by date
+  // Filter transactions by search query locally
+  const filteredTransactions = useMemo(() => {
+    const list = shiftDetails?.transactions || [];
+    if (!searchQuery.trim()) return list;
+
+    const query = searchQuery.toLowerCase().trim();
+    return list.filter((txn) => {
+      const matchId = (txn.transaction_id || '').toLowerCase().includes(query);
+      const matchMethod = (txn.payment_method || '').toLowerCase().includes(query);
+      const matchAmount = (txn.amount_formatted || txn.amount?.toString() || '').toLowerCase().includes(query);
+      const matchDate = (txn.date || '').toLowerCase().includes(query);
+      return matchId || matchMethod || matchAmount || matchDate;
+    });
+  }, [shiftDetails?.transactions, searchQuery]);
+
+  // Group transactions by user's local date (e.g. "31 Oct 2026")
   const groupedTransactions = useMemo(() => {
-    const groups: { [date: string]: { txns: BusinessTransaction[]; total: number } } = {};
+    const groups: { [dateStr: string]: { txns: ShiftDetailsTransactionItem[]; total: number } } = {};
 
     filteredTransactions.forEach((txn) => {
-      if (!groups[txn.date]) {
-        groups[txn.date] = { txns: [], total: 0 };
+      const groupDate = formatSydneyToUserDate(txn.date) || txn.date.split(' ')[0] || 'Transactions';
+      if (!groups[groupDate]) {
+        groups[groupDate] = { txns: [], total: 0 };
       }
-      groups[txn.date].txns.push(txn);
-      groups[txn.date].total += txn.amount;
+      groups[groupDate].txns.push(txn);
+      groups[groupDate].total += txn.amount || 0;
     });
 
     return Object.entries(groups).map(([date, data]) => ({
@@ -91,8 +177,26 @@ export default function OtherBusinessShiftDetailsScreen({
     }));
   }, [filteredTransactions]);
 
+  // Helper for whole and cents display
+  const formatAmountParts = (amount?: number) => {
+    if (amount === undefined || amount === null) {
+      return { whole: '0', cents: '.00' };
+    }
+    const whole = Math.floor(amount).toLocaleString('en-US');
+    const cents = (amount % 1).toFixed(2).split('.')[1] || '00';
+    return { whole, cents: `.${cents}` };
+  };
+
   // Generate HTML for individual receipt
-  const getReceiptHtml = (txn: BusinessTransaction) => {
+  const getReceiptHtml = (txn: ShiftDetailsTransactionItem) => {
+    const isCard = (txn.payment_method || '').toLowerCase().includes('card');
+    const isCash = (txn.payment_method || '').toLowerCase().includes('cash');
+    const localDateTime = formatSydneyToUserDateTime(txn.date) || txn.date;
+    const staffName = shiftDetails?.user?.name || userName;
+    const staffEmpId = shiftDetails?.user?.code || shiftDetails?.user?.emp_id || '';
+    const displayShiftCode =
+      shiftDetails?.shift_info?.display_shift_id || shiftDetails?.display_shift_id || shiftId;
+
     return `
       <!DOCTYPE html>
       <html>
@@ -117,21 +221,21 @@ export default function OtherBusinessShiftDetailsScreen({
         <body>
           <div class="header">
             <h1 class="title">${businessName}</h1>
-            <p class="subtitle">${userName || employee.name}'s Business</p>
-            <p class="abn">EMP: ${employee.name} (${employee.empId}) • Shift: ${shiftId}</p>
+            <p class="subtitle">Receipt • ${staffName}</p>
+            <p class="abn">EMP: ${staffName}${staffEmpId ? ` (${staffEmpId})` : ''} • Shift: ${displayShiftCode}</p>
           </div>
 
           <div class="amount-box">
             <div class="status">● PAID / SETTLED</div>
-            <div class="amount">$${txn.amount.toFixed(2)} AUD</div>
-            <div style="font-size: 12px; color: #64748B;">${(txn.method as string) === 'cash' ? 'Cash Payment' : txn.method === 'card' ? 'Chip & PIN Card' : 'Contactless Tap & Go'}</div>
+            <div class="amount">${txn.amount_formatted || `$${txn.amount.toFixed(2)} AUD`}</div>
+            <div style="font-size: 12px; color: #64748B;">${isCash ? 'Cash Payment' : isCard ? 'Chip & PIN Card' : 'Contactless Tap & Go'}</div>
           </div>
 
           <div class="details">
-            <div class="row"><span class="label">Transaction ID:</span><span class="value">${txn.id}</span></div>
-            <div class="row"><span class="label">Date & Time:</span><span class="value">${txn.date}, ${txn.time}</span></div>
-            <div class="row"><span class="label">Verification:</span><span class="value">${txn.verification}</span></div>
-            <div class="row"><span class="label">Terminal ID:</span><span class="value">${txn.terminalId || '#537384'}</span></div>
+            <div class="row"><span class="label">Transaction ID:</span><span class="value">${txn.transaction_id}</span></div>
+            <div class="row"><span class="label">Date & Time:</span><span class="value">${localDateTime}</span></div>
+            <div class="row"><span class="label">Payment Method:</span><span class="value">${txn.payment_method}</span></div>
+            <div class="row"><span class="label">Terminal ID:</span><span class="value">${txn.terminal_id || 'SE-PAY-01'}</span></div>
           </div>
 
           <div class="footer">
@@ -145,6 +249,19 @@ export default function OtherBusinessShiftDetailsScreen({
 
   // Generate HTML for full Shift Slip
   const getShiftSlipHtml = () => {
+    const staffName = shiftDetails?.user?.name || userName;
+    const staffEmpId = shiftDetails?.user?.code || shiftDetails?.user?.emp_id || '';
+    const displayShiftCode =
+      shiftDetails?.shift_info?.display_shift_id || shiftDetails?.display_shift_id || shiftId;
+    const isPaid = Boolean(shiftDetails?.shift_info?.is_paid);
+    const paidDate = shiftDetails?.shift_info?.paid_date;
+    const totalAmount = shiftDetails?.metrics?.total?.amount_formatted || '$0.00';
+    const cardAmount = shiftDetails?.metrics?.card?.amount_formatted || '$0.00';
+    const cardCount = shiftDetails?.metrics?.card?.count ?? 0;
+    const tapAmount = shiftDetails?.metrics?.tap_and_go?.amount_formatted || '$0.00';
+    const tapCount = shiftDetails?.metrics?.tap_and_go?.count ?? 0;
+    const txns = shiftDetails?.transactions || [];
+
     return `
       <!DOCTYPE html>
       <html>
@@ -155,7 +272,7 @@ export default function OtherBusinessShiftDetailsScreen({
             .header { text-align: center; border-bottom: 2px dashed #E5E7EB; padding-bottom: 16px; margin-bottom: 16px; }
             .title { font-size: 22px; font-weight: bold; margin: 0; color: #0F172A; }
             .sub { color: #64748B; font-size: 13px; margin-top: 4px; }
-            .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; margin-top: 8px; background: #ECFDF5; color: #059669; }
+            .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; margin-top: 8px; background: ${isPaid ? '#ECFDF5' : '#FFFBEB'}; color: ${isPaid ? '#059669' : '#D97706'}; }
             .card { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 14px; margin: 16px 0; }
             .row { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px; }
             .label { color: #64748B; }
@@ -170,16 +287,16 @@ export default function OtherBusinessShiftDetailsScreen({
           <div class="header">
             <h1 class="title">${businessName}</h1>
             <p class="sub">Shift Tally Slip • Terminal #537384</p>
-            <div class="badge">● PAID on 30 Oct 2026</div>
+            <div class="badge">${isPaid ? `● PAID${paidDate ? ` on ${paidDate}` : ''}` : '● UNPAID'}</div>
           </div>
 
           <div class="card">
-            <div class="row"><span class="label">Shift ID:</span><span class="val">${shiftId}</span></div>
-            <div class="row"><span class="label">Employee:</span><span class="val">${employee.name} (${employee.empId})</span></div>
-            <div class="row"><span class="label">Time:</span><span class="val">26 Oct 2026 • 07:30 AM – 05:00 PM • 9.5 hrs</span></div>
-            <div class="row"><span class="label">Total Collections:</span><span class="val" style="font-size: 16px; font-weight: 800; color: #059669;">$${MOCK_BUSINESS_STATS.totalAmount.toFixed(2)} AUD</span></div>
-            <div class="row"><span class="label">Card Sales (9 txns):</span><span class="val">$${MOCK_BUSINESS_STATS.cardAmount.toFixed(2)}</span></div>
-            <div class="row"><span class="label">Tap & Go Sales (5 txns):</span><span class="val">$${MOCK_BUSINESS_STATS.tapAndGoAmount.toFixed(2)}</span></div>
+            <div class="row"><span class="label">Shift ID:</span><span class="val">${displayShiftCode}</span></div>
+            <div class="row"><span class="label">Employee:</span><span class="val">${staffName}${staffEmpId ? ` (${staffEmpId})` : ''}</span></div>
+            <div class="row"><span class="label">Time:</span><span class="val">${shiftTime.dateText} • ${shiftTime.timeRangeText}</span></div>
+            <div class="row"><span class="label">Total Collections:</span><span class="val" style="font-size: 16px; font-weight: 800; color: #059669;">${totalAmount} AUD</span></div>
+            <div class="row"><span class="label">Card Sales (${cardCount} txns):</span><span class="val">${cardAmount}</span></div>
+            <div class="row"><span class="label">Tap & Go Sales (${tapCount} txns):</span><span class="val">${tapAmount}</span></div>
           </div>
 
           <table class="table">
@@ -192,13 +309,13 @@ export default function OtherBusinessShiftDetailsScreen({
               </tr>
             </thead>
             <tbody>
-              ${MOCK_BUSINESS_TRANSACTIONS.map(
+              ${txns.map(
                 (t) => `
                 <tr>
-                  <td>${t.id}</td>
-                  <td>${t.time}</td>
-                  <td>${t.method === 'card' ? 'Card' : 'Tap & Go'}</td>
-                  <td style="font-weight: bold;">$${t.amount.toFixed(2)}</td>
+                  <td>${t.transaction_id}</td>
+                  <td>${formatSydneyToUserTime(t.date)}</td>
+                  <td>${t.payment_method}</td>
+                  <td style="font-weight: bold;">${t.amount_formatted}</td>
                 </tr>
               `
               ).join('')}
@@ -215,7 +332,7 @@ export default function OtherBusinessShiftDetailsScreen({
   };
 
   // Reprint Receipt via native print dialog
-  const handleReprint = async (txn: BusinessTransaction) => {
+  const handleReprint = async (txn: ShiftDetailsTransactionItem) => {
     try {
       await Print.printAsync({
         html: getReceiptHtml(txn),
@@ -226,29 +343,59 @@ export default function OtherBusinessShiftDetailsScreen({
   };
 
   // Share Receipt via native sheet
-  const handleShare = async (txn: BusinessTransaction) => {
+  const handleShare = async (txn: ShiftDetailsTransactionItem) => {
     try {
       const html = getReceiptHtml(txn);
       const { uri, base64 } = await Print.printToFileAsync({ html, base64: true });
-      const fileName = `receipt_${txn.id.replace('#', '')}_${Date.now()}.pdf`;
-      const targetUri = `${FileSystem.cacheDirectory}${fileName}`;
+      const baseDir = FileSystem.documentDirectory || FileSystem.cacheDirectory;
+      const fileName = `receipt_${txn.transaction_id.replace(/[^a-zA-Z0-9_-]/g, '_')}_${Date.now()}.pdf`;
+      const targetUri = `${baseDir}${fileName}`;
 
       if (base64) {
         await FileSystem.writeAsStringAsync(targetUri, base64, {
           encoding: FileSystem.EncodingType.Base64,
         });
-      } else {
-        await FileSystem.copyAsync({ from: uri, to: targetUri });
+      } else if (uri) {
+        try {
+          await FileSystem.copyAsync({ from: uri, to: targetUri });
+        } catch {
+          const b64 = await FileSystem.readAsStringAsync(uri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          await FileSystem.writeAsStringAsync(targetUri, b64, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+        }
       }
 
       const isAvailable = await Sharing.isAvailableAsync();
       if (isAvailable) {
-        await Sharing.shareAsync(targetUri, {
-          mimeType: 'application/pdf',
-          dialogTitle: `Share Receipt ${txn.id}`,
-          UTI: '.pdf',
-        });
+        try {
+          await Sharing.shareAsync(targetUri, {
+            mimeType: 'application/pdf',
+            dialogTitle: `Share Receipt ${txn.transaction_id}`,
+            UTI: 'com.adobe.pdf',
+          });
+          return;
+        } catch (shareErr) {
+          console.warn('Sharing.shareAsync failed, trying Share.share:', shareErr);
+        }
       }
+
+      const localDateTime = formatSydneyToUserDateTime(txn.date) || txn.date;
+      const shareMsg = `Receipt: ${businessName}\nTransaction: ${txn.transaction_id}\nAmount: ${txn.amount_formatted}\nMethod: ${txn.payment_method}\nDate: ${localDateTime}`;
+      await Share.share(
+        Platform.OS === 'ios'
+          ? {
+              title: `Receipt ${txn.transaction_id}`,
+              message: shareMsg,
+              url: targetUri,
+            }
+          : {
+              title: `Receipt ${txn.transaction_id}`,
+              message: shareMsg,
+            }
+      );
     } catch (error) {
       console.error('Error sharing receipt:', error);
       showAlert({
@@ -275,32 +422,56 @@ export default function OtherBusinessShiftDetailsScreen({
     try {
       const html = getShiftSlipHtml();
       const { uri, base64 } = await Print.printToFileAsync({ html, base64: true });
-      const fileName = `Shift_Report_${shiftId.replace(/\//g, '_')}.pdf`;
-      const targetUri = `${FileSystem.cacheDirectory}${fileName}`;
+      const baseDir = FileSystem.documentDirectory || FileSystem.cacheDirectory;
+      const displayShiftCode =
+        shiftDetails?.shift_info?.display_shift_id || shiftDetails?.display_shift_id || shiftId;
+      const fileName = `Shift_Report_${displayShiftCode.replace(/[^a-zA-Z0-9_-]/g, '_')}_${Date.now()}.pdf`;
+      const targetUri = `${baseDir}${fileName}`;
 
       if (base64) {
         await FileSystem.writeAsStringAsync(targetUri, base64, {
           encoding: FileSystem.EncodingType.Base64,
         });
-      } else {
-        await FileSystem.copyAsync({ from: uri, to: targetUri });
+      } else if (uri) {
+        try {
+          await FileSystem.copyAsync({ from: uri, to: targetUri });
+        } catch {
+          const b64 = await FileSystem.readAsStringAsync(uri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          await FileSystem.writeAsStringAsync(targetUri, b64, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+        }
       }
 
       const isAvailable = await Sharing.isAvailableAsync();
       if (isAvailable) {
-        await Sharing.shareAsync(targetUri, {
-          mimeType: 'application/pdf',
-          dialogTitle: `Share Shift Report`,
-          UTI: '.pdf',
-        });
-      } else {
-        showAlert({
-          title: 'Report Saved',
-          message: `Saved to ${targetUri}`,
-          type: 'success',
-          icon: 'document-text-outline',
-        });
+        try {
+          await Sharing.shareAsync(targetUri, {
+            mimeType: 'application/pdf',
+            dialogTitle: `Share Shift Report`,
+            UTI: 'com.adobe.pdf',
+          });
+          return;
+        } catch (shareErr) {
+          console.warn('Sharing.shareAsync report failed, trying Share.share:', shareErr);
+        }
       }
+
+      const shareMsg = `Shift Report: ${businessName}\nShift: ${displayShiftCode}\nTime: ${shiftTime.dateText} • ${shiftTime.timeRangeText}\nTotal: ${shiftDetails?.metrics?.total?.amount_formatted || '$0.00'}`;
+      await Share.share(
+        Platform.OS === 'ios'
+          ? {
+              title: `Shift Report - ${displayShiftCode}`,
+              message: shareMsg,
+              url: targetUri,
+            }
+          : {
+              title: `Shift Report - ${displayShiftCode}`,
+              message: shareMsg,
+            }
+      );
     } catch (error) {
       console.error('Error sharing shift report:', error);
       showAlert({
@@ -311,13 +482,23 @@ export default function OtherBusinessShiftDetailsScreen({
     }
   };
 
+  const headerTitle =
+    shiftDetails?.shift_info?.display_shift_id || shiftDetails?.display_shift_id || shiftId;
+
+  // Breakdown metrics numbers
+  const totalParts = formatAmountParts(shiftDetails?.metrics?.total?.amount);
+  const cardParts = formatAmountParts(shiftDetails?.metrics?.card?.amount);
+  const tapParts = formatAmountParts(shiftDetails?.metrics?.tap_and_go?.amount);
+
+  const isPaid = Boolean(shiftDetails?.shift_info?.is_paid);
+
   return (
     <View style={styles.root}>
       <StatusBar style="dark" />
 
       {/* Header Bar with Back Button and Shift ID */}
       <HeaderBar
-        title={shiftId}
+        title={headerTitle}
         showBack={true}
         onBack={onBack}
       />
@@ -327,292 +508,346 @@ export default function OtherBusinessShiftDetailsScreen({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-      >
-        {/* ── 1. EMPLOYEE & SHIFT SUMMARY CARD ── */}
-        <View style={styles.employeeSummaryCard}>
-          {/* Top Row: Avatar + Name + EMP ID */}
-          <View style={styles.employeeTopRow}>
-            <Image source={employee.avatar} style={styles.employeeAvatar} />
-            <View style={styles.employeeNameCol}>
-              <Text style={styles.employeeNameText}>{employee.name}</Text>
-              <Text style={styles.empIdLabel}>
-                EMP ID: <Text style={styles.empIdValue}>{employee.empId}</Text>
-              </Text>
-            </View>
-          </View>
-
-          {/* Middle Row: Shift ID + Paid Badge */}
-          <View style={styles.shiftIdStatusRow}>
-            <Text style={styles.shiftIdCode}>{shiftId}</Text>
-            <View style={styles.paidBadge}>
-              <View style={styles.paidDot} />
-              <Text style={styles.paidBadgeText}>PAID on 30 Oct 2026</Text>
-            </View>
-          </View>
-
-          {/* Bottom Row: Shift Date & Time & Hours */}
-          <Text style={styles.shiftMetaText}>
-            26 Oct 2026 • 07:30 AM – 05:00 PM • 9.5 hrs
-          </Text>
-        </View>
-
-        {/* ── 2. METRICS CARD (TOTAL, CARD, TAP & GO) ── */}
-        <View style={styles.metricsCard}>
-          {/* Column 1: TOTAL */}
-          <View style={styles.metricColumn}>
-            <View style={styles.metricLabelRow}>
-              <View style={styles.bulletTotal} />
-              <Text style={styles.metricColumnTitleTotal}>TOTAL</Text>
-            </View>
-            <View style={styles.metricAmountRow}>
-              <Text style={styles.metricDollarGold}>$</Text>
-              <Text style={styles.metricAmountTotal}>
-                {Math.floor(MOCK_BUSINESS_STATS.totalAmount)}
-              </Text>
-              <Text style={styles.metricAmountCents}>.00</Text>
-            </View>
-            <Text style={styles.metricSubtext}>
-              {MOCK_BUSINESS_STATS.totalCount} Txns
-            </Text>
-          </View>
-
-          <View style={styles.columnDivider} />
-
-          {/* Column 2: CARD */}
-          <View style={styles.metricColumn}>
-            <View style={styles.metricLabelRow}>
-              <Ionicons name="card-outline" size={12} color="#2563EB" />
-              <Text style={styles.metricColumnTitleCard}>CARD</Text>
-            </View>
-            <View style={styles.metricAmountRow}>
-              <Text style={styles.metricDollarBlue}>$</Text>
-              <Text style={styles.metricAmountCard}>
-                {Math.floor(MOCK_BUSINESS_STATS.cardAmount)}
-              </Text>
-              <Text style={styles.metricAmountCents}>.00</Text>
-            </View>
-            <Text style={styles.metricSubtext}>
-              {MOCK_BUSINESS_STATS.cardCount} Txns
-            </Text>
-          </View>
-
-          <View style={styles.columnDivider} />
-
-          {/* Column 3: TAP & GO */}
-          <View style={styles.metricColumn}>
-            <View style={styles.metricLabelRow}>
-              <View style={styles.bulletTap} />
-              <Text style={styles.metricColumnTitleTap}>TAP & GO</Text>
-            </View>
-            <View style={styles.metricAmountRow}>
-              <Text style={styles.metricDollarOrange}>$</Text>
-              <Text style={styles.metricAmountTap}>
-                {Math.floor(MOCK_BUSINESS_STATS.tapAndGoAmount)}
-              </Text>
-              <Text style={styles.metricAmountCents}>.00</Text>
-            </View>
-            <Text style={styles.metricSubtext}>
-              {MOCK_BUSINESS_STATS.tapAndGoCount} Txns
-            </Text>
-          </View>
-        </View>
-
-        {/* ── 3. SEARCH BAR ── */}
-        <View style={styles.searchContainer}>
-          <Ionicons name="search-outline" size={16} color="#94A3B8" style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search TXN ID, amount..."
-            placeholderTextColor="#94A3B8"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoCapitalize="none"
-            autoCorrect={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor="#D97706"
+            colors={['#D97706']}
           />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity
-              onPress={() => setSearchQuery('')}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={styles.clearButton}
-            >
-              <Ionicons name="close-circle" size={16} color="#94A3B8" />
+        }
+      >
+        {/* Error State Banner */}
+        {errorMessage && (
+          <View style={styles.errorBanner}>
+            <Ionicons name="alert-circle-outline" size={20} color="#DC2626" />
+            <Text style={styles.errorText}>{errorMessage}</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={() => fetchShiftDetails()}>
+              <Text style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>
-          )}
-        </View>
+          </View>
+        )}
 
-        {/* ── 4. SEGMENTED FILTER PILLS (All, Card, Tap & Go) ── */}
-        <View style={styles.segmentedControl}>
-          <TouchableOpacity
-            style={[
-              styles.segmentTab,
-              filterType === 'all' && styles.segmentTabActive,
-            ]}
-            onPress={() => setFilterType('all')}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.segmentTabText,
-                filterType === 'all' && styles.segmentTabTextActive,
-              ]}
-            >
-              All ({MOCK_BUSINESS_STATS.totalCount})
-            </Text>
-          </TouchableOpacity>
+        {/* Loading Indicator */}
+        {isLoading && !isRefreshing && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#D97706" />
+            <Text style={styles.loadingText}>Loading shift details...</Text>
+          </View>
+        )}
 
-          <TouchableOpacity
-            style={[
-              styles.segmentTab,
-              filterType === 'card' && styles.segmentTabActive,
-            ]}
-            onPress={() => setFilterType('card')}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.segmentTabText,
-                filterType === 'card' && styles.segmentTabTextActive,
-              ]}
-            >
-              Card ({MOCK_BUSINESS_STATS.cardCount})
-            </Text>
-          </TouchableOpacity>
+        {!isLoading && (
+          <>
+            {/* ── 1. EMPLOYEE & SHIFT SUMMARY CARD ── */}
+            <View style={styles.employeeSummaryCard}>
+              {/* Top Row: Avatar + Name + EMP ID */}
+              <View style={styles.employeeTopRow}>
+                {shiftDetails?.user?.avatar ? (
+                  <Image source={{ uri: shiftDetails.user.avatar }} style={styles.employeeAvatar} />
+                ) : (
+                  <View style={styles.initialsAvatar}>
+                    <Text style={styles.initialsAvatarText}>
+                      {shiftDetails?.user?.initials || 'EM'}
+                    </Text>
+                  </View>
+                )}
 
-          <TouchableOpacity
-            style={[
-              styles.segmentTab,
-              filterType === 'tap_and_go' && styles.segmentTabActive,
-            ]}
-            onPress={() => setFilterType('tap_and_go')}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.segmentTabText,
-                filterType === 'tap_and_go' && styles.segmentTabTextActive,
-              ]}
-            >
-              Tap & Go ({MOCK_BUSINESS_STATS.tapAndGoCount})
-            </Text>
-          </TouchableOpacity>
-        </View>
+                <View style={styles.employeeNameCol}>
+                  <Text style={styles.employeeNameText}>
+                    {shiftDetails?.user?.name || userName}
+                  </Text>
+                  {(shiftDetails?.user?.code || shiftDetails?.user?.emp_id) && (
+                    <Text style={styles.empIdLabel}>
+                      EMP ID:{' '}
+                      <Text style={styles.empIdValue}>
+                        {shiftDetails?.user?.code || shiftDetails?.user?.emp_id}
+                      </Text>
+                    </Text>
+                  )}
+                </View>
+              </View>
 
-        {/* ── 5. GROUPED TRANSACTION LIST ── */}
-        {groupedTransactions.map((group) => (
-          <View key={group.date} style={styles.dateGroupContainer}>
-            {/* Date Group Header */}
-            <View style={styles.dateGroupHeaderRow}>
-              <Text style={styles.dateGroupTitle}>{group.date}</Text>
-              <View style={styles.dateGroupTotalRow}>
-                <Text style={styles.dateGroupCurrency}>$</Text>
-                <Text style={styles.dateGroupTotalValue}>
-                  {Math.floor(group.total)}
+              {/* Middle Row: Shift ID + Paid / Unpaid Badge */}
+              <View style={styles.shiftIdStatusRow}>
+                <Text style={styles.shiftIdCode}>{headerTitle}</Text>
+
+                {isPaid ? (
+                  <View style={styles.paidBadge}>
+                    <View style={styles.paidDot} />
+                    <Text style={styles.paidBadgeText}>
+                      PAID{shiftDetails?.shift_info?.paid_date ? ` on ${shiftDetails.shift_info.paid_date}` : ''}
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.unpaidBadge}>
+                    <View style={styles.unpaidDot} />
+                    <Text style={styles.unpaidBadgeText}>UNPAID</Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Bottom Row: Shift Date & Time & Range (User Timezone) */}
+              <Text style={styles.shiftMetaText}>
+                {shiftTime.dateText} • {shiftTime.timeRangeText}
+              </Text>
+            </View>
+
+            {/* ── 2. METRICS CARD (TOTAL, CARD, TAP & GO) ── */}
+            <View style={styles.metricsCard}>
+              {/* Column 1: TOTAL */}
+              <View style={styles.metricColumn}>
+                <View style={styles.metricLabelRow}>
+                  <View style={styles.bulletTotal} />
+                  <Text style={styles.metricColumnTitleTotal}>TOTAL</Text>
+                </View>
+                <View style={styles.metricAmountRow}>
+                  <Text style={styles.metricDollarGold}>$</Text>
+                  <Text style={styles.metricAmountTotal}>{totalParts.whole}</Text>
+                  <Text style={styles.metricAmountCents}>{totalParts.cents}</Text>
+                </View>
+                <Text style={styles.metricSubtext}>
+                  {shiftDetails?.metrics?.total?.count ?? 0} Txns
                 </Text>
-                <Text style={styles.dateGroupCents}>
-                  .{((group.total % 1) * 100).toFixed(0).padStart(2, '0')}
+              </View>
+
+              <View style={styles.columnDivider} />
+
+              {/* Column 2: CARD */}
+              <View style={styles.metricColumn}>
+                <View style={styles.metricLabelRow}>
+                  <Ionicons name="card-outline" size={12} color="#2563EB" />
+                  <Text style={styles.metricColumnTitleCard}>CARD</Text>
+                </View>
+                <View style={styles.metricAmountRow}>
+                  <Text style={styles.metricDollarBlue}>$</Text>
+                  <Text style={styles.metricAmountCard}>{cardParts.whole}</Text>
+                  <Text style={styles.metricAmountCents}>{cardParts.cents}</Text>
+                </View>
+                <Text style={styles.metricSubtext}>
+                  {shiftDetails?.metrics?.card?.count ?? 0} Txns
+                </Text>
+              </View>
+
+              <View style={styles.columnDivider} />
+
+              {/* Column 3: TAP & GO */}
+              <View style={styles.metricColumn}>
+                <View style={styles.metricLabelRow}>
+                  <View style={styles.bulletTap} />
+                  <Text style={styles.metricColumnTitleTap}>TAP & GO</Text>
+                </View>
+                <View style={styles.metricAmountRow}>
+                  <Text style={styles.metricDollarOrange}>$</Text>
+                  <Text style={styles.metricAmountTap}>{tapParts.whole}</Text>
+                  <Text style={styles.metricAmountCents}>{tapParts.cents}</Text>
+                </View>
+                <Text style={styles.metricSubtext}>
+                  {shiftDetails?.metrics?.tap_and_go?.count ?? 0} Txns
                 </Text>
               </View>
             </View>
 
-            {/* Transaction Cards */}
-            {group.transactions.map((txn) => {
-              const isCard = txn.method === 'card';
+            {/* ── 3. SEARCH BAR ── */}
+            <View style={styles.searchContainer}>
+              <Ionicons name="search-outline" size={16} color="#94A3B8" style={styles.searchIcon} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search TXN ID, amount..."
+                placeholderTextColor="#94A3B8"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => setSearchQuery('')}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={styles.clearButton}
+                >
+                  <Ionicons name="close-circle" size={16} color="#94A3B8" />
+                </TouchableOpacity>
+              )}
+            </View>
 
-              return (
-                <View key={txn.id} style={styles.txnCard}>
-                  {/* Top Row: ID + Time + Method Chip + Amount */}
-                  <View style={styles.txnTopRow}>
-                    <View style={styles.txnIdTimeGroup}>
-                      <Text style={styles.txnIdText}>{txn.id}</Text>
-                      <Text style={styles.txnTimeText}>{txn.time}</Text>
+            {/* ── 4. SEGMENTED FILTER PILLS (All, Card, Tap & Go) ── */}
+            <View style={styles.segmentedControl}>
+              <TouchableOpacity
+                style={[
+                  styles.segmentTab,
+                  filterType === 'all' && styles.segmentTabActive,
+                ]}
+                onPress={() => handleFilterChange('all')}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.segmentTabText,
+                    filterType === 'all' && styles.segmentTabTextActive,
+                  ]}
+                >
+                  All ({shiftDetails?.filters?.tabs?.all?.count ?? shiftDetails?.metrics?.total?.count ?? 0})
+                </Text>
+              </TouchableOpacity>
 
-                      {isCard ? (
-                        <View style={styles.chipCard}>
-                          <Ionicons name="card-outline" size={11} color="#2563EB" />
-                          <Text style={styles.chipCardText}>Card</Text>
-                        </View>
-                      ) : (
-                        <View style={styles.chipTap}>
-                          <MaterialCommunityIcons name="flash" size={11} color="#D97706" />
-                          <Text style={styles.chipTapText}>Tap & Go</Text>
-                        </View>
-                      )}
-                    </View>
+              <TouchableOpacity
+                style={[
+                  styles.segmentTab,
+                  filterType === 'card' && styles.segmentTabActive,
+                ]}
+                onPress={() => handleFilterChange('card')}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.segmentTabText,
+                    filterType === 'card' && styles.segmentTabTextActive,
+                  ]}
+                >
+                  Card ({shiftDetails?.filters?.tabs?.card?.count ?? shiftDetails?.metrics?.card?.count ?? 0})
+                </Text>
+              </TouchableOpacity>
 
-                    <View style={styles.txnAmountGroup}>
-                      <Text style={styles.txnAmountCurrency}>$</Text>
-                      <Text style={styles.txnAmountWhole}>
-                        {Math.floor(txn.amount)}
-                      </Text>
-                      <Text style={styles.txnAmountCents}>
-                        .{((txn.amount % 1) * 100).toFixed(0).padStart(2, '0')}
-                      </Text>
-                    </View>
-                  </View>
+              <TouchableOpacity
+                style={[
+                  styles.segmentTab,
+                  filterType === 'tap' && styles.segmentTabActive,
+                ]}
+                onPress={() => handleFilterChange('tap')}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.segmentTabText,
+                    filterType === 'tap' && styles.segmentTabTextActive,
+                  ]}
+                >
+                  Tap & Go ({shiftDetails?.filters?.tabs?.tap_and_go?.count ?? shiftDetails?.metrics?.tap_and_go?.count ?? 0})
+                </Text>
+              </TouchableOpacity>
+            </View>
 
-                  {/* Bottom Row: Settlement Verification + Action Buttons */}
-                  <View style={styles.txnBottomRow}>
-                    <View style={styles.verificationGroup}>
-                      <Ionicons name="checkmark-circle-outline" size={14} color="#10B981" />
-                      <Text style={styles.verificationText}>{txn.verification}</Text>
-                    </View>
-
-                    <View style={styles.txnActionsRow}>
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={() => handleReprint(txn)}
-                        activeOpacity={0.7}
-                      >
-                        <Feather name="printer" size={11} color="#334155" />
-                        <Text style={styles.actionButtonText}>Reprint</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={() => handleShare(txn)}
-                        activeOpacity={0.7}
-                      >
-                        <Feather name="share" size={11} color="#334155" />
-                        <Text style={styles.actionButtonText}>Share</Text>
-                      </TouchableOpacity>
-                    </View>
+            {/* ── 5. GROUPED TRANSACTION LIST ── */}
+            {groupedTransactions.map((group) => (
+              <View key={group.date} style={styles.dateGroupContainer}>
+                {/* Date Group Header */}
+                <View style={styles.dateGroupHeaderRow}>
+                  <Text style={styles.dateGroupTitle}>{group.date}</Text>
+                  <View style={styles.dateGroupTotalRow}>
+                    <Text style={styles.dateGroupCurrency}>$</Text>
+                    <Text style={styles.dateGroupTotalValue}>
+                      {Math.floor(group.total).toLocaleString('en-US')}
+                    </Text>
+                    <Text style={styles.dateGroupCents}>
+                      .{((group.total % 1) * 100).toFixed(0).padStart(2, '0')}
+                    </Text>
                   </View>
                 </View>
-              );
-            })}
-          </View>
-        ))}
 
-        {filteredTransactions.length === 0 && (
-          <View style={styles.emptyContainer}>
-            <Feather name="search" size={28} color="#CBD5E1" />
-            <Text style={styles.emptyTitle}>No Transactions Found</Text>
-            <Text style={styles.emptySubtitle}>Try adjusting your search criteria</Text>
-          </View>
+                {/* Transaction Cards */}
+                {group.transactions.map((txn: ShiftDetailsTransactionItem) => {
+                  const isCard = (txn.payment_method || '').toLowerCase().includes('card');
+                  const formattedTime = formatSydneyToUserTime(txn.date) || txn.date;
+
+                  return (
+                    <View key={String(txn.id)} style={styles.txnCard}>
+                      {/* Top Row: ID + Time + Method Chip + Amount */}
+                      <View style={styles.txnTopRow}>
+                        <View style={styles.txnIdTimeGroup}>
+                          <Text style={styles.txnIdText}>{txn.transaction_id}</Text>
+                          <Text style={styles.txnTimeText}>{formattedTime}</Text>
+
+                          {isCard ? (
+                            <View style={styles.chipCard}>
+                              <Ionicons name="card-outline" size={11} color="#2563EB" />
+                              <Text style={styles.chipCardText}>Card</Text>
+                            </View>
+                          ) : (
+                            <View style={styles.chipTap}>
+                              <MaterialCommunityIcons name="contactless-payment" size={12} color="#D97706" />
+                              <Text style={styles.chipTapText}>Tap & Go</Text>
+                            </View>
+                          )}
+                        </View>
+
+                        <View style={styles.txnAmountGroup}>
+                          <Text style={styles.txnAmountCurrency}>$</Text>
+                          <Text style={styles.txnAmountWhole}>
+                            {Math.floor(txn.amount).toLocaleString('en-US')}
+                          </Text>
+                          <Text style={styles.txnAmountCents}>
+                            .{((txn.amount % 1) * 100).toFixed(0).padStart(2, '0')}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Bottom Row: Settlement Verification + Action Buttons */}
+                      <View style={styles.txnBottomRow}>
+                        <View style={styles.verificationGroup}>
+                          <Ionicons name="checkmark-circle-outline" size={14} color="#10B981" />
+                          <Text style={styles.verificationText}>Settled • Successful</Text>
+                        </View>
+
+                        <View style={styles.txnActionsRow}>
+                          <TouchableOpacity
+                            style={styles.actionButton}
+                            onPress={() => handleReprint(txn)}
+                            activeOpacity={0.7}
+                          >
+                            <Feather name="printer" size={11} color="#334155" />
+                            <Text style={styles.actionButtonText}>Reprint</Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={styles.actionButton}
+                            onPress={() => handleShare(txn)}
+                            activeOpacity={0.7}
+                          >
+                            <Feather name="share" size={11} color="#334155" />
+                            <Text style={styles.actionButtonText}>Share</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            ))}
+
+            {filteredTransactions.length === 0 && (
+              <View style={styles.emptyContainer}>
+                <Feather name="search" size={28} color="#CBD5E1" />
+                <Text style={styles.emptyTitle}>No Transactions Found</Text>
+                <Text style={styles.emptySubtitle}>
+                  {searchQuery ? 'Try adjusting your search criteria' : 'No transactions recorded for this filter'}
+                </Text>
+              </View>
+            )}
+
+            {/* ── 6. BOTTOM ACTION BUTTONS ── */}
+            <View style={styles.bottomButtonsRow}>
+              {/* Yellow/Gold Button: Reprint Shift Slip */}
+              <TouchableOpacity
+                style={styles.reprintSlipBtn}
+                onPress={handleReprintShiftSlip}
+                activeOpacity={0.85}
+              >
+                <Feather name="printer" size={16} color="#0F172A" style={{ marginRight: 6 }} />
+                <Text style={styles.reprintSlipBtnText}>Reprint Shift Slip</Text>
+              </TouchableOpacity>
+
+              {/* White Button: Share Report */}
+              <TouchableOpacity
+                style={styles.shareReportBtn}
+                onPress={handleShareShiftReport}
+                activeOpacity={0.85}
+              >
+                <Feather name="share" size={16} color="#0F172A" style={{ marginRight: 6 }} />
+                <Text style={styles.shareReportBtnText}>Share Report</Text>
+              </TouchableOpacity>
+            </View>
+          </>
         )}
-
-        {/* ── 6. BOTTOM ACTION BUTTONS ── */}
-        <View style={styles.bottomButtonsRow}>
-          {/* Yellow/Gold Button: Reprint Shift Slip */}
-          <TouchableOpacity
-            style={styles.reprintSlipBtn}
-            onPress={handleReprintShiftSlip}
-            activeOpacity={0.85}
-          >
-            <Feather name="printer" size={16} color="#0F172A" style={{ marginRight: 6 }} />
-            <Text style={styles.reprintSlipBtnText}>Reprint Shift Slip</Text>
-          </TouchableOpacity>
-
-          {/* White Button: Share Report */}
-          <TouchableOpacity
-            style={styles.shareReportBtn}
-            onPress={handleShareShiftReport}
-            activeOpacity={0.85}
-          >
-            <Feather name="share" size={16} color="#0F172A" style={{ marginRight: 6 }} />
-            <Text style={styles.shareReportBtnText}>Share Report</Text>
-          </TouchableOpacity>
-        </View>
 
         <View style={{ height: 32 }} />
       </ScrollView>
@@ -660,6 +895,20 @@ const styles = StyleSheet.create({
     borderRadius: 9,
     backgroundColor: '#F1F5F9',
     marginRight: 10,
+  },
+  initialsAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 9,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  initialsAvatarText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#B45309',
   },
   employeeNameCol: {
     flex: 1,
@@ -712,10 +961,33 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#059669',
   },
+  unpaidBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    borderRadius: 999,
+    gap: 4,
+  },
+  unpaidDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#F59E0B',
+  },
+  unpaidBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#92400E',
+  },
   shiftMetaText: {
     fontSize: 11,
     color: '#475569',
     marginTop: 2,
+    fontWeight: '600',
   },
 
   /* 2. Metrics Card */
@@ -1103,5 +1375,46 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: '700',
     color: '#0F172A',
+  },
+
+  /* Loading & Error States */
+  loadingContainer: {
+    paddingVertical: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 12,
+    gap: 8,
+  },
+  errorText: {
+    fontSize: 12.5,
+    color: '#DC2626',
+    fontWeight: '600',
+    flex: 1,
+  },
+  retryButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: '#DC2626',
+    borderRadius: 6,
+  },
+  retryButtonText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

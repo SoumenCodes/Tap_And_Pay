@@ -163,6 +163,94 @@ export interface ShiftHistoryParams {
   end_date?: string;
 }
 
+/**
+ * Shift Details Types & Interfaces (GET /api/shift/history/details/:id)
+ */
+export interface ShiftDetailsUser {
+  id: number;
+  name: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  avatar?: string | null;
+  initials?: string;
+  code?: string;
+  emp_id?: string;
+}
+
+export interface ShiftDetailsInfo {
+  display_shift_id: string;
+  session_date: string;
+  start_at: string;
+  end_at?: string | null;
+  time_range: string;
+  is_paid: boolean;
+  status: 'PAID' | 'UNPAID' | string;
+  paid_date?: string | null;
+}
+
+export interface ShiftMetricItem {
+  amount: number;
+  amount_formatted: string;
+  count: number;
+}
+
+export interface ShiftDetailsMetrics {
+  total: ShiftMetricItem;
+  card: ShiftMetricItem;
+  tap_and_go: ShiftMetricItem;
+}
+
+export interface ShiftDetailsFilterTab {
+  key: string;
+  label: string;
+  count: number;
+}
+
+export interface ShiftDetailsFilters {
+  active_method: string;
+  tabs: {
+    all: ShiftDetailsFilterTab;
+    card: ShiftDetailsFilterTab;
+    tap_and_go: ShiftDetailsFilterTab;
+  };
+}
+
+export interface ShiftDetailsGroupedTransaction {
+  date: string;
+  subtotal: number;
+  subtotal_formatted: string;
+}
+
+export interface ShiftDetailsTransactionItem {
+  id: number;
+  transaction_id: string;
+  date: string;
+  amount: number;
+  amount_formatted: string;
+  payment_method: string;
+  payment_method_id: number;
+  terminal_id?: string | null;
+}
+
+export interface ShiftDetailsData {
+  shift_id: number;
+  display_shift_id: string;
+  is_taxi_service: boolean;
+  user_type_key: string;
+  user: ShiftDetailsUser;
+  shift_info: ShiftDetailsInfo;
+  metrics: ShiftDetailsMetrics;
+  filters: ShiftDetailsFilters;
+  grouped_transactions: ShiftDetailsGroupedTransaction[];
+  transactions: ShiftDetailsTransactionItem[];
+}
+
+export interface ShiftDetailsResponse {
+  status: boolean;
+  message: string;
+  data: ShiftDetailsData;
+}
+
 let lastActiveShift: ActiveShiftData | null = null;
 let lastUserId: number | string | null = null;
 
@@ -192,6 +280,26 @@ export const shiftService = {
     const response = await apiClient.get<ShiftHistoryResponse>('/api/shift/history', {
       params: queryParams,
     });
+    return response.data;
+  },
+
+  /**
+   * Shift History Details API (GET /api/shift/history/details/:id)
+   * Fetches full shift breakdown and line-item transactions
+   */
+  getShiftDetails: async (
+    shiftId: number | string,
+    params?: { method?: 'all' | 'card' | 'tap' | string }
+  ): Promise<ShiftDetailsResponse> => {
+    const queryParams: Record<string, any> = {};
+    if (params?.method && params.method !== 'all') {
+      queryParams.method = params.method;
+    }
+
+    const response = await apiClient.get<ShiftDetailsResponse>(
+      `/api/shift/history/details/${shiftId}`,
+      { params: queryParams }
+    );
     return response.data;
   },
   /**

@@ -1,8 +1,8 @@
-export type PaymentMethodType = 'tap' | 'card';
+export type PaymentMethodType = 'tap' | 'card' | 'cash';
 
 export interface FeeBreakdown {
   originalAmount: number;
-  percentageRate: number; // 0.017
+  percentageRate: number; // 0.017 for card/tap, 0 for cash
   percentageFee: number;
   fixedFee: number;
   totalFee: number;
@@ -14,8 +14,21 @@ export interface FeeBreakdown {
  * Calculates fee breakdown dynamically based on amount and payment method
  * Tap to Pay: 1.7% + $0.10
  * Card: 1.7% + $0.30
+ * Cash: $0.00 fee
  */
 export function calculateFee(amount: number, method: PaymentMethodType): FeeBreakdown {
+  if (method === 'cash') {
+    return {
+      originalAmount: amount,
+      percentageRate: 0,
+      percentageFee: 0,
+      fixedFee: 0,
+      totalFee: 0,
+      finalTotal: amount,
+      paymentMethod: method,
+    };
+  }
+
   const percentageRate = 0.017;
   // 1.7% fee rounded to 2 decimal places
   const percentageFee = Math.round(amount * percentageRate * 100) / 100;

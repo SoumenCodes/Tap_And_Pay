@@ -13,16 +13,20 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Svg, Path, Circle } from 'react-native-svg';
 import { useAuth } from '../../context/AuthContext';
+import { useConfirmModal } from '../../context/ConfirmModalContext';
 import HeaderBar from '../../components/common/HeaderBar';
 import { colors } from '../../constants/theme';
 import { addTransaction } from '../../services/transactionStore';
 import { paymentSession } from '../../services/paymentSession';
-import { dashboardService } from '../../services/dashboardService';
+import { dashboardService, getActiveShiftSessionId } from '../../services/dashboardService';
+import { shiftService, onShiftChange, ActiveShiftData } from '../../services/shiftService';
+import { cashPaymentService } from '../../services/cashPaymentService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -112,6 +116,116 @@ export default function TapToPayEnterAmountScreen() {
 
   // Blinking cursor state
   const [cursorVisible, setCursorVisible] = useState<boolean>(true);
+
+  // Shift & Cash Payment State (for both Business Owner and Employee)
+  const { showAlert, showConfirm } = useConfirmModal();
+  const [isOnShift, setIsOnShift] = useState<boolean>(true);
+  const [activeShiftId, setActiveShiftId] = useState<number | null>(null);
+  const [isStartingShift, setIsStartingShift] = useState<boolean>(false);
+  const [isProcessingCash, setIsProcessingCash] = useState<boolean>(false);
+
+  // Verify and sync shift status from shiftService and dashboard
+  const refreshShiftStatus = useCallback(async () => {
+    try {
+      const activeShift = shiftService.getActiveShift();
+      if (activeShift?.id) {
+        setIsOnShift(true);
+        setActiveShiftId(activeShift.id);
+        return;
+      }
+
+      const dash = await dashboardService.getDashboard();
+      const onShift = Boolean(dash?.data?.is_on_shift && dash?.data?.active_shift?.id);
+      setIsOnShift(onShift);
+      setActiveShiftId(dash?.data?.active_shift?.id || null);
+    } catch {
+      const fallbackShift = shiftService.getActiveShift();
+      setIsOnShift(Boolean(fallbackShift?.id));
+      setActiveShiftId(fallbackShift?.id || null);
+    }
+  }, []);
+
+  // Listen to external shift events
+  useEffect(() => {
+    const unsub = onShiftChange((shift: ActiveShiftData | null) => {
+      setIsOnShift(Boolean(shift?.id));
+      setActiveShiftId(shift?.id || null);
+    });
+    return () => unsub();
+  }, []);
+
+  // Check shift status every time screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      refreshShiftStatus();
+    }, [refreshShiftStatus])
+  );
+
+  // Directly start a shift session for either Business Owner or Employee
+  const handleStartShiftDirectly = async (): Promise<number | null> => {
+    setIsStartingShift(true);
+    try {
+      const res = await shiftService.startShift();
+      if (res?.status && res?.data?.active_shift?.id) {
+        const sid = res.data.active_shift.id;
+        setIsOnShift(true);
+        setActiveShiftId(sid);
+        await dashboardService.getDashboard().catch(() => {});
+        showAlert({
+          title: 'Shift Started',
+          message: `Shift #${res.data.active_shift.display_shift_id || sid} is now active. You can now accept payments.`,
+          type: 'success',
+        });
+        return sid;
+      } else {
+        showAlert({
+          title: 'Shift Error',
+          message: res?.message || 'Unable to start shift session. Please try again.',
+          type: 'danger',
+        });
+        return null;
+      }
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Failed to start shift.';
+      showAlert({
+        title: 'Shift Start Error',
+        message: msg,
+        type: 'danger',
+      });
+      return null;
+    } finally {
+      setIsStartingShift(false);
+    }
+  };
+
+  // Strictly enforce active shift before any payment (Tap, Card, Cash)
+  const ensureActiveShift = async (): Promise<number | null> => {
+    let sid = activeShiftId || (await getActiveShiftSessionId());
+    if (sid) {
+      setActiveShiftId(sid);
+      setIsOnShift(true);
+      return sid;
+    }
+
+    return new Promise<number | null>((resolve) => {
+      showConfirm({
+        title: 'Active Shift Required',
+        message:
+          'You must start your shift before taking payments. All card, tap, and cash transactions must be logged against an active shift session.\n\nWould you like to start your shift now?',
+        confirmText: 'Start Shift',
+        cancelText: 'Cancel',
+        type: 'warning',
+        onConfirm: async () => {
+          const newSid = await handleStartShiftDirectly();
+          resolve(newSid);
+        },
+        onCancel: () => {
+          resolve(null);
+        },
+      });
+    });
+  };
+
   useEffect(() => {
     const timer = setInterval(() => {
       setCursorVisible((v) => !v);
@@ -181,7 +295,11 @@ export default function TapToPayEnterAmountScreen() {
   const [totalIntPart, totalDecPart] = totalAmountFormatted.split('.');
 
   // Continue from keypad to Confirm screen (Taxi) or directly to Payment (Other Business)
-  const handleContinueToConfirm = () => {
+  const handleContinueToConfirm = async () => {
+    // Strictly verify shift session before accepting payment
+    const sid = await ensureActiveShift();
+    if (!sid) return;
+
     if (isOtherBusiness) {
       // Other business skips the taxi confirm/route/breakup screen and goes directly to payment
       const finalAmountFormatted =
@@ -202,38 +320,60 @@ export default function TapToPayEnterAmountScreen() {
           },
         });
       } else {
-        const cashPaymentId = `cash_${Date.now()}`;
-        const timestamp = new Date().toISOString();
-        const amt = numericAmount > 0 ? numericAmount : 100.0;
+        // Record Cash Payment via POST /api/payment/cash
+        setIsProcessingCash(true);
+        try {
+          const amt = numericAmount > 0 ? numericAmount : 100.0;
+          const cashTxnData = await cashPaymentService.recordCashPayment({
+            amount: amt,
+            shift_session_id: sid,
+          });
 
-        addTransaction({
-          id: cashPaymentId,
-          amount: amt,
-          currency: '$',
-          status: 'success',
-          paymentMethod: 'Cash',
-          paymentMethodType: 'cash' as any,
-          cardLast4: '----',
-          cardBrand: 'Cash',
-          paymentId: cashPaymentId,
-          storeName: user?.businessName || 'SE PAY',
-          timestamp,
-        });
+          const realTxnId = cashTxnData.transaction_id || `TXN-${Date.now()}`;
+          const txnDate = cashTxnData.transaction_date || new Date().toISOString();
 
-        paymentSession.markPaymentCompleted();
-        dashboardService.getDashboard().catch(() => {});
-
-        router.push({
-          pathname: '/(tabs)/payment-success',
-          params: {
-            amount: finalAmountFormatted,
-            method: 'cash',
-            paymentId: cashPaymentId,
-            cardBrand: 'Cash',
+          addTransaction({
+            id: String(cashTxnData.id || realTxnId),
+            amount: amt,
+            currency: '$',
+            status: 'success',
+            paymentMethod: 'Cash',
+            paymentMethodType: 'cash' as any,
             cardLast4: '----',
-            timestamp,
-          },
-        });
+            cardBrand: 'Cash',
+            paymentId: realTxnId,
+            storeName: user?.businessName || 'SE PAY',
+            timestamp: txnDate,
+          });
+
+          paymentSession.markPaymentCompleted();
+          dashboardService.getDashboard().catch(() => {});
+
+          router.push({
+            pathname: '/(tabs)/payment-success',
+            params: {
+              amount: finalAmountFormatted,
+              method: 'cash',
+              paymentId: realTxnId,
+              cardBrand: 'Cash',
+              cardLast4: '----',
+              approvalCode: cashTxnData.approval_code || '',
+              timestamp: txnDate,
+            },
+          });
+        } catch (cashErr: any) {
+          const errMsg =
+            cashErr?.response?.data?.message ||
+            cashErr?.message ||
+            'Failed to record cash payment. Please check your connection and try again.';
+          showAlert({
+            title: 'Cash Payment Failed',
+            message: errMsg,
+            type: 'danger',
+          });
+        } finally {
+          setIsProcessingCash(false);
+        }
       }
       return;
     }
@@ -242,8 +382,12 @@ export default function TapToPayEnterAmountScreen() {
     setScreenStep('confirm');
   };
 
-  // Continue from Confirm Screen to Next Stage
-  const handleFinalProceed = () => {
+  // Continue from Confirm Screen to Next Stage (Taxi)
+  const handleFinalProceed = async () => {
+    // Strictly verify shift session before proceeding
+    const sid = await ensureActiveShift();
+    if (!sid) return;
+
     if (selectedMethod === 'card') {
       router.push({
         pathname: '/(tabs)/card-entry',
@@ -263,40 +407,62 @@ export default function TapToPayEnterAmountScreen() {
         },
       });
     } else {
-      const cashPaymentId = `cash_${Date.now()}`;
-      const timestamp = new Date().toISOString();
-      const amt = totalAmount;
+      // Record Cash Payment via POST /api/payment/cash
+      setIsProcessingCash(true);
+      try {
+        const amt = totalAmount;
+        const cashTxnData = await cashPaymentService.recordCashPayment({
+          amount: amt,
+          shift_session_id: sid,
+        });
 
-      addTransaction({
-        id: cashPaymentId,
-        amount: amt,
-        currency: '$',
-        status: 'success',
-        paymentMethod: 'Cash',
-        paymentMethodType: 'cash' as any,
-        cardLast4: '----',
-        cardBrand: 'Cash',
-        paymentId: cashPaymentId,
-        storeName: user?.businessName || 'SE PAY',
-        timestamp,
-      });
+        const realTxnId = cashTxnData.transaction_id || `TXN-${Date.now()}`;
+        const txnDate = cashTxnData.transaction_date || new Date().toISOString();
 
-      paymentSession.markPaymentCompleted();
-      dashboardService.getDashboard().catch(() => {});
-
-      router.push({
-        pathname: '/(tabs)/payment-success',
-        params: {
-          amount: totalAmountFormatted,
-          method: 'cash',
-          pickup: pickupLocation,
-          dropoff: dropoffLocation,
-          paymentId: cashPaymentId,
-          cardBrand: 'Cash',
+        addTransaction({
+          id: String(cashTxnData.id || realTxnId),
+          amount: amt,
+          currency: '$',
+          status: 'success',
+          paymentMethod: 'Cash',
+          paymentMethodType: 'cash' as any,
           cardLast4: '----',
-          timestamp,
-        },
-      });
+          cardBrand: 'Cash',
+          paymentId: realTxnId,
+          storeName: user?.businessName || 'SE PAY',
+          timestamp: txnDate,
+        });
+
+        paymentSession.markPaymentCompleted();
+        dashboardService.getDashboard().catch(() => {});
+
+        router.push({
+          pathname: '/(tabs)/payment-success',
+          params: {
+            amount: totalAmountFormatted,
+            method: 'cash',
+            pickup: pickupLocation,
+            dropoff: dropoffLocation,
+            paymentId: realTxnId,
+            cardBrand: 'Cash',
+            cardLast4: '----',
+            approvalCode: cashTxnData.approval_code || '',
+            timestamp: txnDate,
+          },
+        });
+      } catch (cashErr: any) {
+        const errMsg =
+          cashErr?.response?.data?.message ||
+          cashErr?.message ||
+          'Failed to record cash payment. Please check your connection and try again.';
+        showAlert({
+          title: 'Cash Payment Failed',
+          message: errMsg,
+          type: 'danger',
+        });
+      } finally {
+        setIsProcessingCash(false);
+      }
     }
   };
 
@@ -448,6 +614,34 @@ export default function TapToPayEnterAmountScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* Active Shift Required Warning (strictly enforced for both Owner & Employee) */}
+          {!isOnShift && (
+            <View style={styles.shiftWarningCard}>
+              <View style={styles.shiftWarningHeader}>
+                <Ionicons name="alert-circle" size={18} color="#B45309" />
+                <Text style={styles.shiftWarningTitle}>Active Shift Required</Text>
+              </View>
+              <Text style={styles.shiftWarningSubtitle}>
+                You must start your shift before taking payments. All card, contactless tap, and cash transactions must be logged under an active shift session.
+              </Text>
+              <TouchableOpacity
+                style={styles.shiftStartButton}
+                activeOpacity={0.85}
+                onPress={handleStartShiftDirectly}
+                disabled={isStartingShift}
+              >
+                {isStartingShift ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons name="play" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
+                    <Text style={styles.shiftStartButtonText}>Start Shift to Accept Payments</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* Interactive Route Card (Pickup & Drop-off Dropdown) */}
           {!isOtherBusiness ? (
             <View style={styles.routeCard}>
@@ -534,9 +728,19 @@ export default function TapToPayEnterAmountScreen() {
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={handleContinueToConfirm}
-              style={styles.continueButton}
+              style={[
+                styles.continueButton,
+                (!isOnShift || isProcessingCash) && styles.continueButtonDisabled,
+              ]}
+              disabled={isProcessingCash}
             >
-              <Text style={styles.continueButtonText}>Continue</Text>
+              {isProcessingCash ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.continueButtonText}>
+                  {!isOnShift ? 'Start Shift to Continue' : 'Continue'}
+                </Text>
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity activeOpacity={0.8} onPress={handleCancel} style={styles.cancelButton}>
@@ -623,6 +827,34 @@ export default function TapToPayEnterAmountScreen() {
               </Text>
             </TouchableOpacity>
           </View>
+
+          {/* Active Shift Required Warning (strictly enforced for both Owner & Employee) */}
+          {!isOnShift && (
+            <View style={styles.shiftWarningCard}>
+              <View style={styles.shiftWarningHeader}>
+                <Ionicons name="alert-circle" size={18} color="#B45309" />
+                <Text style={styles.shiftWarningTitle}>Active Shift Required</Text>
+              </View>
+              <Text style={styles.shiftWarningSubtitle}>
+                You must start your shift before taking payments. All card, contactless tap, and cash transactions must be logged under an active shift session.
+              </Text>
+              <TouchableOpacity
+                style={styles.shiftStartButton}
+                activeOpacity={0.85}
+                onPress={handleStartShiftDirectly}
+                disabled={isStartingShift}
+              >
+                {isStartingShift ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons name="play" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
+                    <Text style={styles.shiftStartButtonText}>Start Shift to Accept Payments</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
 
           {/* 1. Shift / Business Badge Card */}
           <View style={styles.shiftBadgeCard}>
@@ -723,17 +955,25 @@ export default function TapToPayEnterAmountScreen() {
 
           {/* Primary Action Button (Deep Blue #0A3977) */}
           <TouchableOpacity
-            style={styles.primaryActionButton}
+            style={[
+              styles.primaryActionButton,
+              isProcessingCash && styles.continueButtonDisabled,
+            ]}
             activeOpacity={0.88}
             onPress={handleFinalProceed}
+            disabled={isProcessingCash}
           >
-            <Text style={styles.primaryActionText}>
-              {selectedMethod === 'tap'
-                ? 'Tap to Pay'
-                : selectedMethod === 'card'
-                  ? 'Continue to Charge'
-                  : 'Confirm Cash Payment'}
-            </Text>
+            {isProcessingCash ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={styles.primaryActionText}>
+                {selectedMethod === 'tap'
+                  ? 'Tap to Pay'
+                  : selectedMethod === 'card'
+                    ? 'Continue to Charge'
+                    : 'Confirm Cash Payment'}
+              </Text>
+            )}
           </TouchableOpacity>
         </View>
       )}
@@ -1334,5 +1574,48 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     color: '#64748B',
     marginTop: 1,
+  },
+  shiftWarningCard: {
+    backgroundColor: '#FFFBEB',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    padding: 14,
+    marginHorizontal: 16,
+    marginBottom: 12,
+  },
+  shiftWarningHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  shiftWarningTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#92400E',
+    marginLeft: 6,
+  },
+  shiftWarningSubtitle: {
+    fontSize: 11.5,
+    color: '#78350F',
+    lineHeight: 16,
+    marginBottom: 10,
+  },
+  shiftStartButton: {
+    backgroundColor: '#D97706',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 9,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+  },
+  shiftStartButtonText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  continueButtonDisabled: {
+    opacity: 0.75,
   },
 });

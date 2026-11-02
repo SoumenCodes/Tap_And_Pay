@@ -215,13 +215,16 @@ export default function AddEmployeeScreen() {
       });
       return;
     }
-    if (!empId.trim()) {
-      showAlert({
-        title: 'Required Field',
-        message: 'Please enter an Employee ID.',
-        type: 'warning',
-      });
-      return;
+    if (email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email.trim())) {
+        showAlert({
+          title: 'Invalid Email',
+          message: 'Please enter a valid email address (e.g. employee@business.com).',
+          type: 'warning',
+        });
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -231,9 +234,14 @@ export default function AddEmployeeScreen() {
       formData.append('last_name', lastName.trim());
       formData.append('phone_number', phone.trim());
       formData.append('phone_no', phone.trim());
-      formData.append('email_id', email.trim());
-      formData.append('email', email.trim());
-      formData.append('employee_id', empId.trim());
+      if (email.trim()) {
+        formData.append('email_id', email.trim());
+        formData.append('email', email.trim());
+      }
+      if (empId.trim()) {
+        formData.append('employee_id', empId.trim());
+      }
+      formData.append('is_active', isActive ? '1' : '0');
 
       // Append dynamic profile photo file
       if (profilePhoto) {
@@ -246,6 +254,15 @@ export default function AddEmployeeScreen() {
 
       if (isEditMode && id) {
         const res = await employeeService.updateEmployee(id, formData);
+        if (res.status === false || (res as any).success === false) {
+          showAlert({
+            title: 'Update Failed',
+            message: res.message || 'Failed to update employee. Please check details and try again.',
+            type: 'danger',
+          });
+          return;
+        }
+
         showAlert({
           title: 'Success',
           message: res.message || 'Employee profile updated successfully.',
@@ -255,6 +272,15 @@ export default function AddEmployeeScreen() {
         });
       } else {
         const res = await employeeService.addEmployee(formData);
+        if (res.status === false || (res as any).success === false || !res.data?.employee) {
+          showAlert({
+            title: 'Unable to Add Employee',
+            message: res.message || 'Failed to add employee. Email or employee details may already exist.',
+            type: 'danger',
+          });
+          return;
+        }
+
         const created = res.data?.employee;
         let msg = res.message || 'Employee added successfully and waiting for admin approval.';
         if (created?.temporary_password) {
@@ -270,16 +296,30 @@ export default function AddEmployeeScreen() {
         });
       }
     } catch (err: any) {
-      const errorMsg =
-        err?.response?.data?.message ||
-        err?.message ||
-        (isEditMode
+      console.warn('Error saving employee:', err);
+      const rawData = err?.response?.data || (err as any)?.raw?.response?.data || (err as any)?.data;
+      let errorMsg = err?.message;
+
+      if (rawData?.errors && typeof rawData.errors === 'object') {
+        const errList = Object.values(rawData.errors).flat().filter(Boolean);
+        if (errList.length > 0) {
+          errorMsg = errList.join('\n');
+        }
+      } else if (rawData?.message) {
+        errorMsg = rawData.message;
+      }
+
+      if (!errorMsg || errorMsg === 'Error') {
+        errorMsg = isEditMode
           ? 'Failed to update employee. Please check details and try again.'
-          : 'Failed to add employee. Please check details and try again.');
+          : 'Failed to add employee. The email or employee details may already exist.';
+      }
+
       showAlert({
         title: 'Error',
         message: errorMsg,
         type: 'danger',
+        // Note: No onClose navigation here so the user remains on the screen with all entered inputs intact!
       });
     } finally {
       setIsSubmitting(false);
@@ -446,18 +486,15 @@ export default function AddEmployeeScreen() {
             />
           </View>
 
-          {/* Field: Employee ID */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Employee ID *</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="e.g. EMP321045"
-              placeholderTextColor="#94A3B8"
-              value={empId}
-              onChangeText={setEmpId}
-              autoCapitalize="characters"
-            />
-          </View>
+          {/* Field: Employee ID (Read-only in Edit Mode, Auto-generated when adding) */}
+          {isEditMode && empId ? (
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Employee ID</Text>
+              <View style={[styles.textInput, styles.readOnlyInput]}>
+                <Text style={styles.readOnlyText}>{empId}</Text>
+              </View>
+            </View>
+          ) : null}
 
           {/* Field: Employee Status */}
           <View style={styles.fieldGroup}>
@@ -589,6 +626,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#0F172A',
     fontWeight: '600',
+  },
+  readOnlyInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    justifyContent: 'center',
+  },
+  readOnlyText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
   },
   phoneRow: {
     flexDirection: 'row',

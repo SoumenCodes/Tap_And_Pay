@@ -143,6 +143,20 @@ export const employeeService = {
         'Content-Type': 'multipart/form-data',
       },
     });
+
+    if (response.data && (response.data.status === false || (response.data as any).success === false)) {
+      const respData: any = response.data;
+      let errMsg = respData.message || 'Failed to add employee.';
+      if (respData.errors && typeof respData.errors === 'object') {
+        const errList = Object.values(respData.errors).flat().filter(Boolean);
+        if (errList.length > 0) errMsg = errList.join('\n');
+      }
+      const err = new Error(errMsg);
+      (err as any).response = response;
+      (err as any).data = response.data;
+      throw err;
+    }
+
     return response.data;
   },
 
@@ -163,6 +177,20 @@ export const employeeService = {
         },
       }
     );
+
+    if (response.data && (response.data.status === false || (response.data as any).success === false)) {
+      const respData: any = response.data;
+      let errMsg = respData.message || 'Failed to update employee.';
+      if (respData.errors && typeof respData.errors === 'object') {
+        const errList = Object.values(respData.errors).flat().filter(Boolean);
+        if (errList.length > 0) errMsg = errList.join('\n');
+      }
+      const err = new Error(errMsg);
+      (err as any).response = response;
+      (err as any).data = response.data;
+      throw err;
+    }
+
     return response.data;
   },
 };

@@ -78,6 +78,7 @@ Comprehensive mapping between application screens, backend endpoints, and the 5 
 | **Terminal Connection Token** | `src/services/stripeApi.ts` | All Roles | `POST` | `/api/connection_token` | ✅ Live | Generates Stripe Terminal SDK secret & reader `locationId`. |
 | **Create Payment Intent** | `src/services/stripeApi.ts` | All Roles | `POST` | `/api/payment/create-intent` | ✅ Live | Generates `clientSecret` & `paymentIntentId` for card present (Tap) / card entry. |
 | **Payment Intent Status** | `src/services/stripeApi.ts` | All Roles | `GET` | `/api/payment_intent/:id` | ✅ Live | Retrieves PaymentIntent status, amount, and 3D Secure verification state. |
+| **Record Cash Payment** | `src/services/cashPaymentService.ts`, `src/app/(tabs)/tap-to-pay.tsx` | All Roles (Owner & Employee) | `POST` | `/api/payment/cash` | ✅ Live | Records cash collection against active shift session (`{ amount, shift_session_id }`). |
 | **Create Sale / Tap to Pay** | `src/app/(tabs)/tap-to-pay.tsx` | All Roles | Native / Stripe | Stripe Terminal SDK | ✅ Live | Processes in-person card payments (Stripe Tap to Pay). |
 | **Receipt Details** | `src/app/(tabs)/receipt-details.tsx` | All Roles | Local / Print | Local Document Generator | ✅ Live | Generates formatted receipt image and PDF slip for sharing/printing. |
 | **Start Shift** | Dashboard buttons | All Roles | `POST` | `/api/shift/start` | ✅ Live | Starts work shift; records device ID, start timestamp, generates shift ID. |

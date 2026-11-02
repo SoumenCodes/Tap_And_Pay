@@ -1,5 +1,5 @@
 import { apiClient } from './apiClient';
-import { ActiveShiftData } from './shiftService';
+import { ActiveShiftData, shiftService } from './shiftService';
 import { tokenStorage } from './tokenStorage';
 import type { UserProfile } from '../context/AuthContext';
 
@@ -132,9 +132,32 @@ export type DashboardHeaderSyncCallback = (header: DashboardHeader) => void;
 let headerSyncListeners: DashboardHeaderSyncCallback[] = [];
 let activeDashboardPromise: Promise<DashboardResponse> | null = null;
 let cachedDashboardHeader: DashboardHeader | null = null;
+let cachedDashboardData: DashboardData | null = null;
 
 export function getCachedDashboardHeader(): DashboardHeader | null {
   return cachedDashboardHeader;
+}
+
+export function getCachedDashboardData(): DashboardData | null {
+  return cachedDashboardData;
+}
+
+/**
+ * Returns current active shift session ID for payments, or null if off-shift.
+ */
+export async function getActiveShiftSessionId(): Promise<number | null> {
+  const activeShift = shiftService.getActiveShift();
+  if (activeShift?.id) return activeShift.id;
+  if (cachedDashboardData?.active_shift?.id) return cachedDashboardData.active_shift.id;
+
+  try {
+    const dash = await dashboardService.getDashboard();
+    if (dash?.data?.active_shift?.id) {
+      return dash.data.active_shift.id;
+    }
+  } catch {}
+
+  return null;
 }
 
 export function onDashboardHeaderSync(callback: DashboardHeaderSyncCallback): () => void {
@@ -168,6 +191,15 @@ export const dashboardService = {
       try {
         const response = await apiClient.get<DashboardResponse>('/api/user/dashboard');
         const resData = response.data;
+
+        if (resData?.data) {
+          cachedDashboardData = resData.data;
+          if (resData.data.active_shift) {
+            shiftService.setActiveShift(resData.data.active_shift);
+          } else if (resData.data.is_on_shift === false) {
+            shiftService.setActiveShift(null);
+          }
+        }
 
         if (resData?.data?.header) {
           const h = resData.data.header;

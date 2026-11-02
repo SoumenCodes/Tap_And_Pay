@@ -107,7 +107,22 @@ apiClient.interceptors.response.use(
     }
 
     const responseData = error.response?.data as any;
+
+    let validationMessage = '';
+    if (responseData?.errors && typeof responseData.errors === 'object') {
+      const errs = Object.values(responseData.errors).flat().filter(Boolean);
+      if (errs.length > 0) {
+        validationMessage = errs.join('\n');
+      }
+    } else if (responseData?.messages && typeof responseData.messages === 'object') {
+      const msgs = Object.values(responseData.messages).flat().filter(Boolean);
+      if (msgs.length > 0) {
+        validationMessage = msgs.join('\n');
+      }
+    }
+
     const customMessage =
+      validationMessage ||
       responseData?.messages?.message ||
       responseData?.messages?.error ||
       responseData?.message ||
@@ -119,6 +134,7 @@ apiClient.interceptors.response.use(
     (enhancedError as any).status = error.response?.status;
     (enhancedError as any).code = responseData?.code || error.code;
     (enhancedError as any).raw = error;
+    (enhancedError as any).response = error.response;
 
     return Promise.reject(enhancedError);
   }

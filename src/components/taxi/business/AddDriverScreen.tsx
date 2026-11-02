@@ -366,6 +366,15 @@ export default function AddDriverScreen() {
 
       if (isEditMode && id) {
         const response = await driverService.updateDriverProfile(id, formData);
+        if (response.status === false || (response as any).success === false) {
+          showAlert({
+            title: 'Update Failed',
+            message: response.message || 'Failed to update driver profile.',
+            type: 'danger',
+          });
+          return;
+        }
+
         showAlert({
           title: 'Success',
           message: response.message || 'Driver profile updated successfully.',
@@ -381,6 +390,15 @@ export default function AddDriverScreen() {
         });
       } else {
         const response = await driverService.addDriver(formData);
+        if (response.status === false || (response as any).success === false || !response.data?.driver) {
+          showAlert({
+            title: 'Unable to Add Driver',
+            message: response.message || 'Failed to add driver. Email or license details may already exist.',
+            type: 'danger',
+          });
+          return;
+        }
+
         const created = response.data?.driver;
         let successMsg = response.message || 'Driver added successfully.';
         if (created?.temporary_password) {
@@ -402,12 +420,25 @@ export default function AddDriverScreen() {
         });
       }
     } catch (err: any) {
-      const errorMsg =
-        err?.response?.data?.message ||
-        err?.message ||
-        (isEditMode
+      console.warn('Error saving driver:', err);
+      const rawData = err?.response?.data || (err as any)?.raw?.response?.data || (err as any)?.data;
+      let errorMsg = err?.message;
+
+      if (rawData?.errors && typeof rawData.errors === 'object') {
+        const errList = Object.values(rawData.errors).flat().filter(Boolean);
+        if (errList.length > 0) {
+          errorMsg = errList.join('\n');
+        }
+      } else if (rawData?.message) {
+        errorMsg = rawData.message;
+      }
+
+      if (!errorMsg || errorMsg === 'Error') {
+        errorMsg = isEditMode
           ? 'Failed to update driver profile. Please verify details and try again.'
-          : 'Failed to add driver. Please verify all information and try again.');
+          : 'Failed to add driver. Please verify all information and try again.';
+      }
+
       showAlert({
         title: 'Error',
         message: errorMsg,

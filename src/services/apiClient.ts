@@ -1,6 +1,7 @@
 import axios, { type AxiosError, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios';
 import { config } from '../constants/config';
 import { tokenStorage } from './tokenStorage';
+import { appLogger } from './appLogger';
 
 /**
  * Standard API Client with Axios
@@ -28,6 +29,12 @@ apiClient.interceptors.request.use(
 
     const fullUrl = `${reqConfig.baseURL || ''}${reqConfig.url || ''}`;
     const method = (reqConfig.method || 'GET').toUpperCase();
+
+    appLogger.log('API', `--> [${method}] ${fullUrl}`, {
+      params: reqConfig.params,
+      data: reqConfig.data,
+      hasToken: Boolean(token),
+    });
 
     console.log('\n================== 🚀 API REQUEST ==================');
     console.log(`[HTTP ${method}] ${fullUrl}`);
@@ -59,6 +66,11 @@ apiClient.interceptors.response.use(
     const method = (response.config.method || 'GET').toUpperCase();
     const token = tokenStorage.getAccessToken();
 
+    appLogger.log('API', `<-- [STATUS ${response.status}] [${method}] ${fullUrl}`, {
+      status: response.status,
+      data: response.data,
+    });
+
     console.log('\n================== ✅ API RESPONSE ==================');
     console.log(`[STATUS ${response.status}] [${method}] ${fullUrl}`);
     console.log(`Authorization Token: ${token ? `Bearer ${token}` : 'None'}`);
@@ -72,6 +84,12 @@ apiClient.interceptors.response.use(
     const method = error.config?.method?.toUpperCase() || 'HTTP';
     const status = error.response?.status || 'NO_RESPONSE';
     const token = tokenStorage.getAccessToken();
+
+    appLogger.error('API', `<-- [ERROR ${status}] [${method}] ${fullUrl}: ${error.message}`, {
+      status,
+      responseData: error.response?.data,
+      errorMessage: error.message,
+    });
 
     console.log('\n================== ❌ API ERROR ===================');
     console.log(`[STATUS ${status}] [${method}] ${fullUrl}`);

@@ -17,7 +17,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://tap-and-pay.onrender.com",
+        "EXPO_PUBLIC_BACKEND_URL": "https://sepay.stageserv.in",
         "EXPO_PUBLIC_SIMULATED_READER": "false"
       }
     },
@@ -27,7 +27,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://tap-and-pay.onrender.com",
+        "EXPO_PUBLIC_BACKEND_URL": "https://sepay.stageserv.in",
         "EXPO_PUBLIC_SIMULATED_READER": "true"
       }
     },

@@ -139,6 +139,18 @@ export interface ShiftRecordItem {
   cash?: ShiftMethodBreakdown;
 }
 
+export interface ShiftPagination {
+  current_page?: number;
+  page?: number;
+  per_page?: number;
+  limit?: number;
+  total?: number;
+  total_records?: number;
+  total_pages?: number;
+  has_more?: boolean;
+  has_more_pages?: boolean;
+}
+
 export interface ShiftHistoryData {
   user_type_key: string;
   role_id: number;
@@ -147,12 +159,14 @@ export interface ShiftHistoryData {
   filters: ShiftHistoryFilters;
   summary: ShiftHistorySummary;
   shift_records: ShiftRecordItem[];
+  pagination?: ShiftPagination;
 }
 
 export interface ShiftHistoryResponse {
   status: boolean;
   message: string;
   data: ShiftHistoryData;
+  pagination?: ShiftPagination;
 }
 
 export interface ShiftHistoryParams {
@@ -161,6 +175,8 @@ export interface ShiftHistoryParams {
   search?: string;
   start_date?: string;
   end_date?: string;
+  page?: number;
+  limit?: number;
 }
 
 /**
@@ -299,11 +315,27 @@ export const shiftService = {
     if (params?.end_date) {
       queryParams.end_date = params.end_date;
     }
+    if (params?.page !== undefined) {
+      queryParams.page = params.page;
+    }
+    if (params?.limit !== undefined) {
+      queryParams.limit = params.limit;
+    }
 
-    const response = await apiClient.get<ShiftHistoryResponse>('/api/shift/history', {
-      params: queryParams,
-    });
-    return response.data;
+    try {
+      const response = await apiClient.get<ShiftHistoryResponse>('/api/shift/history', {
+        params: queryParams,
+      });
+      return response.data;
+    } catch (err: any) {
+      if (err?.response?.status === 404) {
+        const fallbackRes = await apiClient.get<ShiftHistoryResponse>('/shift/history', {
+          params: queryParams,
+        });
+        return fallbackRes.data;
+      }
+      throw err;
+    }
   },
 
   /**

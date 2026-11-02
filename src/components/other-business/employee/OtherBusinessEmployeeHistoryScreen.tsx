@@ -1,19 +1,18 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
+  FlatList,
   TextInput,
   TouchableOpacity,
-  Modal,
-  Pressable,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import HeaderBar from '../../common/HeaderBar';
+import DateRangePickerModal from '../../common/DateRangePickerModal';
 import {
   shiftService,
   ShiftHistoryData,
@@ -46,40 +45,113 @@ export default function OtherBusinessEmployeeHistoryScreen({
   empId = 'EMP2026100720101878',
   onSelectShift,
 }: OtherBusinessEmployeeHistoryScreenProps) {
+  const PAGE_LIMIT = 1;
+
+  // API State
   const [shiftHistoryData, setShiftHistoryData] = useState<ShiftHistoryData | null>(null);
+  const [shiftRecords, setShiftRecords] = useState<ShiftRecordItem[]>([]);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [hasMore, setHasMore] = useState<boolean>(true);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Filters State
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'paid' | 'unpaid'>('all');
+  const [startDate, setStartDate] = useState<string | null>(null);
+  const [endDate, setEndDate] = useState<string | null>(null);
   const [selectedDateRange, setSelectedDateRange] = useState('All Dates');
   const [isDateModalVisible, setIsDateModalVisible] = useState(false);
 
+  const activeSearchRef = useRef<string>('');
+  const isInitialMount = useRef<boolean>(true);
+
+  // Core API fetcher supporting pagination, date range, search, and status
   const fetchHistory = useCallback(
-    async (status?: string, search?: string, isRefresh = false) => {
+    async ({
+      page = 1,
+      status = filterStatus,
+      search = searchQuery,
+      startDateVal = startDate,
+      endDateVal = endDate,
+      isRefresh = false,
+      isLoadMore = false,
+    }: {
+      page?: number;
+      status?: 'all' | 'paid' | 'unpaid';
+      search?: string;
+      startDateVal?: string | null;
+      endDateVal?: string | null;
+      isRefresh?: boolean;
+      isLoadMore?: boolean;
+    } = {}) => {
       try {
-        if (isRefresh) {
+        if (isLoadMore) {
+          setIsLoadingMore(true);
+        } else if (isRefresh) {
           setIsRefreshing(true);
         } else {
           setIsLoading(true);
         }
         setErrorMessage(null);
 
-        const params: any = {};
+        const params: any = {
+          page,
+          limit: PAGE_LIMIT,
+        };
         if (status && status !== 'all') {
           params.status = status;
         }
         if (search && search.trim().length > 0) {
           params.search = search.trim();
         }
+        if (startDateVal) {
+          params.start_date = startDateVal;
+        }
+        if (endDateVal) {
+          params.end_date = endDateVal;
+        }
 
         const res = await shiftService.getShiftHistory(params);
         if (res?.data) {
           setShiftHistoryData(res.data);
-          if (res.data.filters?.date_range) {
+          const newRecords = res.data.shift_records || [];
+
+          if (page === 1) {
+            setShiftRecords(newRecords);
+          } else {
+            setShiftRecords((prev) => {
+              const seen = new Set(prev.map((s) => s.id ?? s.shift_id));
+              const unique = newRecords.filter((s) => !seen.has(s.id ?? s.shift_id));
+              return [...prev, ...unique];
+            });
+          }
+          setCurrentPage(page);
+
+          // Determine pagination end
+          const pagination = res.data.pagination || (res as any).pagination;
+          if (pagination) {
+            if (typeof pagination.has_more === 'boolean') {
+              setHasMore(pagination.has_more);
+            } else if (typeof pagination.has_more_pages === 'boolean') {
+              setHasMore(pagination.has_more_pages);
+            } else if (pagination.total_pages) {
+              setHasMore(page < pagination.total_pages);
+            } else {
+              setHasMore(newRecords.length >= PAGE_LIMIT);
+            }
+          } else {
+            setHasMore(newRecords.length >= PAGE_LIMIT);
+          }
+
+          if (!startDateVal && !endDateVal && res.data.filters?.date_range) {
             setSelectedDateRange(res.data.filters.date_range);
           }
+        } else {
+          if (page === 1) setShiftRecords([]);
+          setHasMore(false);
         }
       } catch (err: any) {
         console.warn('Failed to load employee shift history:', err?.message || err);
@@ -87,22 +159,43 @@ export default function OtherBusinessEmployeeHistoryScreen({
       } finally {
         setIsLoading(false);
         setIsRefreshing(false);
+        setIsLoadingMore(false);
       }
     },
-    []
+    [filterStatus, searchQuery, startDate, endDate]
   );
 
-  // Initial load via asynchronous promise resolution to comply with React 19 effect purity
+  // Initial load
   useEffect(() => {
     let isMounted = true;
     shiftService
       .getShiftHistory({
+        page: 1,
+        limit: PAGE_LIMIT,
         status: filterStatus !== 'all' ? filterStatus : undefined,
         search: searchQuery.trim() || undefined,
+        start_date: startDate || undefined,
+        end_date: endDate || undefined,
       })
       .then((res) => {
         if (!isMounted || !res?.data) return;
         setShiftHistoryData(res.data);
+        setShiftRecords(res.data.shift_records || []);
+        setCurrentPage(1);
+
+        const pagination = res.data.pagination || (res as any).pagination;
+        if (pagination) {
+          if (typeof pagination.has_more === 'boolean') {
+            setHasMore(pagination.has_more);
+          } else if (pagination.total_pages) {
+            setHasMore(1 < pagination.total_pages);
+          } else {
+            setHasMore((res.data.shift_records || []).length >= PAGE_LIMIT);
+          }
+        } else {
+          setHasMore((res.data.shift_records || []).length >= PAGE_LIMIT);
+        }
+
         if (res.data.filters?.date_range) {
           setSelectedDateRange(res.data.filters.date_range);
         }
@@ -119,39 +212,84 @@ export default function OtherBusinessEmployeeHistoryScreen({
     return () => {
       isMounted = false;
     };
-  }, [filterStatus, searchQuery]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Debounced search input to query API smoothly without lagging keystrokes
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    if (searchQuery === activeSearchRef.current) return;
+
+    const timer = setTimeout(() => {
+      activeSearchRef.current = searchQuery;
+      fetchHistory({ page: 1, search: searchQuery });
+    }, 450);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, fetchHistory]);
 
   const handleRefresh = () => {
-    fetchHistory(filterStatus, searchQuery, true);
+    fetchHistory({ page: 1, isRefresh: true });
+  };
+
+  // Scroll pagination: loads next page when employee scrolls near the end
+  const handleLoadMore = () => {
+    if (isLoading || isRefreshing || isLoadingMore || !hasMore) {
+      return;
+    }
+    fetchHistory({
+      page: currentPage + 1,
+      isLoadMore: true,
+    });
   };
 
   const handleTabPress = (type: 'all' | 'paid' | 'unpaid') => {
     setFilterStatus(type);
-    fetchHistory(type, searchQuery);
+    fetchHistory({ page: 1, status: type });
   };
 
   const handleSearchSubmit = () => {
-    fetchHistory(filterStatus, searchQuery);
+    activeSearchRef.current = searchQuery;
+    fetchHistory({ page: 1, search: searchQuery });
   };
 
   const handleClearSearch = () => {
     setSearchQuery('');
-    fetchHistory(filterStatus, '');
+    activeSearchRef.current = '';
+    fetchHistory({ page: 1, search: '' });
   };
 
-  const filteredShifts: ShiftRecordItem[] = useMemo(() => {
-    const list = shiftHistoryData?.shift_records || [];
-    if (!searchQuery.trim()) return list;
-
-    const query = searchQuery.toLowerCase().trim();
-    return list.filter((shift) => {
-      const matchId = (shift.display_shift_id || '').toLowerCase().includes(query);
-      const matchDate = (shift.session_date || '').toLowerCase().includes(query);
-      const matchTime = (shift.time_range || '').toLowerCase().includes(query);
-      const matchAmount = (shift.amount_formatted || '').toLowerCase().includes(query);
-      return matchId || matchDate || matchTime || matchAmount;
+  // Handle Date Range Selection
+  const handleApplyDateRange = (
+    newStart: string | null,
+    newEnd: string | null,
+    label: string
+  ) => {
+    setStartDate(newStart);
+    setEndDate(newEnd);
+    setSelectedDateRange(label);
+    setIsDateModalVisible(false);
+    fetchHistory({
+      page: 1,
+      startDateVal: newStart,
+      endDateVal: newEnd,
     });
-  }, [shiftHistoryData?.shift_records, searchQuery]);
+  };
+
+  const handleClearDateFilter = () => {
+    setStartDate(null);
+    setEndDate(null);
+    setSelectedDateRange('All Dates');
+    setIsDateModalVisible(false);
+    fetchHistory({
+      page: 1,
+      startDateVal: null,
+      endDateVal: null,
+    });
+  };
 
   const allCount = shiftHistoryData?.filters?.tabs?.all_shifts?.count ?? 0;
   const paidCount = shiftHistoryData?.filters?.tabs?.paid_shifts?.count ?? 0;
@@ -187,10 +325,14 @@ export default function OtherBusinessEmployeeHistoryScreen({
         }
       />
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
+      <FlatList
+        data={shiftRecords}
+        keyExtractor={(item, index) => `${item.id || item.shift_id || index}`}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.scrollContent}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.4}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -199,379 +341,391 @@ export default function OtherBusinessEmployeeHistoryScreen({
             colors={['#D97706']}
           />
         }
-      >
-        {/* ── 1. SEARCH & DATE FILTER ROW ── */}
-        <View style={styles.searchDateRow}>
-          {/* Search Box */}
-          <View style={styles.searchBox}>
-            <Ionicons name="search-outline" size={17} color="#94A3B8" style={{ marginRight: 6 }} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search Shift ID..."
-              placeholderTextColor="#94A3B8"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              onSubmitEditing={handleSearchSubmit}
-              returnKeyType="search"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            {searchQuery.length > 0 && (
+        ListHeaderComponent={
+          <>
+            {/* ── 1. SEARCH & DATE FILTER ROW ── */}
+            <View style={styles.searchDateRow}>
+              {/* Search Box */}
+              <View style={styles.searchBox}>
+                <Ionicons name="search-outline" size={17} color="#94A3B8" style={{ marginRight: 6 }} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search Shift ID..."
+                  placeholderTextColor="#94A3B8"
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  onSubmitEditing={handleSearchSubmit}
+                  returnKeyType="search"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity
+                    onPress={handleClearSearch}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="close-circle" size={16} color="#94A3B8" />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Date Range Button */}
               <TouchableOpacity
-                onPress={handleClearSearch}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={[
+                  styles.datePickerBtn,
+                  (startDate || endDate) && styles.datePickerBtnActive,
+                ]}
+                activeOpacity={0.8}
+                onPress={() => setIsDateModalVisible(true)}
               >
-                <Ionicons name="close-circle" size={16} color="#94A3B8" />
+                <Ionicons
+                  name="calendar-outline"
+                  size={16}
+                  color={startDate || endDate ? '#D97706' : '#0F172A'}
+                  style={{ marginRight: 6 }}
+                />
+                <Text
+                  style={[
+                    styles.datePickerText,
+                    (startDate || endDate) && styles.datePickerTextActive,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {selectedDateRange}
+                </Text>
+                {(startDate || endDate) && (
+                  <TouchableOpacity
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleClearDateFilter();
+                    }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={{ marginLeft: 3 }}
+                  >
+                    <Ionicons name="close-circle" size={15} color="#D97706" />
+                  </TouchableOpacity>
+                )}
               </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Date Range Badge */}
-          <View style={styles.datePickerBtn}>
-            <Ionicons name="calendar-outline" size={16} color="#0F172A" style={{ marginRight: 6 }} />
-            <Text style={styles.datePickerText} numberOfLines={1}>
-              {selectedDateRange}
-            </Text>
-          </View>
-        </View>
-
-        {/* ── 2. FILTER PILLS (All, Paid, Unpaid) ── */}
-        <View style={styles.filterPillsRow}>
-          {/* All Shifts */}
-          <TouchableOpacity
-            style={[
-              styles.filterPill,
-              filterStatus === 'all' ? styles.filterPillActive : styles.filterPillInactive,
-            ]}
-            onPress={() => handleTabPress('all')}
-            activeOpacity={0.7}
-          >
-            <Text
-              style={[
-                styles.filterPillText,
-                filterStatus === 'all' ? styles.filterPillTextActive : styles.filterPillTextInactive,
-              ]}
-            >
-              All Shifts ({allCount})
-            </Text>
-          </TouchableOpacity>
-
-          {/* Paid Shifts */}
-          <TouchableOpacity
-            style={[
-              styles.filterPill,
-              filterStatus === 'paid' ? styles.filterPillActive : styles.filterPillInactive,
-            ]}
-            onPress={() => handleTabPress('paid')}
-            activeOpacity={0.7}
-          >
-            <Text
-              style={[
-                styles.filterPillText,
-                filterStatus === 'paid' ? styles.filterPillTextActive : styles.filterPillTextInactive,
-              ]}
-            >
-              Paid Shifts ({paidCount})
-            </Text>
-          </TouchableOpacity>
-
-          {/* Unpaid Shifts */}
-          <TouchableOpacity
-            style={[
-              styles.filterPill,
-              filterStatus === 'unpaid' ? styles.filterPillActive : styles.filterPillInactive,
-            ]}
-            onPress={() => handleTabPress('unpaid')}
-            activeOpacity={0.7}
-          >
-            <Text
-              style={[
-                styles.filterPillText,
-                filterStatus === 'unpaid' ? styles.filterPillTextActive : styles.filterPillTextInactive,
-              ]}
-            >
-              Unpaid Shifts ({unpaidCount})
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* ── 3. TOTAL SHIFT COLLECTIONS CARD ── */}
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryCardLabel}>TOTAL SHIFT COLLECTIONS</Text>
-          <View style={styles.bigAmountRow}>
-            <Text style={styles.bigAmountDollar}>$</Text>
-            <Text style={styles.bigAmountWhole}>{wholeAmount}</Text>
-            <Text style={styles.bigAmountCents}>.{centsAmount}</Text>
-          </View>
-
-          {/* Dual Segment Progress Bar */}
-          <View style={styles.progressBarTrack}>
-            {summary && summary.total_shift_collections > 0 ? (
-              <>
-                <View
-                  style={[
-                    styles.progressBarGreen,
-                    { flex: Math.max(0.01, paidPercentage) },
-                  ]}
-                />
-                <View
-                  style={[
-                    styles.progressBarOrange,
-                    { flex: Math.max(0.01, 100 - paidPercentage) },
-                  ]}
-                />
-              </>
-            ) : (
-              <View style={[styles.progressBarNeutral, { flex: 1 }]} />
-            )}
-          </View>
-
-          {/* 2 Bottom Metric Boxes */}
-          <View style={styles.metricsBoxesRow}>
-            {/* Settled / Paid */}
-            <View style={styles.metricBoxPaid}>
-              <View style={styles.metricBoxHeader}>
-                <View style={styles.dotGreen} />
-                <Text style={styles.metricBoxTitle}>Settled / Paid</Text>
-              </View>
-              <Text style={styles.metricPaidAmount}>
-                {summary?.settled_paid_formatted || '$0.00'}
-              </Text>
-              <Text style={styles.metricBoxSub}>
-                {summary?.settled_paid_subtitle || '0 shifts completed'}
-              </Text>
             </View>
 
-            {/* Pending / Unpaid */}
-            <View style={styles.metricBoxUnpaid}>
-              <View style={styles.metricBoxHeader}>
-                <View style={styles.dotOrange} />
-                <Text style={styles.metricBoxTitle}>Pending / Unpaid</Text>
-              </View>
-              <Text style={styles.metricUnpaidAmount}>
-                {summary?.pending_unpaid_formatted || '$0.00'}
-              </Text>
-              <Text style={styles.metricBoxSub}>
-                {summary?.pending_unpaid_subtitle || '0 shifts awaiting'}
-              </Text>
+            {/* ── 2. FILTER PILLS (All, Paid, Unpaid) ── */}
+            <View style={styles.filterPillsRow}>
+              {/* All Shifts */}
+              <TouchableOpacity
+                style={[
+                  styles.filterPill,
+                  filterStatus === 'all' ? styles.filterPillActive : styles.filterPillInactive,
+                ]}
+                onPress={() => handleTabPress('all')}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.filterPillText,
+                    filterStatus === 'all' ? styles.filterPillTextActive : styles.filterPillTextInactive,
+                  ]}
+                >
+                  All Shifts ({allCount})
+                </Text>
+              </TouchableOpacity>
+
+              {/* Paid Shifts */}
+              <TouchableOpacity
+                style={[
+                  styles.filterPill,
+                  filterStatus === 'paid' ? styles.filterPillActive : styles.filterPillInactive,
+                ]}
+                onPress={() => handleTabPress('paid')}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.filterPillText,
+                    filterStatus === 'paid' ? styles.filterPillTextActive : styles.filterPillTextInactive,
+                  ]}
+                >
+                  Paid Shifts ({paidCount})
+                </Text>
+              </TouchableOpacity>
+
+              {/* Unpaid Shifts */}
+              <TouchableOpacity
+                style={[
+                  styles.filterPill,
+                  filterStatus === 'unpaid' ? styles.filterPillActive : styles.filterPillInactive,
+                ]}
+                onPress={() => handleTabPress('unpaid')}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.filterPillText,
+                    filterStatus === 'unpaid' ? styles.filterPillTextActive : styles.filterPillTextInactive,
+                  ]}
+                >
+                  Unpaid Shifts ({unpaidCount})
+                </Text>
+              </TouchableOpacity>
             </View>
-          </View>
-        </View>
 
-        {/* ── 4. SHIFT RECORDS HEADER ── */}
-        <View style={styles.recordsSectionHeader}>
-          <Text style={styles.recordsSectionTitle}>SHIFT RECORDS</Text>
-        </View>
+            {/* ── 3. TOTAL SHIFT COLLECTIONS CARD ── */}
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryCardLabel}>TOTAL SHIFT COLLECTIONS</Text>
+              <View style={styles.bigAmountRow}>
+                <Text style={styles.bigAmountDollar}>$</Text>
+                <Text style={styles.bigAmountWhole}>{wholeAmount}</Text>
+                <Text style={styles.bigAmountCents}>.{centsAmount}</Text>
+              </View>
 
-        {/* Loading Spinner */}
-        {isLoading && !shiftHistoryData && (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#D97706" />
-            <Text style={styles.loadingText}>Loading shift history...</Text>
-          </View>
-        )}
+              {/* Dual Segment Progress Bar */}
+              <View style={styles.progressBarTrack}>
+                {summary && summary.total_shift_collections > 0 ? (
+                  <>
+                    <View
+                      style={[
+                        styles.progressBarGreen,
+                        { flex: Math.max(0.01, paidPercentage) },
+                      ]}
+                    />
+                    <View
+                      style={[
+                        styles.progressBarOrange,
+                        { flex: Math.max(0.01, 100 - paidPercentage) },
+                      ]}
+                    />
+                  </>
+                ) : (
+                  <View style={[styles.progressBarNeutral, { flex: 1 }]} />
+                )}
+              </View>
 
-        {/* Error Alert */}
-        {errorMessage && !isLoading && (
-          <View style={styles.errorBanner}>
-            <Ionicons name="alert-circle-outline" size={20} color="#DC2626" />
-            <Text style={styles.errorText}>{errorMessage}</Text>
-          </View>
-        )}
+              {/* 2 Bottom Metric Boxes */}
+              <View style={styles.metricsBoxesRow}>
+                {/* Settled / Paid */}
+                <View style={styles.metricBoxPaid}>
+                  <View style={styles.metricBoxHeader}>
+                    <View style={styles.dotGreen} />
+                    <Text style={styles.metricBoxTitle}>Settled / Paid</Text>
+                  </View>
+                  <Text style={styles.metricPaidAmount}>
+                    {summary?.settled_paid_formatted || '$0.00'}
+                  </Text>
+                  <Text style={styles.metricBoxSub}>
+                    {summary?.settled_paid_subtitle || '0 shifts completed'}
+                  </Text>
+                </View>
 
-        {/* ── 5. SHIFT RECORDS LIST ── */}
-        <View style={styles.shiftsList}>
-          {!isLoading &&
-            filteredShifts.map((shift) => {
-              const isPaid = shift.status === 'PAID';
-              const { dateText, timeRangeText } = formatShiftRecordTime({
-                start_at: shift.start_at,
-                end_at: shift.end_at,
-                time_range: shift.time_range,
-                session_date: shift.session_date,
-              });
+                {/* Pending / Unpaid */}
+                <View style={styles.metricBoxUnpaid}>
+                  <View style={styles.metricBoxHeader}>
+                    <View style={styles.dotOrange} />
+                    <Text style={styles.metricBoxTitle}>Pending / Unpaid</Text>
+                  </View>
+                  <Text style={styles.metricUnpaidAmount}>
+                    {summary?.pending_unpaid_formatted || '$0.00'}
+                  </Text>
+                  <Text style={styles.metricBoxSub}>
+                    {summary?.pending_unpaid_subtitle || '0 shifts awaiting'}
+                  </Text>
+                </View>
+              </View>
+            </View>
 
-              return (
+            {/* ── 4. SHIFT RECORDS HEADER ── */}
+            <View style={styles.recordsSectionHeader}>
+              <Text style={styles.recordsSectionTitle}>SHIFT RECORDS</Text>
+            </View>
+
+            {/* Initial Loading Spinner */}
+            {isLoading && shiftRecords.length === 0 && (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#D97706" />
+                <Text style={styles.loadingText}>Loading shift history...</Text>
+              </View>
+            )}
+
+            {/* Error Alert */}
+            {errorMessage && shiftRecords.length === 0 && !isLoading && (
+              <View style={styles.errorBanner}>
+                <Ionicons name="alert-circle-outline" size={20} color="#DC2626" />
+                <Text style={styles.errorText}>{errorMessage}</Text>
+              </View>
+            )}
+          </>
+        }
+        renderItem={({ item: shift }) => {
+          const isPaid = shift.status === 'PAID';
+          const { dateText, timeRangeText } = formatShiftRecordTime({
+            start_at: shift.start_at,
+            end_at: shift.end_at,
+            time_range: shift.time_range,
+            session_date: shift.session_date,
+          });
+
+          return (
+            <TouchableOpacity
+              key={String(shift.id)}
+              style={[
+                styles.shiftCard,
+                !isPaid && styles.shiftCardUnpaid,
+              ]}
+              activeOpacity={0.88}
+              onPress={() => handleCardPress(shift)}
+            >
+              {/* Top Row: Shift ID + Status Badge */}
+              <View style={styles.cardHeaderRow}>
+                <Text style={[styles.cardShiftId, !isPaid && styles.cardShiftIdUnpaid]}>
+                  {shift.display_shift_id}
+                </Text>
+
+                {isPaid ? (
+                  <View style={styles.paidBadge}>
+                    <View style={styles.paidDot} />
+                    <Text style={styles.paidBadgeText}>
+                      PAID{shift.paid_date ? ` on ${shift.paid_date}` : ''}
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.unpaidBadge}>
+                    <View style={styles.unpaidDot} />
+                    <Text style={styles.unpaidBadgeText}>UNPAID</Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Middle Row: Date/Time + Txns + Total/Pending + View Trips Button */}
+              <View style={styles.cardMiddleRow}>
+                <View style={styles.middleLeftCol}>
+                  {shift.user_name ? (
+                    <View style={styles.shiftCardEmployeeRow}>
+                      <Ionicons
+                        name="person-outline"
+                        size={12}
+                        color="#475569"
+                        style={{ marginRight: 4 }}
+                      />
+                      <Text style={styles.shiftCardEmployeeName} numberOfLines={1}>
+                        {shift.user_name}
+                        {shift.employee_code ? (
+                          <Text style={styles.shiftCardEmployeeCode}>
+                            {' '}• {shift.employee_code}
+                          </Text>
+                        ) : null}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  <Text style={styles.cardDateTime}>
+                    {dateText} • {timeRangeText}
+                  </Text>
+
+                  <View style={styles.txnsTotalRow}>
+                    <View style={[styles.txnsCountPill, !isPaid && styles.txnsCountPillUnpaid]}>
+                      <Text style={[styles.txnsCountText, !isPaid && styles.txnsCountTextUnpaid]}>
+                        {shift.total_txns} Txns
+                      </Text>
+                    </View>
+
+                    <Text style={styles.totalLabel}>
+                      {isPaid ? 'Total: ' : 'Pending: '}
+                      <Text style={[styles.totalValue, !isPaid && styles.totalValueUnpaid]}>
+                        {shift.amount_formatted}
+                      </Text>
+                    </Text>
+                  </View>
+                </View>
+
+                {/* View Trips Button */}
                 <TouchableOpacity
-                  key={String(shift.id)}
-                  style={[
-                    styles.shiftCard,
-                    !isPaid && styles.shiftCardUnpaid,
-                  ]}
-                  activeOpacity={0.88}
+                  style={[styles.viewTripsBtn, !isPaid && styles.viewTripsBtnUnpaid]}
+                  activeOpacity={0.7}
                   onPress={() => handleCardPress(shift)}
                 >
-                  {/* Top Row: Shift ID + Status Badge */}
-                  <View style={styles.cardHeaderRow}>
-                    <Text style={[styles.cardShiftId, !isPaid && styles.cardShiftIdUnpaid]}>
-                      {shift.display_shift_id}
-                    </Text>
-
-                    {isPaid ? (
-                      <View style={styles.paidBadge}>
-                        <View style={styles.paidDot} />
-                        <Text style={styles.paidBadgeText}>
-                          PAID{shift.paid_date ? ` on ${shift.paid_date}` : ''}
-                        </Text>
-                      </View>
-                    ) : (
-                      <View style={styles.unpaidBadge}>
-                        <View style={styles.unpaidDot} />
-                        <Text style={styles.unpaidBadgeText}>UNPAID</Text>
-                      </View>
-                    )}
-                  </View>
-
-                  {/* Middle Row: Date/Time + Txns + Total/Pending + View Trips Button */}
-                  <View style={styles.cardMiddleRow}>
-                    <View style={styles.middleLeftCol}>
-                      {shift.user_name ? (
-                        <View style={styles.shiftCardEmployeeRow}>
-                          <Ionicons
-                            name="person-outline"
-                            size={12}
-                            color="#475569"
-                            style={{ marginRight: 4 }}
-                          />
-                          <Text style={styles.shiftCardEmployeeName} numberOfLines={1}>
-                            {shift.user_name}
-                            {shift.employee_code ? (
-                              <Text style={styles.shiftCardEmployeeCode}>
-                                {' '}• {shift.employee_code}
-                              </Text>
-                            ) : null}
-                          </Text>
-                        </View>
-                      ) : null}
-
-                      <Text style={styles.cardDateTime}>
-                        {dateText} • {timeRangeText}
-                      </Text>
-
-                      <View style={styles.txnsTotalRow}>
-                        <View style={[styles.txnsCountPill, !isPaid && styles.txnsCountPillUnpaid]}>
-                          <Text style={[styles.txnsCountText, !isPaid && styles.txnsCountTextUnpaid]}>
-                            {shift.total_txns} Txns
-                          </Text>
-                        </View>
-
-                        <Text style={styles.totalLabel}>
-                          {isPaid ? 'Total: ' : 'Pending: '}
-                          <Text style={[styles.totalValue, !isPaid && styles.totalValueUnpaid]}>
-                            {shift.amount_formatted}
-                          </Text>
-                        </Text>
-                      </View>
-                    </View>
-
-                    {/* View Trips Button */}
-                    <TouchableOpacity
-                      style={[styles.viewTripsBtn, !isPaid && styles.viewTripsBtnUnpaid]}
-                      activeOpacity={0.7}
-                      onPress={() => handleCardPress(shift)}
-                    >
-                      <Text style={[styles.viewTripsText, !isPaid && styles.viewTripsTextUnpaid]}>
-                        View Trips
-                      </Text>
-                      <Feather
-                        name="chevron-right"
-                        size={15}
-                        color={isPaid ? '#2563EB' : '#B45309'}
-                      />
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Bottom Row: Card & Tap & Go Breakdowns */}
-                  <View style={styles.breakdownRow}>
-                    {/* Card Pill */}
-                    <View style={[styles.breakdownPill, !isPaid && styles.breakdownPillUnpaid]}>
-                      <Ionicons
-                        name="card-outline"
-                        size={13}
-                        color={isPaid ? '#64748B' : '#B45309'}
-                        style={{ marginRight: 4 }}
-                      />
-                      <Text style={[styles.breakdownText, !isPaid && styles.breakdownTextUnpaid]}>
-                        Card:{' '}
-                        <Text style={styles.breakdownBold}>
-                          {shift.card?.txns ?? 0} txns • {shift.card?.amount_formatted ?? '$0.00'}
-                        </Text>
-                      </Text>
-                    </View>
-
-                    {/* Tap & Go Pill */}
-                    <View style={[styles.breakdownPill, !isPaid && styles.breakdownPillUnpaid]}>
-                      <Ionicons
-                        name="radio-outline"
-                        size={13}
-                        color={isPaid ? '#64748B' : '#B45309'}
-                        style={{ marginRight: 4 }}
-                      />
-                      <Text style={[styles.breakdownText, !isPaid && styles.breakdownTextUnpaid]}>
-                        Tap & Go:{' '}
-                        <Text style={styles.breakdownBold}>
-                          {shift.tap_and_go?.txns ?? 0} txns • {shift.tap_and_go?.amount_formatted ?? '$0.00'}
-                        </Text>
-                      </Text>
-                    </View>
-                  </View>
+                  <Text style={[styles.viewTripsText, !isPaid && styles.viewTripsTextUnpaid]}>
+                    View Trips
+                  </Text>
+                  <Feather
+                    name="chevron-right"
+                    size={15}
+                    color={isPaid ? '#2563EB' : '#B45309'}
+                  />
                 </TouchableOpacity>
-              );
-            })}
+              </View>
 
-          {!isLoading && filteredShifts.length === 0 && (
+              {/* Bottom Row: Card & Tap & Go Breakdowns */}
+              <View style={styles.breakdownRow}>
+                {/* Card Pill */}
+                <View style={[styles.breakdownPill, !isPaid && styles.breakdownPillUnpaid]}>
+                  <Ionicons
+                    name="card-outline"
+                    size={13}
+                    color={isPaid ? '#64748B' : '#B45309'}
+                    style={{ marginRight: 4 }}
+                  />
+                  <Text style={[styles.breakdownText, !isPaid && styles.breakdownTextUnpaid]}>
+                    Card:{' '}
+                    <Text style={styles.breakdownBold}>
+                      {shift.card?.txns ?? 0} txns • {shift.card?.amount_formatted ?? '$0.00'}
+                    </Text>
+                  </Text>
+                </View>
+
+                {/* Tap & Go Pill */}
+                <View style={[styles.breakdownPill, !isPaid && styles.breakdownPillUnpaid]}>
+                  <Ionicons
+                    name="radio-outline"
+                    size={13}
+                    color={isPaid ? '#64748B' : '#B45309'}
+                    style={{ marginRight: 4 }}
+                  />
+                  <Text style={[styles.breakdownText, !isPaid && styles.breakdownTextUnpaid]}>
+                    Tap & Go:{' '}
+                    <Text style={styles.breakdownBold}>
+                      {shift.tap_and_go?.txns ?? 0} txns • {shift.tap_and_go?.amount_formatted ?? '$0.00'}
+                    </Text>
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          );
+        }}
+        ListEmptyComponent={
+          !isLoading ? (
             <View style={styles.emptyContainer}>
               <Feather name="search" size={32} color="#CBD5E1" />
               <Text style={styles.emptyTitle}>No Shifts Found</Text>
               <Text style={styles.emptySubtitle}>Try adjusting your search criteria</Text>
             </View>
-          )}
-        </View>
-
-        <View style={{ height: 32 }} />
-      </ScrollView>
+          ) : null
+        }
+        ListFooterComponent={
+          <>
+            {isLoadingMore && (
+              <View style={styles.footerLoadingContainer}>
+                <ActivityIndicator size="small" color="#D97706" />
+                <Text style={styles.footerLoadingText}>Loading more shifts...</Text>
+              </View>
+            )}
+            {!hasMore && shiftRecords.length > 0 && (
+              <View style={styles.footerEndOfList}>
+                <Text style={styles.footerEndOfListText}>
+                  Showing all {shiftRecords.length} shifts
+                </Text>
+              </View>
+            )}
+            <View style={{ height: 32 }} />
+          </>
+        }
+      />
 
       {/* ── DATE RANGE PICKER MODAL ── */}
-      <Modal
+      <DateRangePickerModal
         visible={isDateModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsDateModalVisible(false)}
-      >
-        <Pressable
-          style={styles.modalBackdrop}
-          onPress={() => setIsDateModalVisible(false)}
-        >
-          <View style={styles.dateModalBox}>
-            <Text style={styles.dateModalTitle}>Select Date Range</Text>
-            {['All Dates'].map((range) => (
-              <TouchableOpacity
-                key={range}
-                style={[
-                  styles.dateOptionRow,
-                  selectedDateRange === range && styles.dateOptionRowActive,
-                ]}
-                onPress={() => {
-                  setSelectedDateRange(range);
-                  setIsDateModalVisible(false);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.dateOptionText,
-                    selectedDateRange === range && styles.dateOptionTextActive,
-                  ]}
-                >
-                  {range}
-                </Text>
-                {selectedDateRange === range && (
-                  <Ionicons name="checkmark" size={18} color="#D97706" />
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </Pressable>
-      </Modal>
+        initialStartDate={startDate}
+        initialEndDate={endDate}
+        onClose={() => setIsDateModalVisible(false)}
+        onApply={handleApplyDateRange}
+      />
     </View>
   );
 }
@@ -638,10 +792,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     height: 42,
   },
+  datePickerBtnActive: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#D97706',
+  },
   datePickerText: {
     fontSize: 12.5,
     fontWeight: '600',
     color: '#0F172A',
+  },
+  datePickerTextActive: {
+    color: '#92400E',
+    fontWeight: '700',
+  },
+  footerLoadingContainer: {
+    paddingVertical: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  footerLoadingText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#D97706',
+  },
+  footerEndOfList: {
+    paddingVertical: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  footerEndOfListText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#94A3B8',
   },
 
   /* 2. Filter Pills */

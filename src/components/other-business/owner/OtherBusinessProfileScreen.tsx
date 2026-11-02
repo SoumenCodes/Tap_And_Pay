@@ -34,6 +34,7 @@ import {
   formatSydneyShiftRange,
 } from '../../../utils/dateUtils';
 import { useConfirmModal } from '../../../context/ConfirmModalContext';
+import { DiagnosticLogsModal } from '../../common/DiagnosticLogsModal';
 
 export default function OtherBusinessProfileScreen() {
   const router = useRouter();
@@ -56,6 +57,7 @@ export default function OtherBusinessProfileScreen() {
   // Bank Details Modals
   const [isBankModalVisible, setIsBankModalVisible] = useState(false);
   const [isUpdateBankModalVisible, setIsUpdateBankModalVisible] = useState(false);
+  const [isLogsModalVisible, setIsLogsModalVisible] = useState(false);
 
   // Current Bank Account Information
   const [accountName, setAccountName] = useState('');
@@ -697,6 +699,16 @@ export default function OtherBusinessProfileScreen() {
           ))}
         </View>
 
+        {/* ── DIAGNOSTIC LOGS BUTTON ── */}
+        <TouchableOpacity
+          style={styles.diagLogsButton}
+          onPress={() => setIsLogsModalVisible(true)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="terminal-outline" size={16} color="#0F172A" style={{ marginRight: 8 }} />
+          <Text style={styles.diagLogsButtonText}>Diagnostics & App Logs</Text>
+        </TouchableOpacity>
+
         {/* ── 3. LOG OUT BUTTON ── */}
         <TouchableOpacity
           style={styles.logoutButton}
@@ -1007,6 +1019,11 @@ export default function OtherBusinessProfileScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <DiagnosticLogsModal
+        visible={isLogsModalVisible}
+        onClose={() => setIsLogsModalVisible(false)}
+      />
     </View>
   );
 }
@@ -1361,6 +1378,24 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#64748B',
     marginTop: 1,
+  },
+
+  /* Diagnostics Button */
+  diagLogsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingVertical: 11,
+    marginBottom: 10,
+  },
+  diagLogsButtonText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#0F172A',
   },
 
   /* 3. Logout Button */

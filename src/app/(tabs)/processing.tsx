@@ -19,6 +19,8 @@ import { addTransaction } from '../../services/transactionStore';
 import { calculateFee, type PaymentMethodType } from '../../utils/feeCalculator';
 import { paymentSession } from '../../services/paymentSession';
 import { dashboardService } from '../../services/dashboardService';
+import { appLogger } from '../../services/appLogger';
+import { DiagnosticLogsModal } from '../../components/common/DiagnosticLogsModal';
 
 const RING_SIZE = 210;
 const STROKE_WIDTH = 5.5;
@@ -40,6 +42,7 @@ export default function ProcessingScreen() {
   const [isFailed, setIsFailed] = useState(false);
   const [errorReason, setErrorReason] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [showLogsModal, setShowLogsModal] = useState(false);
 
   const rawAmount = params.amount || '0';
   const numericAmount = parseFloat(rawAmount) || 0;
@@ -232,7 +235,12 @@ export default function ProcessingScreen() {
             <Ionicons name="close-circle-outline" size={64} color="#EF4444" />
           </View>
           <Text style={styles.title}>Payment Failed</Text>
-          <Text style={styles.errorSubtitle}>{errorReason}</Text>
+
+          <View style={styles.errorCard}>
+            <Text style={styles.errorSubtitle} selectable>
+              {errorReason}
+            </Text>
+          </View>
 
           <View style={styles.actionRow}>
             <TouchableOpacity style={styles.retryBtn} onPress={handleRetry} activeOpacity={0.85}>
@@ -241,6 +249,48 @@ export default function ProcessingScreen() {
 
             <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel} activeOpacity={0.85}>
               <Text style={styles.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Fallback to Card payment when Tap to Pay fails or is unsupported */}
+          {paymentMethod === 'tap' && (
+            <TouchableOpacity
+              style={styles.switchCardBtn}
+              onPress={() => {
+                router.replace({
+                  pathname: '/(tabs)/card-entry',
+                  params: {
+                    amount: rawAmount,
+                    pickup: params.pickup || '',
+                    dropoff: params.dropoff || '',
+                  },
+                });
+              }}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="card-outline" size={17} color="#FFFFFF" style={{ marginRight: 8 }} />
+              <Text style={styles.switchCardBtnText}>Pay with Card Instead</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Diagnostic & Logs Sharing Options */}
+          <View style={styles.diagnosticsContainer}>
+            <TouchableOpacity
+              style={styles.shareLogsBtn}
+              onPress={() => appLogger.shareLogs()}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="share-social-outline" size={16} color="#0F172A" style={{ marginRight: 6 }} />
+              <Text style={styles.shareLogsBtnText}>Share Error & Debug Logs</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.viewLogsBtn}
+              onPress={() => setShowLogsModal(true)}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="terminal-outline" size={16} color="#64748B" style={{ marginRight: 6 }} />
+              <Text style={styles.viewLogsBtnText}>View In-App Logs</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -328,6 +378,11 @@ export default function ProcessingScreen() {
           <Text style={styles.subtitle}>{"Please don't remove or move the card."}</Text>
         </View>
       )}
+
+      <DiagnosticLogsModal
+        visible={showLogsModal}
+        onClose={() => setShowLogsModal(false)}
+      />
     </View>
   );
 }
@@ -394,19 +449,43 @@ const styles = StyleSheet.create({
   errorIconWrap: {
     marginBottom: 16,
   },
+  errorCard: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+    borderRadius: 12,
+    padding: 14,
+    width: '100%',
+    marginBottom: 24,
+  },
   errorSubtitle: {
-    fontSize: 14,
-    color: '#64748B',
+    fontSize: 13,
+    color: '#991B1B',
     textAlign: 'center',
     fontWeight: '500',
-    marginBottom: 28,
-    paddingHorizontal: 20,
-    lineHeight: 20,
+    lineHeight: 18,
   },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    marginBottom: 14,
+  },
+  switchCardBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2563EB',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    width: '100%',
+    marginBottom: 14,
+  },
+  switchCardBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
   },
   retryBtn: {
     backgroundColor: '#0F172A',
@@ -428,6 +507,44 @@ const styles = StyleSheet.create({
   cancelBtnText: {
     color: '#475569',
     fontSize: 14,
+    fontWeight: '600',
+  },
+  diagnosticsContainer: {
+    width: '100%',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 8,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  shareLogsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingVertical: 11,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    width: '100%',
+  },
+  shareLogsBtnText: {
+    color: '#0F172A',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  viewLogsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  viewLogsBtnText: {
+    color: '#64748B',
+    fontSize: 12.5,
     fontWeight: '600',
   },
 });

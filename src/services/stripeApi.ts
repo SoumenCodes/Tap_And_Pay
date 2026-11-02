@@ -1,5 +1,6 @@
 import { config } from '../constants/config';
 import { apiClient } from './apiClient';
+import { appLogger } from './appLogger';
 import type { PaymentMethodType } from '../utils/feeCalculator';
 
 export interface CreatePaymentIntentResponse {
@@ -38,6 +39,7 @@ export function clearStripeCache(): void {
  */
 export async function fetchConnectionToken(): Promise<string> {
   try {
+    appLogger.info('STRIPE_API', 'Requesting connection token from backend...');
     let data: any;
     try {
       const res = await apiClient.post('/api/connection_token');
@@ -55,13 +57,20 @@ export async function fetchConnectionToken(): Promise<string> {
     const locationId = data?.locationId || data?.data?.locationId;
 
     if (!secret) {
-      throw new Error('Connection token response did not contain a secret');
+      const missingSecretErr = 'Connection token response did not contain a secret';
+      appLogger.error('STRIPE_API', missingSecretErr, data);
+      throw new Error(missingSecretErr);
     }
     if (locationId) {
       cachedLocationId = locationId;
     }
+    appLogger.info('STRIPE_API', 'Connection token acquired successfully', {
+      hasSecret: Boolean(secret),
+      locationId: locationId || cachedLocationId,
+    });
     return secret;
   } catch (err: any) {
+    appLogger.error('STRIPE_API', 'Error fetching connection token from backend:', err?.message || err);
     console.error('Error fetching connection token from backend:', err);
     throw err;
   }

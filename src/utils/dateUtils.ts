@@ -456,3 +456,82 @@ export function formatTime(
 
   return `${hours}.${minutes}${ampm}`;
 }
+
+/**
+ * Formats a Date object to YYYY-MM-DD string
+ */
+export function formatDateToYMD(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Parses YYYY-MM-DD string to a Date object
+ */
+export function parseYMDToDate(ymd: string): Date | null {
+  if (!ymd) return null;
+  const parts = ymd.split('-');
+  if (parts.length !== 3) return null;
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10) - 1;
+  const d = parseInt(parts[2], 10);
+  const date = new Date(y, m, d);
+  return isNaN(date.getTime()) ? null : date;
+}
+
+/**
+ * Formats YYYY-MM-DD to display string: e.g. "02 Nov 2026"
+ */
+export function formatYMDToDisplay(ymd: string): string {
+  const date = parseYMDToDate(ymd);
+  if (!date) return ymd;
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = MONTH_NAMES_SHORT[date.getMonth()];
+  const year = date.getFullYear();
+  return `${day} ${month} ${year}`;
+}
+
+/**
+ * Formats date range for display e.g. "02 Nov 2026" or "26 Oct – 02 Nov 2026" or "All Dates"
+ */
+export function formatDateRangeDisplay(
+  startDate: string | null | undefined,
+  endDate: string | null | undefined
+): string {
+  if (!startDate && !endDate) return 'All Dates';
+  if (startDate && !endDate) return `From ${formatYMDToDisplay(startDate)}`;
+  if (!startDate && endDate) return `Up to ${formatYMDToDisplay(endDate)}`;
+  if (startDate === endDate) return formatYMDToDisplay(startDate!);
+  return `${formatYMDToDisplay(startDate!)} – ${formatYMDToDisplay(endDate!)}`;
+}
+
+export function getTodayYMD(): string {
+  return formatDateToYMD(new Date());
+}
+
+export function getYesterdayYMD(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return formatDateToYMD(d);
+}
+
+export function getLast7DaysYMD(): { startDate: string; endDate: string } {
+  const end = new Date();
+  const start = new Date();
+  start.setDate(start.getDate() - 6);
+  return {
+    startDate: formatDateToYMD(start),
+    endDate: formatDateToYMD(end),
+  };
+}
+
+export function getThisMonthYMD(): { startDate: string; endDate: string } {
+  const end = new Date();
+  const start = new Date(end.getFullYear(), end.getMonth(), 1);
+  return {
+    startDate: formatDateToYMD(start),
+    endDate: formatDateToYMD(end),
+  };
+}

@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../../../context/AuthContext';
 import HeaderBar from '../../common/HeaderBar';
 import { useConfirmModal } from '../../../context/ConfirmModalContext';
+import { DiagnosticLogsModal } from '../../common/DiagnosticLogsModal';
 import {
   profileService,
   ProfileResponseData,
@@ -41,6 +42,7 @@ export default function OtherBusinessEmployeeProfileScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isOnShift, setIsOnShift] = useState(false);
   const [isShiftActionLoading, setIsShiftActionLoading] = useState(false);
+  const [isLogsModalVisible, setIsLogsModalVisible] = useState(false);
 
   const applyProfileData = useCallback((data: ProfileResponseData) => {
     setProfileData(data);
@@ -550,6 +552,16 @@ export default function OtherBusinessEmployeeProfileScreen() {
           ))}
         </View>
 
+        {/* ── DIAGNOSTIC LOGS BUTTON ── */}
+        <TouchableOpacity
+          style={styles.diagLogsButton}
+          onPress={() => setIsLogsModalVisible(true)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="terminal-outline" size={16} color="#0F172A" style={{ marginRight: 8 }} />
+          <Text style={styles.diagLogsButtonText}>Diagnostics & App Logs</Text>
+        </TouchableOpacity>
+
         {/* ── 3. LOG OUT BUTTON ── */}
         <TouchableOpacity
           style={styles.logoutButton}
@@ -572,6 +584,11 @@ export default function OtherBusinessEmployeeProfileScreen() {
 
         <View style={{ height: 28 }} />
       </ScrollView>
+
+      <DiagnosticLogsModal
+        visible={isLogsModalVisible}
+        onClose={() => setIsLogsModalVisible(false)}
+      />
     </View>
   );
 }
@@ -921,6 +938,24 @@ const styles = StyleSheet.create({
   actionSubtitle: {
     fontSize: 10.5,
     color: '#64748B',
+  },
+
+  /* Diagnostics Button */
+  diagLogsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingVertical: 11,
+    marginBottom: 10,
+  },
+  diagLogsButtonText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#0F172A',
   },
 
   /* 3. Log Out Button */

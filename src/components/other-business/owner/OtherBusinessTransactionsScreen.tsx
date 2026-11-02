@@ -1,9 +1,10 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
+  FlatList,
   TextInput,
   TouchableOpacity,
   Image,
@@ -19,6 +20,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import HeaderBar from '../../common/HeaderBar';
+import DateRangePickerModal from '../../common/DateRangePickerModal';
 import { useConfirmModal } from '../../../context/ConfirmModalContext';
 import {
   shiftService,
@@ -99,9 +101,15 @@ export default function OtherBusinessTransactionsScreen({
 }: OtherBusinessTransactionsScreenProps) {
   const { showAlert } = useConfirmModal();
 
+  const PAGE_LIMIT = 1;
+
   // API State
   const [shiftHistoryData, setShiftHistoryData] = useState<ShiftHistoryData | null>(null);
+  const [shiftRecords, setShiftRecords] = useState<ShiftRecordItem[]>([]);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [hasMore, setHasMore] = useState<boolean>(true);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -110,28 +118,53 @@ export default function OtherBusinessTransactionsScreen({
   const [isEmployeeModalVisible, setIsEmployeeModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<ShiftFilterType>('all');
+  const [startDate, setStartDate] = useState<string | null>(null);
+  const [endDate, setEndDate] = useState<string | null>(null);
   const [dateRangeText, setDateRangeText] = useState('All Dates');
+  const [isDateModalVisible, setIsDateModalVisible] = useState(false);
 
   // Modal for Viewing Shift Sales/Trips (fallback when not navigated via onSelectShift)
   const [selectedShiftForDetails, setSelectedShiftForDetails] = useState<ShiftRecordItem | null>(null);
 
-  // Fetch shift history from live API
+  // Track active search to avoid redundant calls
+  const activeSearchRef = useRef<string>('');
+  const isInitialMount = useRef<boolean>(true);
+
+  // Core API fetcher supporting pagination, date range, search, status, and employee filtering
   const fetchShiftHistory = useCallback(
-    async (
-      empId?: number | string | null,
-      status?: string,
-      search?: string,
-      isRefresh = false
-    ) => {
+    async ({
+      page = 1,
+      empId = selectedEmployee?.id ?? null,
+      status = filterType,
+      search = searchQuery,
+      startDateVal = startDate,
+      endDateVal = endDate,
+      isRefresh = false,
+      isLoadMore = false,
+    }: {
+      page?: number;
+      empId?: number | string | null;
+      status?: ShiftFilterType;
+      search?: string;
+      startDateVal?: string | null;
+      endDateVal?: string | null;
+      isRefresh?: boolean;
+      isLoadMore?: boolean;
+    } = {}) => {
       try {
-        if (isRefresh) {
+        if (isLoadMore) {
+          setIsLoadingMore(true);
+        } else if (isRefresh) {
           setIsRefreshing(true);
         } else {
           setIsLoading(true);
         }
         setErrorMessage(null);
 
-        const params: any = {};
+        const params: any = {
+          page,
+          limit: PAGE_LIMIT,
+        };
         if (empId !== undefined && empId !== null && empId !== '') {
           params.employee_id = empId;
         }
@@ -141,11 +174,46 @@ export default function OtherBusinessTransactionsScreen({
         if (search && search.trim().length > 0) {
           params.search = search.trim();
         }
+        if (startDateVal) {
+          params.start_date = startDateVal;
+        }
+        if (endDateVal) {
+          params.end_date = endDateVal;
+        }
 
         const res = await shiftService.getShiftHistory(params);
         if (res?.data) {
           setShiftHistoryData(res.data);
-          if (res.data.filters?.date_range) {
+          const newRecords = res.data.shift_records || [];
+
+          if (page === 1) {
+            setShiftRecords(newRecords);
+          } else {
+            setShiftRecords((prev) => {
+              const seen = new Set(prev.map((s) => s.id ?? s.shift_id));
+              const unique = newRecords.filter((s) => !seen.has(s.id ?? s.shift_id));
+              return [...prev, ...unique];
+            });
+          }
+          setCurrentPage(page);
+
+          // Determine pagination end
+          const pagination = res.data.pagination || (res as any).pagination;
+          if (pagination) {
+            if (typeof pagination.has_more === 'boolean') {
+              setHasMore(pagination.has_more);
+            } else if (typeof pagination.has_more_pages === 'boolean') {
+              setHasMore(pagination.has_more_pages);
+            } else if (pagination.total_pages) {
+              setHasMore(page < pagination.total_pages);
+            } else {
+              setHasMore(newRecords.length >= PAGE_LIMIT);
+            }
+          } else {
+            setHasMore(newRecords.length >= PAGE_LIMIT);
+          }
+
+          if (!startDateVal && !endDateVal && res.data.filters?.date_range) {
             setDateRangeText(res.data.filters.date_range);
           }
 
@@ -154,7 +222,6 @@ export default function OtherBusinessTransactionsScreen({
           if (empList.length > 0) {
             setSelectedEmployee((prev) => {
               if (prev) {
-                // Keep current selection if still in list
                 const match = empList.find((e) => e.id === prev.id);
                 return match || prev;
               }
@@ -167,6 +234,9 @@ export default function OtherBusinessTransactionsScreen({
               return null;
             });
           }
+        } else {
+          if (page === 1) setShiftRecords([]);
+          setHasMore(false);
         }
       } catch (err: any) {
         console.warn('Failed to load shift history:', err?.message || err);
@@ -174,9 +244,10 @@ export default function OtherBusinessTransactionsScreen({
       } finally {
         setIsLoading(false);
         setIsRefreshing(false);
+        setIsLoadingMore(false);
       }
     },
-    [initialEmpId]
+    [selectedEmployee, filterType, searchQuery, startDate, endDate, initialEmpId]
   );
 
   // Initial load via asynchronous promise resolution to comply with React 19 effect purity
@@ -184,13 +255,33 @@ export default function OtherBusinessTransactionsScreen({
     let isMounted = true;
     shiftService
       .getShiftHistory({
+        page: 1,
+        limit: PAGE_LIMIT,
         employee_id: initialEmpId || undefined,
         status: filterType !== 'all' ? filterType : undefined,
         search: searchQuery.trim() || undefined,
+        start_date: startDate || undefined,
+        end_date: endDate || undefined,
       })
       .then((res) => {
         if (!isMounted || !res?.data) return;
         setShiftHistoryData(res.data);
+        setShiftRecords(res.data.shift_records || []);
+        setCurrentPage(1);
+
+        const pagination = res.data.pagination || (res as any).pagination;
+        if (pagination) {
+          if (typeof pagination.has_more === 'boolean') {
+            setHasMore(pagination.has_more);
+          } else if (pagination.total_pages) {
+            setHasMore(1 < pagination.total_pages);
+          } else {
+            setHasMore((res.data.shift_records || []).length >= PAGE_LIMIT);
+          }
+        } else {
+          setHasMore((res.data.shift_records || []).length >= PAGE_LIMIT);
+        }
+
         if (res.data.filters?.date_range) {
           setDateRangeText(res.data.filters.date_range);
         }
@@ -216,50 +307,94 @@ export default function OtherBusinessTransactionsScreen({
     return () => {
       isMounted = false;
     };
-  }, [initialEmpId, filterType, searchQuery]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialEmpId]);
+
+  // Debounced search input to query API smoothly without lagging keystrokes
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    if (searchQuery === activeSearchRef.current) return;
+
+    const timer = setTimeout(() => {
+      activeSearchRef.current = searchQuery;
+      fetchShiftHistory({ page: 1, search: searchQuery });
+    }, 450);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, fetchShiftHistory]);
 
   // Handle pull to refresh
   const handleRefresh = () => {
-    fetchShiftHistory(selectedEmployee?.id || null, filterType, searchQuery, true);
+    fetchShiftHistory({ page: 1, isRefresh: true });
+  };
+
+  // Scroll pagination: loads next page when user scrolls near the end
+  const handleLoadMore = () => {
+    if (isLoading || isRefreshing || isLoadingMore || !hasMore) {
+      return;
+    }
+    fetchShiftHistory({
+      page: currentPage + 1,
+      isLoadMore: true,
+    });
   };
 
   // Handle Tab Switch (All, Paid, Unpaid)
   const handleTabPress = (type: ShiftFilterType) => {
     setFilterType(type);
-    fetchShiftHistory(selectedEmployee?.id || null, type, searchQuery);
+    fetchShiftHistory({ page: 1, status: type });
   };
 
   // Handle Employee Selection
   const handleSelectEmployee = (emp: ShiftSelectorEmployee | null) => {
     setSelectedEmployee(emp);
     setIsEmployeeModalVisible(false);
-    fetchShiftHistory(emp ? emp.id : null, filterType, searchQuery);
+    fetchShiftHistory({ page: 1, empId: emp ? emp.id : null });
   };
 
-  // Handle Search Input Change
+  // Handle Search Input Change / Submit
   const handleSearchSubmit = () => {
-    fetchShiftHistory(selectedEmployee?.id || null, filterType, searchQuery);
+    activeSearchRef.current = searchQuery;
+    fetchShiftHistory({ page: 1, search: searchQuery });
   };
 
   const handleClearSearch = () => {
     setSearchQuery('');
-    fetchShiftHistory(selectedEmployee?.id || null, filterType, '');
+    activeSearchRef.current = '';
+    fetchShiftHistory({ page: 1, search: '' });
   };
 
-  // Filter shifts locally for instantaneous response
-  const filteredShifts: ShiftRecordItem[] = useMemo(() => {
-    const list = shiftHistoryData?.shift_records || [];
-    if (!searchQuery.trim()) return list;
-
-    const query = searchQuery.toLowerCase().trim();
-    return list.filter((shift) => {
-      const matchId = (shift.display_shift_id || '').toLowerCase().includes(query);
-      const matchDate = (shift.session_date || '').toLowerCase().includes(query);
-      const matchTime = (shift.time_range || '').toLowerCase().includes(query);
-      const matchAmount = (shift.amount_formatted || '').toLowerCase().includes(query);
-      return matchId || matchDate || matchTime || matchAmount;
+  // Handle Date Range Selection
+  const handleApplyDateRange = (
+    newStart: string | null,
+    newEnd: string | null,
+    label: string
+  ) => {
+    setStartDate(newStart);
+    setEndDate(newEnd);
+    setDateRangeText(label);
+    setIsDateModalVisible(false);
+    fetchShiftHistory({
+      page: 1,
+      startDateVal: newStart,
+      endDateVal: newEnd,
     });
-  }, [shiftHistoryData?.shift_records, searchQuery]);
+  };
+
+  const handleClearDateFilter = () => {
+    setStartDate(null);
+    setEndDate(null);
+    setDateRangeText('All Dates');
+    setIsDateModalVisible(false);
+    fetchShiftHistory({
+      page: 1,
+      startDateVal: null,
+      endDateVal: null,
+    });
+  };
 
   const handleShiftPress = (shift: ShiftRecordItem) => {
     if (onSelectShift) {
@@ -379,11 +514,15 @@ export default function OtherBusinessTransactionsScreen({
       {/* Screen Title: Centered "Shift History" */}
       <HeaderBar title={shiftHistoryData?.header?.title || 'Shift History'} showBack={false} />
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+      <FlatList
+        data={shiftRecords}
+        keyExtractor={(item, index) => `${item.id || item.shift_id || index}`}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.4}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -392,410 +531,464 @@ export default function OtherBusinessTransactionsScreen({
             colors={['#D97706']}
           />
         }
-      >
-        {/* ── 1. SELECT EMPLOYEE SECTION ── */}
-        {selector?.is_visible !== false && (
+        ListHeaderComponent={
           <>
-            <View style={styles.employeeSectionHeaderRow}>
-              <Text style={styles.employeeSectionTitle}>{selector?.title || 'SELECT EMPLOYEE'}</Text>
-              <View style={styles.totalEmployeesBadge}>
-                <Text style={styles.totalEmployeesBadgeText}>
-                  {selector?.total_count ?? employeeList.length} Total
+            {/* ── 1. SELECT EMPLOYEE SECTION ── */}
+            {selector?.is_visible !== false && (
+              <>
+                <View style={styles.employeeSectionHeaderRow}>
+                  <Text style={styles.employeeSectionTitle}>{selector?.title || 'SELECT EMPLOYEE'}</Text>
+                  <View style={styles.totalEmployeesBadge}>
+                    <Text style={styles.totalEmployeesBadgeText}>
+                      {selector?.total_count ?? employeeList.length} Total
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Selected Employee Card with Dropdown Button */}
+                <TouchableOpacity
+                  style={styles.selectedEmployeeCard}
+                  activeOpacity={0.85}
+                  onPress={() => setIsEmployeeModalVisible(true)}
+                >
+                  <View style={styles.employeeAvatarWrap}>
+                    {selectedEmployee ? (
+                      selectedEmployee.photo ? (
+                        <Image source={{ uri: selectedEmployee.photo }} style={styles.employeeAvatarImg} />
+                      ) : (
+                        <View style={styles.initialsAvatarWrap}>
+                          <Text style={styles.initialsAvatarText}>
+                            {selectedEmployee.initials || 'EM'}
+                          </Text>
+                        </View>
+                      )
+                    ) : (
+                      <View style={[styles.initialsAvatarWrap, styles.allEmployeesAvatarWrap]}>
+                        <Ionicons name="people" size={17} color="#D97706" />
+                      </View>
+                    )}
+                  </View>
+
+                  <Text style={styles.employeeNameText} numberOfLines={1}>
+                    {selectedEmployee?.name || 'All Employees'}
+                  </Text>
+
+                  {selectedEmployee?.code ? (
+                    <View style={styles.empIdBadge}>
+                      <Text style={styles.empIdBadgeText}>{selectedEmployee.code}</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.allBadge}>
+                      <Text style={styles.allBadgeText}>ALL</Text>
+                    </View>
+                  )}
+
+                  <View style={styles.spacer} />
+
+                  <View style={styles.chevronCircle}>
+                    <Ionicons name="chevron-down" size={15} color="#475569" />
+                  </View>
+                </TouchableOpacity>
+              </>
+            )}
+
+            {/* ── 2. SEARCH BAR & DATE RANGE ROW ── */}
+            <View style={styles.searchDateRow}>
+              <View style={styles.searchContainer}>
+                <Ionicons name="search-outline" size={16} color="#94A3B8" style={styles.searchIcon} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search Shift ID..."
+                  placeholderTextColor="#94A3B8"
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  onSubmitEditing={handleSearchSubmit}
+                  returnKeyType="search"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity
+                    onPress={handleClearSearch}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={styles.clearBtn}
+                  >
+                    <Ionicons name="close-circle" size={16} color="#94A3B8" />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.dateFilterButton,
+                  (startDate || endDate) && styles.dateFilterActiveBadge,
+                ]}
+                activeOpacity={0.8}
+                onPress={() => setIsDateModalVisible(true)}
+              >
+                <Ionicons
+                  name="calendar-outline"
+                  size={16}
+                  color={startDate || endDate ? '#D97706' : '#0F172A'}
+                />
+                <Text
+                  style={[
+                    styles.dateFilterText,
+                    (startDate || endDate) && styles.dateFilterTextActive,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {dateRangeText}
                 </Text>
+                {(startDate || endDate) && (
+                  <TouchableOpacity
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleClearDateFilter();
+                    }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={{ marginLeft: 3 }}
+                  >
+                    <Ionicons name="close-circle" size={15} color="#D97706" />
+                  </TouchableOpacity>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {/* ── 3. FILTER PILLS (All, Paid, Unpaid) ── */}
+            <View style={styles.filterPillsRow}>
+              <TouchableOpacity
+                style={[
+                  styles.filterPill,
+                  filterType === 'all' ? styles.filterPillActive : styles.filterPillInactive,
+                ]}
+                onPress={() => handleTabPress('all')}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.filterPillText,
+                    filterType === 'all' ? styles.filterPillTextActive : styles.filterPillTextInactive,
+                  ]}
+                >
+                  All Shifts ({shiftHistoryData?.filters?.tabs?.all_shifts?.count ?? 0})
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.filterPill,
+                  filterType === 'paid' ? styles.filterPillActive : styles.filterPillInactive,
+                ]}
+                onPress={() => handleTabPress('paid')}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.filterPillText,
+                    filterType === 'paid' ? styles.filterPillTextActive : styles.filterPillTextInactive,
+                  ]}
+                >
+                  Paid Shifts ({shiftHistoryData?.filters?.tabs?.paid_shifts?.count ?? 0})
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.filterPill,
+                  filterType === 'unpaid' ? styles.filterPillActive : styles.filterPillInactive,
+                ]}
+                onPress={() => handleTabPress('unpaid')}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.filterPillText,
+                    filterType === 'unpaid' ? styles.filterPillTextActive : styles.filterPillTextInactive,
+                  ]}
+                >
+                  Unpaid Shifts ({shiftHistoryData?.filters?.tabs?.unpaid_shifts?.count ?? 0})
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* ── 4. TOTAL SHIFT COLLECTIONS CARD ── */}
+            <View style={styles.collectionsCard}>
+              {/* Top Gold Gradient Accent Line */}
+              <LinearGradient
+                colors={[
+                  'rgba(251, 191, 36, 0.1)',
+                  '#FBBF24',
+                  '#F59E0B',
+                  '#FBBF24',
+                  'rgba(251, 191, 36, 0.1)',
+                ]}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={styles.cardTopAccent}
+              />
+
+              <Text style={styles.collectionsTitle}>TOTAL SHIFT COLLECTIONS</Text>
+
+              {/* Large Amount */}
+              <View style={styles.mainAmountRow}>
+                <Text style={styles.mainAmountWhole}>{wholeAmount}</Text>
+                <Text style={styles.mainAmountCents}>{centsAmount}</Text>
+              </View>
+
+              {/* Dual-color ratio bar: Green (Paid) & Amber (Unpaid) */}
+              <View style={styles.ratioProgressBarContainer}>
+                {summary && summary.total_shift_collections > 0 ? (
+                  <>
+                    <View
+                      style={[
+                        styles.ratioProgressGreen,
+                        { flex: Math.max(0.01, paidPercentage) },
+                      ]}
+                    />
+                    <View
+                      style={[
+                        styles.ratioProgressAmber,
+                        { flex: Math.max(0.01, 100 - paidPercentage) },
+                      ]}
+                    />
+                  </>
+                ) : (
+                  <View style={[styles.ratioProgressNeutral, { flex: 1 }]} />
+                )}
+              </View>
+
+              {/* Two Metric Summary Boxes */}
+              <View style={styles.metricBoxesRow}>
+                {/* Box 1: Settled / Paid */}
+                <View style={styles.metricBoxPaid}>
+                  <View style={styles.metricBoxHeaderRow}>
+                    <View style={styles.bulletPaid} />
+                    <Text style={styles.metricBoxTitle}>Settled / Paid</Text>
+                  </View>
+                  <Text style={styles.metricBoxAmountPaid}>
+                    {summary?.settled_paid_formatted || '$0.00'}
+                  </Text>
+                  <Text style={styles.metricBoxSubtext}>
+                    {summary?.settled_paid_subtitle || '0 shifts completed'}
+                  </Text>
+                </View>
+
+                {/* Box 2: Pending / Unpaid */}
+                <View style={styles.metricBoxUnpaid}>
+                  <View style={styles.metricBoxHeaderRow}>
+                    <View style={styles.bulletUnpaid} />
+                    <Text style={styles.metricBoxTitle}>Pending / Unpaid</Text>
+                  </View>
+                  <Text style={styles.metricBoxAmountUnpaid}>
+                    {summary?.pending_unpaid_formatted || '$0.00'}
+                  </Text>
+                  <Text style={styles.metricBoxSubtext}>
+                    {summary?.pending_unpaid_subtitle || '0 shifts awaiting'}
+                  </Text>
+                </View>
               </View>
             </View>
 
-            {/* Selected Employee Card with Dropdown Button */}
+            {/* ── 5. SHIFT RECORDS SECTION ── */}
+            <Text style={styles.recordsSectionTitle}>SHIFT RECORDS</Text>
+
+            {/* Initial Loading Spinner */}
+            {isLoading && shiftRecords.length === 0 && (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#D97706" />
+                <Text style={styles.loadingText}>Loading shift history...</Text>
+              </View>
+            )}
+
+            {/* Error Alert */}
+            {errorMessage && shiftRecords.length === 0 && !isLoading && (
+              <View style={styles.errorBanner}>
+                <Ionicons name="alert-circle-outline" size={20} color="#DC2626" />
+                <Text style={styles.errorText}>{errorMessage}</Text>
+              </View>
+            )}
+          </>
+        }
+        renderItem={({ item: shift }) => {
+          const isUnpaid = shift.status === 'UNPAID';
+          const { dateText, timeRangeText } = formatShiftRecordTime({
+            start_at: shift.start_at,
+            end_at: shift.end_at,
+            time_range: shift.time_range,
+            session_date: shift.session_date,
+          });
+
+          return (
             <TouchableOpacity
-              style={styles.selectedEmployeeCard}
-              activeOpacity={0.85}
-              onPress={() => setIsEmployeeModalVisible(true)}
+              style={[styles.shiftCard, isUnpaid && styles.shiftCardUnpaid]}
+              activeOpacity={0.88}
+              onPress={() => handleShiftPress(shift)}
             >
-              <View style={styles.employeeAvatarWrap}>
-                {selectedEmployee ? (
-                  selectedEmployee.photo ? (
-                    <Image source={{ uri: selectedEmployee.photo }} style={styles.employeeAvatarImg} />
-                  ) : (
-                    <View style={styles.initialsAvatarWrap}>
-                      <Text style={styles.initialsAvatarText}>
-                        {selectedEmployee.initials || 'EM'}
-                      </Text>
-                    </View>
-                  )
+              {/* Card Header: Shift Code + Status Badge */}
+              <View style={styles.cardHeaderRow}>
+                <Text
+                  style={[styles.shiftIdText, isUnpaid && styles.shiftIdTextUnpaid]}
+                  numberOfLines={1}
+                >
+                  {shift.display_shift_id}
+                </Text>
+
+                {isUnpaid ? (
+                  <View style={styles.unpaidBadge}>
+                    <View style={styles.unpaidDot} />
+                    <Text style={styles.unpaidBadgeText}>UNPAID</Text>
+                  </View>
                 ) : (
-                  <View style={[styles.initialsAvatarWrap, styles.allEmployeesAvatarWrap]}>
-                    <Ionicons name="people" size={17} color="#D97706" />
+                  <View style={styles.paidBadge}>
+                    <View style={styles.paidDot} />
+                    <Text style={styles.paidBadgeText}>
+                      PAID{shift.paid_date ? ` on ${shift.paid_date}` : ''}
+                    </Text>
                   </View>
                 )}
               </View>
 
-              <Text style={styles.employeeNameText} numberOfLines={1}>
-                {selectedEmployee?.name || 'All Employees'}
-              </Text>
+              {/* Date and Time Row + View Button */}
+              <View style={styles.cardMiddleRow}>
+                <View style={styles.cardMiddleInfoCol}>
+                  {shift.user_name ? (
+                    <View style={styles.shiftCardEmployeeRow}>
+                      <Ionicons
+                        name="person-outline"
+                        size={12}
+                        color="#475569"
+                        style={{ marginRight: 4 }}
+                      />
+                      <Text style={styles.shiftCardEmployeeName} numberOfLines={1}>
+                        {shift.user_name}
+                        {shift.employee_code ? (
+                          <Text style={styles.shiftCardEmployeeCode}>
+                            {' '}• {shift.employee_code}
+                          </Text>
+                        ) : null}
+                      </Text>
+                    </View>
+                  ) : null}
 
-              {selectedEmployee?.code ? (
-                <View style={styles.empIdBadge}>
-                  <Text style={styles.empIdBadgeText}>{selectedEmployee.code}</Text>
-                </View>
-              ) : (
-                <View style={styles.allBadge}>
-                  <Text style={styles.allBadgeText}>ALL</Text>
-                </View>
-              )}
-
-              <View style={styles.spacer} />
-
-              <View style={styles.chevronCircle}>
-                <Ionicons name="chevron-down" size={15} color="#475569" />
-              </View>
-            </TouchableOpacity>
-          </>
-        )}
-
-        {/* ── 2. SEARCH BAR & DATE RANGE ROW ── */}
-        <View style={styles.searchDateRow}>
-          <View style={styles.searchContainer}>
-            <Ionicons name="search-outline" size={16} color="#94A3B8" style={styles.searchIcon} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search Shift ID..."
-              placeholderTextColor="#94A3B8"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              onSubmitEditing={handleSearchSubmit}
-              returnKeyType="search"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity
-                onPress={handleClearSearch}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                style={styles.clearBtn}
-              >
-                <Ionicons name="close-circle" size={16} color="#94A3B8" />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          <View style={styles.dateFilterButton}>
-            <Ionicons name="calendar-outline" size={16} color="#0F172A" />
-            <Text style={styles.dateFilterText} numberOfLines={1}>
-              {dateRangeText}
-            </Text>
-          </View>
-        </View>
-
-        {/* ── 3. FILTER PILLS (All, Paid, Unpaid) ── */}
-        <View style={styles.filterPillsRow}>
-          <TouchableOpacity
-            style={[
-              styles.filterPill,
-              filterType === 'all' ? styles.filterPillActive : styles.filterPillInactive,
-            ]}
-            onPress={() => handleTabPress('all')}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.filterPillText,
-                filterType === 'all' ? styles.filterPillTextActive : styles.filterPillTextInactive,
-              ]}
-            >
-              All Shifts ({shiftHistoryData?.filters?.tabs?.all_shifts?.count ?? 0})
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.filterPill,
-              filterType === 'paid' ? styles.filterPillActive : styles.filterPillInactive,
-            ]}
-            onPress={() => handleTabPress('paid')}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.filterPillText,
-                filterType === 'paid' ? styles.filterPillTextActive : styles.filterPillTextInactive,
-              ]}
-            >
-              Paid Shifts ({shiftHistoryData?.filters?.tabs?.paid_shifts?.count ?? 0})
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.filterPill,
-              filterType === 'unpaid' ? styles.filterPillActive : styles.filterPillInactive,
-            ]}
-            onPress={() => handleTabPress('unpaid')}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.filterPillText,
-                filterType === 'unpaid' ? styles.filterPillTextActive : styles.filterPillTextInactive,
-              ]}
-            >
-              Unpaid Shifts ({shiftHistoryData?.filters?.tabs?.unpaid_shifts?.count ?? 0})
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* ── 4. TOTAL SHIFT COLLECTIONS CARD ── */}
-        <View style={styles.collectionsCard}>
-          {/* Top Gold Gradient Accent Line */}
-          <LinearGradient
-            colors={[
-              'rgba(251, 191, 36, 0.1)',
-              '#FBBF24',
-              '#F59E0B',
-              '#FBBF24',
-              'rgba(251, 191, 36, 0.1)',
-            ]}
-            start={{ x: 0, y: 0.5 }}
-            end={{ x: 1, y: 0.5 }}
-            style={styles.cardTopAccent}
-          />
-
-          <Text style={styles.collectionsTitle}>TOTAL SHIFT COLLECTIONS</Text>
-
-          {/* Large Amount */}
-          <View style={styles.mainAmountRow}>
-            <Text style={styles.mainAmountWhole}>{wholeAmount}</Text>
-            <Text style={styles.mainAmountCents}>{centsAmount}</Text>
-          </View>
-
-          {/* Dual-color ratio bar: Green (Paid) & Amber (Unpaid) */}
-          <View style={styles.ratioProgressBarContainer}>
-            {summary && summary.total_shift_collections > 0 ? (
-              <>
-                <View
-                  style={[
-                    styles.ratioProgressGreen,
-                    { flex: Math.max(0.01, paidPercentage) },
-                  ]}
-                />
-                <View
-                  style={[
-                    styles.ratioProgressAmber,
-                    { flex: Math.max(0.01, 100 - paidPercentage) },
-                  ]}
-                />
-              </>
-            ) : (
-              <View style={[styles.ratioProgressNeutral, { flex: 1 }]} />
-            )}
-          </View>
-
-          {/* Two Metric Summary Boxes */}
-          <View style={styles.metricBoxesRow}>
-            {/* Box 1: Settled / Paid */}
-            <View style={styles.metricBoxPaid}>
-              <View style={styles.metricBoxHeaderRow}>
-                <View style={styles.bulletPaid} />
-                <Text style={styles.metricBoxTitle}>Settled / Paid</Text>
-              </View>
-              <Text style={styles.metricBoxAmountPaid}>
-                {summary?.settled_paid_formatted || '$0.00'}
-              </Text>
-              <Text style={styles.metricBoxSubtext}>
-                {summary?.settled_paid_subtitle || '0 shifts completed'}
-              </Text>
-            </View>
-
-            {/* Box 2: Pending / Unpaid */}
-            <View style={styles.metricBoxUnpaid}>
-              <View style={styles.metricBoxHeaderRow}>
-                <View style={styles.bulletUnpaid} />
-                <Text style={styles.metricBoxTitle}>Pending / Unpaid</Text>
-              </View>
-              <Text style={styles.metricBoxAmountUnpaid}>
-                {summary?.pending_unpaid_formatted || '$0.00'}
-              </Text>
-              <Text style={styles.metricBoxSubtext}>
-                {summary?.pending_unpaid_subtitle || '0 shifts awaiting'}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* ── 5. SHIFT RECORDS SECTION ── */}
-        <Text style={styles.recordsSectionTitle}>SHIFT RECORDS</Text>
-
-        {/* Loading Spinner */}
-        {isLoading && !shiftHistoryData && (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#D97706" />
-            <Text style={styles.loadingText}>Loading shift history...</Text>
-          </View>
-        )}
-
-        {/* Error Alert */}
-        {errorMessage && !isLoading && (
-          <View style={styles.errorBanner}>
-            <Ionicons name="alert-circle-outline" size={20} color="#DC2626" />
-            <Text style={styles.errorText}>{errorMessage}</Text>
-          </View>
-        )}
-
-        {/* Shift Records List */}
-        {!isLoading &&
-          filteredShifts.map((shift) => {
-            const isUnpaid = shift.status === 'UNPAID';
-            const { dateText, timeRangeText } = formatShiftRecordTime({
-              start_at: shift.start_at,
-              end_at: shift.end_at,
-              time_range: shift.time_range,
-              session_date: shift.session_date,
-            });
-
-            return (
-              <TouchableOpacity
-                key={String(shift.id)}
-                style={[styles.shiftCard, isUnpaid && styles.shiftCardUnpaid]}
-                activeOpacity={0.88}
-                onPress={() => handleShiftPress(shift)}
-              >
-                {/* Card Header: Shift Code + Status Badge */}
-                <View style={styles.cardHeaderRow}>
-                  <Text
-                    style={[styles.shiftIdText, isUnpaid && styles.shiftIdTextUnpaid]}
-                    numberOfLines={1}
-                  >
-                    {shift.display_shift_id}
+                  <Text style={styles.shiftDateRangeText}>
+                    {dateText} • {timeRangeText}
                   </Text>
 
-                  {isUnpaid ? (
-                    <View style={styles.unpaidBadge}>
-                      <View style={styles.unpaidDot} />
-                      <Text style={styles.unpaidBadgeText}>UNPAID</Text>
-                    </View>
-                  ) : (
-                    <View style={styles.paidBadge}>
-                      <View style={styles.paidDot} />
-                      <Text style={styles.paidBadgeText}>
-                        PAID{shift.paid_date ? ` on ${shift.paid_date}` : ''}
+                  {/* Txns Badge + Total / Pending Amount */}
+                  <View style={styles.txnsAndTotalRow}>
+                    <View style={[styles.txnsPill, isUnpaid && styles.txnsPillUnpaid]}>
+                      <Text style={[styles.txnsPillText, isUnpaid && styles.txnsPillTextUnpaid]}>
+                        {shift.total_txns} Txns
                       </Text>
                     </View>
-                  )}
+
+                    <Text style={styles.amountLabelText}>
+                      {isUnpaid ? 'Pending: ' : 'Total: '}
+                      <Text
+                        style={[
+                          styles.amountValueText,
+                          isUnpaid && styles.pendingAmountValueText,
+                        ]}
+                      >
+                        {shift.amount_formatted}
+                      </Text>
+                    </Text>
+                  </View>
                 </View>
 
-                {/* Date and Time Row + View Button */}
-                <View style={styles.cardMiddleRow}>
-                  <View style={styles.cardMiddleInfoCol}>
-                    {shift.user_name ? (
-                      <View style={styles.shiftCardEmployeeRow}>
-                        <Ionicons
-                          name="person-outline"
-                          size={12}
-                          color="#475569"
-                          style={{ marginRight: 4 }}
-                        />
-                        <Text style={styles.shiftCardEmployeeName} numberOfLines={1}>
-                          {shift.user_name}
-                          {shift.employee_code ? (
-                            <Text style={styles.shiftCardEmployeeCode}>
-                              {' '}• {shift.employee_code}
-                            </Text>
-                          ) : null}
-                        </Text>
-                      </View>
-                    ) : null}
-
-                    <Text style={styles.shiftDateRangeText}>
-                      {dateText} • {timeRangeText}
-                    </Text>
-
-                    {/* Txns Badge + Total / Pending Amount */}
-                    <View style={styles.txnsAndTotalRow}>
-                      <View style={[styles.txnsPill, isUnpaid && styles.txnsPillUnpaid]}>
-                        <Text style={[styles.txnsPillText, isUnpaid && styles.txnsPillTextUnpaid]}>
-                          {shift.total_txns} Txns
-                        </Text>
-                      </View>
-
-                      <Text style={styles.amountLabelText}>
-                        {isUnpaid ? 'Pending: ' : 'Total: '}
-                        <Text
-                          style={[
-                            styles.amountValueText,
-                            isUnpaid && styles.pendingAmountValueText,
-                          ]}
-                        >
-                          {shift.amount_formatted}
-                        </Text>
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* View > Button */}
-                  <TouchableOpacity
-                    style={[styles.viewTripsButton, isUnpaid && styles.viewTripsButtonUnpaid]}
-                    onPress={() => handleShiftPress(shift)}
-                    activeOpacity={0.8}
+                {/* View > Button */}
+                <TouchableOpacity
+                  style={[styles.viewTripsButton, isUnpaid && styles.viewTripsButtonUnpaid]}
+                  onPress={() => handleShiftPress(shift)}
+                  activeOpacity={0.8}
+                >
+                  <Text
+                    style={[
+                      styles.viewTripsButtonText,
+                      isUnpaid && styles.viewTripsButtonTextUnpaid,
+                    ]}
                   >
-                    <Text
-                      style={[
-                        styles.viewTripsButtonText,
-                        isUnpaid && styles.viewTripsButtonTextUnpaid,
-                      ]}
-                    >
-                      View
-                    </Text>
-                    <Feather
-                      name="chevron-right"
-                      size={13}
-                      color={isUnpaid ? '#D97706' : '#2563EB'}
-                    />
-                  </TouchableOpacity>
+                    View
+                  </Text>
+                  <Feather
+                    name="chevron-right"
+                    size={13}
+                    color={isUnpaid ? '#D97706' : '#2563EB'}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              {/* Bottom Row: Breakdown Pills (Card & Tap & Go) */}
+              <View style={styles.breakdownRow}>
+                {/* Card Pill */}
+                <View style={[styles.breakdownPill, isUnpaid && styles.breakdownPillUnpaid]}>
+                  <Ionicons
+                    name="card-outline"
+                    size={12}
+                    color={isUnpaid ? '#B45309' : '#475569'}
+                    style={{ marginRight: 4 }}
+                  />
+                  <Text style={styles.breakdownLabel}>Card: </Text>
+                  <Text style={styles.breakdownValue}>
+                    {shift.card?.txns ?? 0} txns • {shift.card?.amount_formatted ?? '$0.00'}
+                  </Text>
                 </View>
 
-                {/* Bottom Row: Breakdown Pills (Card & Tap & Go) */}
-                <View style={styles.breakdownRow}>
-                  {/* Card Pill */}
-                  <View style={[styles.breakdownPill, isUnpaid && styles.breakdownPillUnpaid]}>
-                    <Ionicons
-                      name="card-outline"
-                      size={12}
-                      color={isUnpaid ? '#B45309' : '#475569'}
-                      style={{ marginRight: 4 }}
-                    />
-                    <Text style={styles.breakdownLabel}>Card: </Text>
-                    <Text style={styles.breakdownValue}>
-                      {shift.card?.txns ?? 0} txns • {shift.card?.amount_formatted ?? '$0.00'}
-                    </Text>
-                  </View>
-
-                  {/* Tap & Go Pill */}
-                  <View style={[styles.breakdownPill, isUnpaid && styles.breakdownPillUnpaid]}>
-                    <MaterialCommunityIcons
-                      name="contactless-payment"
-                      size={13}
-                      color={isUnpaid ? '#B45309' : '#475569'}
-                      style={{ marginRight: 4 }}
-                    />
-                    <Text style={styles.breakdownLabel}>Tap & Go: </Text>
-                    <Text style={styles.breakdownValue}>
-                      {shift.tap_and_go?.txns ?? 0} txns • {shift.tap_and_go?.amount_formatted ?? '$0.00'}
-                    </Text>
-                  </View>
+                {/* Tap & Go Pill */}
+                <View style={[styles.breakdownPill, isUnpaid && styles.breakdownPillUnpaid]}>
+                  <MaterialCommunityIcons
+                    name="contactless-payment"
+                    size={13}
+                    color={isUnpaid ? '#B45309' : '#475569'}
+                    style={{ marginRight: 4 }}
+                  />
+                  <Text style={styles.breakdownLabel}>Tap & Go: </Text>
+                  <Text style={styles.breakdownValue}>
+                    {shift.tap_and_go?.txns ?? 0} txns • {shift.tap_and_go?.amount_formatted ?? '$0.00'}
+                  </Text>
                 </View>
-              </TouchableOpacity>
-            );
-          })}
+              </View>
+            </TouchableOpacity>
+          );
+        }}
+        ListEmptyComponent={
+          !isLoading ? (
+            <View style={styles.emptyContainer}>
+              <Feather name="search" size={32} color="#CBD5E1" />
+              <Text style={styles.emptyTitle}>No Shifts Found</Text>
+              <Text style={styles.emptySubtitle}>Try adjusting your search criteria or date filter</Text>
+            </View>
+          ) : null
+        }
+        ListFooterComponent={
+          <>
+            {isLoadingMore && (
+              <View style={styles.footerLoadingContainer}>
+                <ActivityIndicator size="small" color="#D97706" />
+                <Text style={styles.footerLoadingText}>Loading more shifts...</Text>
+              </View>
+            )}
+            {!hasMore && shiftRecords.length > 0 && (
+              <View style={styles.footerEndOfList}>
+                <Text style={styles.footerEndOfListText}>
+                  Showing all {shiftRecords.length} shifts
+                </Text>
+              </View>
+            )}
+            <View style={{ height: 40 }} />
+          </>
+        }
+      />
 
-        {!isLoading && filteredShifts.length === 0 && (
-          <View style={styles.emptyContainer}>
-            <Feather name="search" size={32} color="#CBD5E1" />
-            <Text style={styles.emptyTitle}>No Shifts Found</Text>
-            <Text style={styles.emptySubtitle}>Try adjusting your search criteria or date filter</Text>
-          </View>
-        )}
-
-        <View style={{ height: 40 }} />
-      </ScrollView>
+      {/* ── DATE RANGE PICKER MODAL ── */}
+      <DateRangePickerModal
+        visible={isDateModalVisible}
+        initialStartDate={startDate}
+        initialEndDate={endDate}
+        onClose={() => setIsDateModalVisible(false)}
+        onApply={handleApplyDateRange}
+      />
 
       {/* ── EMPLOYEE SELECTOR MODAL ── */}
       <Modal
@@ -942,14 +1135,14 @@ export default function OtherBusinessTransactionsScreen({
                     style={[
                       styles.detailsStatusBadge,
                       selectedShiftForDetails.status === 'UNPAID' &&
-                        styles.detailsStatusBadgeUnpaid,
+                      styles.detailsStatusBadgeUnpaid,
                     ]}
                   >
                     <Text
                       style={[
                         styles.detailsStatusText,
                         selectedShiftForDetails.status === 'UNPAID' &&
-                          styles.detailsStatusTextUnpaid,
+                        styles.detailsStatusTextUnpaid,
                       ]}
                     >
                       {selectedShiftForDetails.status === 'PAID'
@@ -1220,10 +1413,39 @@ const styles = StyleSheet.create({
     paddingHorizontal: 11,
     height: 39,
   },
+  dateFilterActiveBadge: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#D97706',
+  },
   dateFilterText: {
     fontSize: 12,
     fontWeight: '700',
     color: '#0F172A',
+  },
+  dateFilterTextActive: {
+    color: '#92400E',
+  },
+  footerLoadingContainer: {
+    paddingVertical: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  footerLoadingText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#D97706',
+  },
+  footerEndOfList: {
+    paddingVertical: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  footerEndOfListText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#94A3B8',
   },
 
   /* 3. Filter Pills */

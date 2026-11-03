@@ -282,9 +282,12 @@ export default function AddEmployeeScreen() {
         }
 
         const created = res.data?.employee;
+        const targetEmail = created?.email || email.trim();
         let msg = res.message || 'Employee added successfully and waiting for admin approval.';
-        if (created?.temporary_password) {
-          msg += `\n\nTemporary Password: ${created.temporary_password}\n(Please share this credential with the employee)`;
+        if (targetEmail) {
+          msg += `\n\nOnce approved, the password will be sent to the employee's registered email (${targetEmail}).`;
+        } else {
+          msg += `\n\nOnce approved, the password will be sent to the employee's registered email.`;
         }
 
         showAlert({

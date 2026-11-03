@@ -616,7 +616,7 @@ export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreen
         <View style={{ height: 16 }} />
 
         {/* ── BOTTOM ACTION BUTTONS (Matching Image 2) ── */}
-        <View style={styles.bottomButtonsWrap}>
+        {/* <View style={styles.bottomButtonsWrap}>
           <TouchableOpacity
             style={styles.reprintSlipButton}
             onPress={handleReprintShiftSlip}
@@ -642,7 +642,7 @@ export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreen
             <Feather name="share" size={16} color="#0A3977" style={{ marginRight: 6 }} />
             <Text style={styles.shareReportText} numberOfLines={1}>Share Report</Text>
           </TouchableOpacity>
-        </View>
+        </View> */}
 
         <View style={{ height: Math.max(insets.bottom, 24) }} />
       </ScrollView>

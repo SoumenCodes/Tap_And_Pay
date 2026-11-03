@@ -825,8 +825,7 @@ export default function OtherBusinessShiftDetailsScreen({
             )}
 
             {/* ── 6. BOTTOM ACTION BUTTONS ── */}
-            <View style={styles.bottomButtonsRow}>
-              {/* Yellow/Gold Button: Reprint Shift Slip */}
+            {/* <View style={styles.bottomButtonsRow}>
               <TouchableOpacity
                 style={styles.reprintSlipBtn}
                 onPress={handleReprintShiftSlip}
@@ -836,7 +835,6 @@ export default function OtherBusinessShiftDetailsScreen({
                 <Text style={styles.reprintSlipBtnText}>Reprint Shift Slip</Text>
               </TouchableOpacity>
 
-              {/* White Button: Share Report */}
               <TouchableOpacity
                 style={styles.shareReportBtn}
                 onPress={handleShareShiftReport}
@@ -845,7 +843,7 @@ export default function OtherBusinessShiftDetailsScreen({
                 <Feather name="share" size={16} color="#0F172A" style={{ marginRight: 6 }} />
                 <Text style={styles.shareReportBtnText}>Share Report</Text>
               </TouchableOpacity>
-            </View>
+            </View> */}
           </>
         )}
 

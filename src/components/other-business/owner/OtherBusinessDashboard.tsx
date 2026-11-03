@@ -135,9 +135,9 @@ export default function OtherBusinessDashboard({
 
   const displayStartTime = isOnShift
     ? (rawStartAt ? formatSydneyToUserTime(rawStartAt) : null) ||
-      (rawStartTime ? formatSydneyToUserTime(rawStartTime) : null) ||
-      sessionStartTime ||
-      '--'
+    (rawStartTime ? formatSydneyToUserTime(rawStartTime) : null) ||
+    sessionStartTime ||
+    '--'
     : '--';
   const activeShiftCode =
     dashboardData?.active_shift?.display_shift_id ||
@@ -375,29 +375,29 @@ export default function OtherBusinessDashboard({
 
         {/* 1. Hero Banner */}
         <View style={styles.bannerContainer}>
-          <Image
-            source={
-              header?.banner_image_url
-                ? { uri: header.banner_image_url }
-                : require('../../../../assets/crown_cuts_hero.png')
-            }
-            style={styles.bannerImage}
-            resizeMode="cover"
-          />
+          {Boolean(header?.banner_image_url || user?.bannerImageUrl) ? (
+            <Image
+              source={{ uri: (header?.banner_image_url || user?.bannerImageUrl)! }}
+              style={styles.bannerImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={[styles.bannerImage, { backgroundColor: '#1E293B' }]} />
+          )}
 
           {/* Bottom-left row: Avatar + Translucent Text Badge */}
           <View style={styles.bannerBottomRow}>
             {/* Avatar Logo Box */}
             <View style={styles.avatarBox}>
-              <Image
-                source={
-                  header?.logo_url
-                    ? { uri: header.logo_url }
-                    : require('../../../../assets/crown_cuts_badge_hd.png')
-                }
-                style={styles.avatarBadgeImage}
-                resizeMode="contain"
-              />
+              {Boolean(header?.logo_url || user?.logoUrl) ? (
+                <Image
+                  source={{ uri: (header?.logo_url || user?.logoUrl)! }}
+                  style={styles.avatarBadgeImage}
+                  resizeMode="contain"
+                />
+              ) : (
+                <Feather name="briefcase" size={20} color="#D97706" />
+              )}
             </View>
 
             {/* Translucent Text Badge */}
@@ -479,9 +479,17 @@ export default function OtherBusinessDashboard({
               end={{ x: 1, y: 1 }}
               style={styles.saleGradient}
             >
-              {/* Left Scissors Icon Pill */}
+              {/* Left Logo / Card Icon Pill */}
               <View style={styles.scissorsIconWrap}>
-                <Ionicons name="cut" size={24} color="#0F172A" />
+                {Boolean(user?.logoUrl || header?.logo_url) ? (
+                  <Image
+                    source={{ uri: (user?.logoUrl || header?.logo_url)! }}
+                    style={styles.crownBadgeImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Ionicons name="card-outline" size={22} color="#0F172A" />
+                )}
               </View>
 
               {/* Text Information */}
@@ -682,8 +690,8 @@ export default function OtherBusinessDashboard({
                 {filterMode === 'on_shift'
                   ? 'No employees on shift'
                   : filterMode === 'off_shift'
-                  ? 'No employees off shift'
-                  : 'No registered employees found'}
+                    ? 'No employees off shift'
+                    : 'No registered employees found'}
               </Text>
               <Text style={styles.emptySub}>
                 Pull down to refresh or check employee roster status.
@@ -1523,5 +1531,10 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#2563EB',
+  },
+  crownBadgeImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 6,
   },
 });

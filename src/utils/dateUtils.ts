@@ -25,6 +25,11 @@ const MONTH_NAMES_SHORT = [
 export const SYDNEY_TIMEZONE = 'Australia/Sydney';
 
 /**
+ * India Standard Time (IST - Asia/Kolkata, UTC+05:30)
+ */
+export const INDIA_TIMEZONE = 'Asia/Kolkata';
+
+/**
  * Calculates a true UTC Date from Sydney local date/time components.
  * Automatically accounts for Australian Daylight Saving Time (AEDT UTC+11 vs AEST UTC+10).
  */
@@ -535,3 +540,125 @@ export function getThisMonthYMD(): { startDate: string; endDate: string } {
     endDate: formatDateToYMD(end),
   };
 }
+
+/**
+ * Formats an Australia/Sydney timestamp into India Standard Time (IST - Asia/Kolkata):
+ * e.g. "03 Nov 2026, 11:04 AM" or "03 Nov 2026, 11:04:29 AM"
+ */
+export function formatSydneyToIndiaDateTime(
+  input: string | number | Date | null | undefined,
+  options: { includeSeconds?: boolean; hour12?: boolean } = {}
+): string {
+  const date = parseSydneyDate(input);
+  if (!date) return '';
+
+  try {
+    return new Intl.DateTimeFormat('en-IN', {
+      timeZone: INDIA_TIMEZONE,
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: options.includeSeconds ? '2-digit' : undefined,
+      hour12: options.hour12 !== false,
+    }).format(date);
+  } catch {
+    return formatSydneyToUserDateTime(date);
+  }
+}
+
+/**
+ * Formats an Australia/Sydney timestamp into India Standard Time date:
+ * e.g. "03 Nov 2026"
+ */
+export function formatSydneyToIndiaDate(
+  input: string | number | Date | null | undefined
+): string {
+  const date = parseSydneyDate(input);
+  if (!date) return '';
+
+  try {
+    return new Intl.DateTimeFormat('en-IN', {
+      timeZone: INDIA_TIMEZONE,
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+    }).format(date);
+  } catch {
+    return formatSydneyToUserDate(date);
+  }
+}
+
+/**
+ * Formats an Australia/Sydney timestamp into India Standard Time time:
+ * e.g. "11:04 AM" or "11:04:29 AM"
+ */
+export function formatSydneyToIndiaTime(
+  input: string | number | Date | null | undefined,
+  options: { includeSeconds?: boolean; hour12?: boolean } = {}
+): string {
+  const date = parseSydneyDate(input);
+  if (!date) return '';
+
+  try {
+    return new Intl.DateTimeFormat('en-IN', {
+      timeZone: INDIA_TIMEZONE,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: options.includeSeconds ? '2-digit' : undefined,
+      hour12: options.hour12 !== false,
+    }).format(date);
+  } catch {
+    return formatSydneyToUserTime(date);
+  }
+}
+
+/**
+ * Converts an Australia/Sydney timestamp into detailed India Standard Time information.
+ */
+export function convertSydneyToIndia(
+  input: string | number | Date | null | undefined
+): {
+  sydneyTime: string;
+  indiaDateTime: string;
+  indiaDate: string;
+  indiaTime: string;
+  standard24: string;
+  utcDate: Date;
+} | null {
+  const utcDate = parseSydneyDate(input);
+  if (!utcDate) return null;
+
+  try {
+    const indiaDateTime = formatSydneyToIndiaDateTime(utcDate, { includeSeconds: true });
+    const indiaDate = formatSydneyToIndiaDate(utcDate);
+    const indiaTime = formatSydneyToIndiaTime(utcDate, { includeSeconds: true });
+
+    const dtf24 = new Intl.DateTimeFormat('en-IN', {
+      timeZone: INDIA_TIMEZONE,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+    const parts = dtf24.formatToParts(utcDate);
+    const getPart = (type: string) => parts.find((p) => p.type === type)?.value;
+    const standard24 = `${getPart('year')}-${getPart('month')}-${getPart('day')} ${getPart('hour')}:${getPart('minute')}:${getPart('second')}`;
+
+    return {
+      sydneyTime: typeof input === 'string' ? input : String(input ?? ''),
+      indiaDateTime,
+      indiaDate,
+      indiaTime,
+      standard24,
+      utcDate,
+    };
+  } catch {
+    return null;
+  }
+}
+

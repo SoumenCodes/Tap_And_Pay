@@ -174,13 +174,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             storedUser.loginType === 'other_business_employee';
           const userWithDefaults: UserProfile = {
             ...storedUser,
-            abn: storedUser.abn || (isOtherBiz ? '50110219475' : undefined),
-            phone: storedUser.phone || (isOtherBiz ? '9932783473' : undefined),
+            abn: storedUser.abn || (isOtherBiz ? '-' : undefined),
+            phone: storedUser.phone || (isOtherBiz ? '-' : undefined),
           };
           setUser(userWithDefaults);
           setIsAuthenticated(true);
           console.log('🔐 [AuthContext] Restored encrypted user session:', storedUser.name);
-          dashboardService.getDashboard().catch(() => {});
+          dashboardService.getDashboard().catch(() => { });
         }
       } catch (err) {
         console.warn('⚠️ [AuthContext] Could not restore session from storage:', err);
@@ -212,7 +212,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(liveUser);
       setIsAuthenticated(true);
       await tokenStorage.saveUser(liveUser);
-      dashboardService.getDashboard().catch(() => {});
+      dashboardService.getDashboard().catch(() => { });
       return { success: true };
     } catch (apiErr: any) {
       console.log('Live login attempt failed:', apiErr.message || apiErr);

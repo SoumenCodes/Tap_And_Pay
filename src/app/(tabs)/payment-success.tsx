@@ -16,6 +16,7 @@ import { useAuth } from '../../context/AuthContext';
 import { getCachedDashboardHeader, dashboardService } from '../../services/dashboardService';
 import { tokenStorage } from '../../services/tokenStorage';
 import { paymentSession } from '../../services/paymentSession';
+import { formatSydneyToUserDateTime } from '../../utils/dateUtils';
 
 export default function PaymentSuccessScreen() {
   const insets = useSafeAreaInsets();
@@ -44,31 +45,24 @@ export default function PaymentSuccessScreen() {
   const cardLast4 = isCash ? '' : params.cardLast4 || '••••';
   const paymentId = params.paymentId || (isCash ? 'CASH-PAYMENT' : '--');
 
-  // Dynamic formatted timestamp: e.g. "30 Oct 2026, 03:45 PM"
+  // Formatted timestamp converting server/Australia/Sydney timestamp to device local timezone
   const formattedDate = useMemo(() => {
-    const d = params.timestamp ? new Date(params.timestamp) : new Date();
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = months[d.getMonth()];
-    const year = d.getFullYear();
-    let hours = d.getHours();
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12 || 12;
-    const hoursStr = String(hours).padStart(2, '0');
-    return `${day} ${month} ${year}, ${hoursStr}:${minutes} ${ampm}`;
+    return (
+      formatSydneyToUserDateTime(params.timestamp) ||
+      formatSydneyToUserDateTime(new Date())
+    );
   }, [params.timestamp]);
 
   // Format amount with commas: 104.00 or 1,250
   const formattedAmount =
     numericAmount >= 1000
       ? numericAmount.toLocaleString('en-US', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
       : Number.isInteger(numericAmount)
-      ? `${numericAmount}.00`
-      : numericAmount.toFixed(2);
+        ? `${numericAmount}.00`
+        : numericAmount.toFixed(2);
 
   const businessName = user?.businessName || user?.name || '--';
 
@@ -82,12 +76,12 @@ export default function PaymentSuccessScreen() {
       user?.abn ||
       cachedHeader?.abn ||
       cachedUser?.abn ||
-      (isOtherBiz ? '50110219475' : '');
+      (isOtherBiz ? '-' : '');
     const phoneValue =
       user?.phone ||
       cachedHeader?.phone ||
       cachedUser?.phone ||
-      (isOtherBiz ? '9932783473' : '');
+      (isOtherBiz ? '-' : '');
 
     router.push({
       pathname: '/(tabs)/receipt-details',
@@ -108,13 +102,13 @@ export default function PaymentSuccessScreen() {
 
   const handleDone = useCallback(() => {
     paymentSession.markPaymentCompleted();
-    dashboardService.getDashboard().catch(() => {});
+    dashboardService.getDashboard().catch(() => { });
     router.replace('/(tabs)');
   }, [router]);
 
   useEffect(() => {
     // Proactively refresh dashboard metrics in background as soon as payment is confirmed
-    dashboardService.getDashboard().catch(() => {});
+    dashboardService.getDashboard().catch(() => { });
     paymentSession.markPaymentCompleted();
 
     const onBackPress = () => {

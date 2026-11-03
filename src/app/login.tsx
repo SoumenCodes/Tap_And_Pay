@@ -285,7 +285,7 @@ export default function LoginScreen() {
                   style={styles.testChip}
                   activeOpacity={0.75}
                   onPress={() =>
-                    handleQuickCredentialLogin('zafar.dnk4@gmail.com', 'Zafar@1986')
+                    handleQuickCredentialLogin('palash.sarkar3@gmail.com', 'Palash@123')
                   }
                 >
                   <Text style={styles.testChipText}>💈 Other Business</Text>

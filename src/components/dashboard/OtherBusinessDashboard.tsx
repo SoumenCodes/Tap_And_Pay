@@ -11,6 +11,7 @@ import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import HeaderBar from '../common/HeaderBar';
+import { useAuth } from '../../context/AuthContext';
 
 interface OtherBusinessDashboardProps {
   businessName?: string;
@@ -25,6 +26,7 @@ export default function OtherBusinessDashboard({
   userName = 'Merchant Owner',
   sessionStartTime = '7:30 AM',
 }: OtherBusinessDashboardProps) {
+  const { user } = useAuth();
   // Session & Online state (defaults to Online as shown in Figma 76:12635)
   const [isOnline, setIsOnline] = useState(true);
 
@@ -54,21 +56,29 @@ export default function OtherBusinessDashboard({
       >
         {/* 1. Business Hero Banner */}
         <View style={styles.bannerContainer}>
-          <Image
-            source={require('../../../assets/crown_cuts_hero.png')}
-            style={styles.bannerImage}
-            resizeMode="cover"
-          />
+          {Boolean(user?.bannerImageUrl) ? (
+            <Image
+              source={{ uri: user.bannerImageUrl! }}
+              style={styles.bannerImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={[styles.bannerImage, { backgroundColor: '#1E293B' }]} />
+          )}
 
           {/* Bottom-left row: Avatar + Translucent Text Badge */}
           <View style={styles.bannerBottomRow}>
             {/* Avatar Logo Box */}
             <View style={styles.avatarBox}>
-              <Image
-                source={require('../../../assets/crown_cuts_badge_hd.png')}
-                style={styles.avatarBadgeImage}
-                resizeMode="contain"
-              />
+              {Boolean(user?.logoUrl) ? (
+                <Image
+                  source={{ uri: user.logoUrl! }}
+                  style={styles.avatarBadgeImage}
+                  resizeMode="contain"
+                />
+              ) : (
+                <Feather name="briefcase" size={20} color="#D97706" />
+              )}
             </View>
 
             {/* Translucent Text Badge */}

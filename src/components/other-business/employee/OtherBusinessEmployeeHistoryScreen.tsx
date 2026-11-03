@@ -45,7 +45,7 @@ export default function OtherBusinessEmployeeHistoryScreen({
   empId = 'EMP2026100720101878',
   onSelectShift,
 }: OtherBusinessEmployeeHistoryScreenProps) {
-  const PAGE_LIMIT = 1;
+  const PAGE_LIMIT = 10;
 
   // API State
   const [shiftHistoryData, setShiftHistoryData] = useState<ShiftHistoryData | null>(null);

@@ -101,7 +101,7 @@ export default function OtherBusinessTransactionsScreen({
 }: OtherBusinessTransactionsScreenProps) {
   const { showAlert } = useConfirmModal();
 
-  const PAGE_LIMIT = 1;
+  const PAGE_LIMIT = 10;
 
   // API State
   const [shiftHistoryData, setShiftHistoryData] = useState<ShiftHistoryData | null>(null);

@@ -33,7 +33,7 @@ import {
 
 export default function OtherBusinessEmployeeProfileScreen() {
   const router = useRouter();
-  const { logout } = useAuth();
+  const { user: authUser, logout } = useAuth();
   const { showConfirm, showAlert } = useConfirmModal();
 
   // Profile API State (Clean Initialization with Zero Hardcoded Mock Fallbacks)
@@ -297,6 +297,7 @@ export default function OtherBusinessEmployeeProfileScreen() {
     user?.address?.address_line1 ||
     '--';
   const avatarUri = user?.profile_photo_url || user?.logo_url;
+  const effectiveLogoUrl = user?.logo_url || user?.parent_business?.logo_url || authUser?.logoUrl;
 
   // Session metrics
   const shiftId = isOnShift
@@ -360,11 +361,15 @@ export default function OtherBusinessEmployeeProfileScreen() {
                 resizeMode="cover"
               />
               <View style={styles.crownBadgeWrap}>
-                <Image
-                  source={require('../../../../assets/crown_cuts_badge_hd.png')}
-                  style={styles.crownBadgeImg}
-                  resizeMode="contain"
-                />
+                {effectiveLogoUrl ? (
+                  <Image
+                    source={{ uri: effectiveLogoUrl }}
+                    style={styles.crownBadgeImg}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <Feather name="briefcase" size={12} color="#D97706" />
+                )}
               </View>
             </View>
           </View>

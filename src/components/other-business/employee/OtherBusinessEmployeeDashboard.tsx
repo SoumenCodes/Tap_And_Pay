@@ -350,28 +350,28 @@ export default function OtherBusinessEmployeeDashboard({
         <View style={styles.topCardContainer}>
           {/* Top Banner Image */}
           <View style={styles.bannerContainer}>
-            <Image
-              source={
-                header?.banner_image_url
-                  ? { uri: header.banner_image_url }
-                  : require('../../../../assets/crown_cuts_hero.png')
-              }
-              style={styles.bannerImage}
-              resizeMode="cover"
-            />
+            {Boolean(header?.banner_image_url || user?.bannerImageUrl) ? (
+              <Image
+                source={{ uri: (header?.banner_image_url || user?.bannerImageUrl)! }}
+                style={styles.bannerImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={[styles.bannerImage, { backgroundColor: '#1E293B' }]} />
+            )}
 
             {/* Bottom-left overlay: Badge + translucent text badge */}
             <View style={styles.bannerBottomRow}>
               <View style={styles.avatarBox}>
-                <Image
-                  source={
-                    header?.logo_url
-                      ? { uri: header.logo_url }
-                      : require('../../../../assets/crown_cuts_badge_hd.png')
-                  }
-                  style={styles.avatarBadgeImage}
-                  resizeMode="contain"
-                />
+                {Boolean(header?.logo_url || user?.logoUrl) ? (
+                  <Image
+                    source={{ uri: (header?.logo_url || user?.logoUrl)! }}
+                    style={styles.avatarBadgeImage}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <Feather name="briefcase" size={20} color="#D97706" />
+                )}
               </View>
 
               {/* Translucent Text Badge */}

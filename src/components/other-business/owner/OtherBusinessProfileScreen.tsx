@@ -38,7 +38,7 @@ import { DiagnosticLogsModal } from '../../common/DiagnosticLogsModal';
 
 export default function OtherBusinessProfileScreen() {
   const router = useRouter();
-  const { logout } = useAuth();
+  const { user: authUser, logout } = useAuth();
   const { showConfirm, showAlert } = useConfirmModal();
 
   // Profile API State
@@ -420,6 +420,7 @@ export default function OtherBusinessProfileScreen() {
 
   const user = profileData?.user;
   const session = profileData?.current_session;
+  const effectiveLogoUrl = user?.logo_url || authUser?.logoUrl;
 
   const businessName = user?.business_name || user?.header_business_name || '--';
   const ownerName =
@@ -501,11 +502,15 @@ export default function OtherBusinessProfileScreen() {
                 resizeMode="cover"
               />
               <View style={styles.crownBadgeWrap}>
-                <Image
-                  source={require('../../../../assets/crown_cuts_badge_hd.png')}
-                  style={styles.crownBadgeImg}
-                  resizeMode="contain"
-                />
+                {effectiveLogoUrl ? (
+                  <Image
+                    source={{ uri: effectiveLogoUrl }}
+                    style={styles.crownBadgeImg}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <Feather name="briefcase" size={12} color="#D97706" />
+                )}
               </View>
             </View>
           </View>

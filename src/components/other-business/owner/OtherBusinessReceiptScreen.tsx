@@ -24,6 +24,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useConfirmModal } from '../../../context/ConfirmModalContext';
 import HeaderBar from '../../common/HeaderBar';
 import { getAssetDataUri } from '../../../utils/assetUtils';
+import { formatSydneyToUserDateTime } from '../../../utils/dateUtils';
 import {
   dashboardService,
   onDashboardHeaderSync,
@@ -64,7 +65,10 @@ export default function OtherBusinessReceiptScreen() {
     : (params.cardBrand || (isTap ? 'Contactless' : 'Visa')).trim();
   const cardLast4 = isCash ? '' : (params.cardLast4 || '••••');
   const paymentId = params.paymentId || (isCash ? 'CASH-PAYMENT' : '--');
-  const dateStr = params.dateStr || '--';
+  const dateStr =
+    (params.dateStr && params.dateStr.trim() !== '' && params.dateStr !== '--'
+      ? params.dateStr
+      : null) || formatSydneyToUserDateTime(new Date());
 
   const businessName = user?.businessName || user?.name || '--';
   const address = user?.businessAddress || '--';
@@ -73,25 +77,17 @@ export default function OtherBusinessReceiptScreen() {
   const cachedHeader = getCachedDashboardHeader();
   const cachedUser = tokenStorage.getCachedUser();
 
-  const isOtherBiz =
-    user?.loginType === 'other_business' ||
-    user?.loginType === 'other_business_employee' ||
-    Boolean(user?.empId) ||
-    Boolean(user?.businessName);
-
   const [extraHeader, setExtraHeader] = useState<{ abn?: string; phone?: string }>({
     abn:
       (params.abn && params.abn !== '--' ? params.abn : undefined) ||
       user?.abn ||
       cachedHeader?.abn ||
-      cachedUser?.abn ||
-      (isOtherBiz ? '50110219475' : undefined),
+      cachedUser?.abn,
     phone:
       (params.phone && params.phone !== '--' ? params.phone : undefined) ||
       user?.phone ||
       cachedHeader?.phone ||
-      cachedUser?.phone ||
-      (isOtherBiz ? '9932783473' : undefined),
+      cachedUser?.phone,
   });
 
   useEffect(() => {
@@ -114,7 +110,7 @@ export default function OtherBusinessReceiptScreen() {
           }));
         }
       })
-      .catch(() => {});
+      .catch(() => { });
 
     return () => unsub();
   }, []);
@@ -125,7 +121,7 @@ export default function OtherBusinessReceiptScreen() {
     user?.abn ||
     cachedHeader?.abn ||
     cachedUser?.abn ||
-    (isOtherBiz ? '50110219475' : '--');
+    '--';
 
   const phone =
     (params.phone && params.phone.trim() !== '' && params.phone !== '--' ? params.phone : null) ||
@@ -133,7 +129,7 @@ export default function OtherBusinessReceiptScreen() {
     user?.phone ||
     cachedHeader?.phone ||
     cachedUser?.phone ||
-    (isOtherBiz ? '9932783473' : '--');
+    '--';
 
   // Amount formatting: integer and decimal parts
   const formattedWithComma =
@@ -148,10 +144,7 @@ export default function OtherBusinessReceiptScreen() {
 
   // Generate HTML for full-page PDF document
   const generateReceiptHtml = async (isPhotoCard = false) => {
-    const crownCutsBadgeUri = await getAssetDataUri(
-      require('../../../../assets/crown_cuts_badge_hd.png'),
-      'image/png'
-    );
+    const effectiveLogo = user?.logoUrl || cachedHeader?.logo_url;
     const sePayLogoUri = await getAssetDataUri(
       require('../../../../assets/SE-pay-logo-gif.gif'),
       'image/gif'
@@ -396,10 +389,9 @@ export default function OtherBusinessReceiptScreen() {
 <body>
   <div class="receipt-card">
     <div class="logo-badge">
-      ${
-        crownCutsBadgeUri
-          ? `<img src="${crownCutsBadgeUri}" alt="Badge" />`
-          : `<div style="font-size: 26px; line-height: 52px; text-align: center;">👑</div>`
+      ${effectiveLogo
+        ? `<img src="${effectiveLogo}" alt="Business Logo" />`
+        : `<div style="font-size: 26px; line-height: 52px; text-align: center;">🏢</div>`
       }
     </div>
     <div class="biz-name">${businessName}</div>
@@ -449,10 +441,9 @@ export default function OtherBusinessReceiptScreen() {
     <div class="footer">
       <div class="thank-you">THANK YOU FOR CHOOSING ${businessName.toUpperCase()}</div>
       <div class="powered-by">POWERED BY</div>
-      ${
-        sePayLogoUri
-          ? `<img class="se-pay-gif-logo" src="${sePayLogoUri}" alt="SE PAY" />`
-          : `<div style="font-weight: 800; font-size: 13px; color: #0F172A; letter-spacing: 1px; margin-top: 4px;">SE PAY</div>`
+      ${sePayLogoUri
+        ? `<img class="se-pay-gif-logo" src="${sePayLogoUri}" alt="SE PAY" />`
+        : `<div style="font-weight: 800; font-size: 13px; color: #0F172A; letter-spacing: 1px; margin-top: 4px;">SE PAY</div>`
       }
     </div>
   </div>
@@ -512,14 +503,14 @@ export default function OtherBusinessReceiptScreen() {
       await Share.share(
         Platform.OS === 'ios'
           ? {
-              title: `Receipt Image - ${businessName}`,
-              message: shareMsg,
-              url: targetUri,
-            }
+            title: `Receipt Image - ${businessName}`,
+            message: shareMsg,
+            url: targetUri,
+          }
           : {
-              title: `Receipt Image - ${businessName}`,
-              message: shareMsg,
-            }
+            title: `Receipt Image - ${businessName}`,
+            message: shareMsg,
+          }
       );
     } catch (error) {
       console.error('Error sharing receipt image:', error);
@@ -601,14 +592,14 @@ export default function OtherBusinessReceiptScreen() {
       await Share.share(
         Platform.OS === 'ios'
           ? {
-              title: `Receipt - ${businessName}`,
-              message: shareMsg,
-              url: targetUri,
-            }
+            title: `Receipt - ${businessName}`,
+            message: shareMsg,
+            url: targetUri,
+          }
           : {
-              title: `Receipt - ${businessName}`,
-              message: shareMsg,
-            }
+            title: `Receipt - ${businessName}`,
+            message: shareMsg,
+          }
       );
     } catch (error) {
       console.error('Error sharing receipt PDF:', error);
@@ -705,11 +696,15 @@ export default function OtherBusinessReceiptScreen() {
             {/* Top Avatar Logo Box */}
             <View style={styles.logoBadgeContainer}>
               <View style={styles.logoBox}>
-                <Image
-                  source={require('../../../../assets/crown_cuts_badge_hd.png')}
-                  style={styles.logoImage}
-                  resizeMode="contain"
-                />
+                {Boolean(user?.logoUrl || cachedHeader?.logo_url) ? (
+                  <Image
+                    source={{ uri: (user?.logoUrl || cachedHeader?.logo_url)! }}
+                    style={styles.logoImage}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <Feather name="briefcase" size={24} color="#D97706" />
+                )}
               </View>
             </View>
 
@@ -871,7 +866,7 @@ export default function OtherBusinessReceiptScreen() {
       >
         <TouchableWithoutFeedback onPress={() => setIsShareModalVisible(false)}>
           <View style={styles.modalOverlay}>
-            <TouchableWithoutFeedback onPress={() => {}}>
+            <TouchableWithoutFeedback onPress={() => { }}>
               <View style={[styles.modalSheet, { paddingBottom: Math.max(insets.bottom, 20) + 12 }]}>
                 {/* Drag pill handle */}
                 <View style={styles.modalHandle} />
@@ -1228,8 +1223,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   sePayLogo: {
-    width: 90,
-    height: 26,
+    // width: 90,
+    height: 70,
   },
 
   /* ── Action Buttons ── */

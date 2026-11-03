@@ -119,7 +119,7 @@ function TaxiReceiptScreen() {
           }));
         }
       })
-      .catch(() => {});
+      .catch(() => { });
 
     return () => unsub();
   }, []);
@@ -436,10 +436,9 @@ function TaxiReceiptScreen() {
 <body>
   <div class="receipt-card">
     <div class="logo-badge">
-      ${
-        taxiLogoUri
-          ? `<img src="${taxiLogoUri}" alt="Taxi" />`
-          : `<div style="font-size: 26px; line-height: 52px; text-align: center;">🚕</div>`
+      ${taxiLogoUri
+        ? `<img src="${taxiLogoUri}" alt="Taxi" />`
+        : `<div style="font-size: 26px; line-height: 52px; text-align: center;">🚕</div>`
       }
     </div>
     <div class="biz-name">${businessName}</div>
@@ -502,10 +501,9 @@ function TaxiReceiptScreen() {
     <div class="footer">
       <div class="thank-you">THANK YOU FOR CHOOSING TAXI ${taxiNumber}</div>
       <div class="powered-by">POWERED BY</div>
-      ${
-        sePayLogoUri
-          ? `<img class="se-pay-gif-logo" src="${sePayLogoUri}" alt="SE PAY" />`
-          : `<div style="font-weight: 800; font-size: 13px; color: #0F172A; letter-spacing: 1px; margin-top: 4px;">SE PAY</div>`
+      ${sePayLogoUri
+        ? `<img class="se-pay-gif-logo" src="${sePayLogoUri}" alt="SE PAY" />`
+        : `<div style="font-weight: 800; font-size: 13px; color: #0F172A; letter-spacing: 1px; margin-top: 4px;">SE PAY</div>`
       }
     </div>
   </div>
@@ -565,14 +563,14 @@ function TaxiReceiptScreen() {
       await Share.share(
         Platform.OS === 'ios'
           ? {
-              title: `Receipt Image - ${businessName}`,
-              message: shareMsg,
-              url: targetUri,
-            }
+            title: `Receipt Image - ${businessName}`,
+            message: shareMsg,
+            url: targetUri,
+          }
           : {
-              title: `Receipt Image - ${businessName}`,
-              message: shareMsg,
-            }
+            title: `Receipt Image - ${businessName}`,
+            message: shareMsg,
+          }
       );
     } catch (error) {
       console.error('Error sharing receipt image:', error);
@@ -654,14 +652,14 @@ function TaxiReceiptScreen() {
       await Share.share(
         Platform.OS === 'ios'
           ? {
-              title: `Receipt - ${businessName}`,
-              message: shareMsg,
-              url: targetUri,
-            }
+            title: `Receipt - ${businessName}`,
+            message: shareMsg,
+            url: targetUri,
+          }
           : {
-              title: `Receipt - ${businessName}`,
-              message: shareMsg,
-            }
+            title: `Receipt - ${businessName}`,
+            message: shareMsg,
+          }
       );
     } catch (error) {
       console.error('Error sharing receipt PDF:', error);
@@ -1293,7 +1291,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   sePayLogo: {
-    height: 70,
+    height: 200,
   },
   actions: {
     gap: 10,

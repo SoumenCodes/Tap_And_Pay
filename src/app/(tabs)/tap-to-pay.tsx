@@ -78,8 +78,8 @@ export default function TapToPayEnterAmountScreen() {
   const [amountStr, setAmountStr] = useState<string>('0');
 
   // Interactive Route state
-  const [pickupLocation, setPickupLocation] = useState<string>('Hospital');
-  const [dropoffLocation, setDropoffLocation] = useState<string>('Home');
+  const [pickupLocation, setPickupLocation] = useState<string>('');
+  const [dropoffLocation, setDropoffLocation] = useState<string>('');
 
   // Searchable Dropdown Modal state
   const [isLocationModalVisible, setIsLocationModalVisible] = useState<boolean>(false);
@@ -91,8 +91,8 @@ export default function TapToPayEnterAmountScreen() {
     setAmountStr('0');
     setScreenStep('amount');
     setSelectedMethod('tap');
-    setPickupLocation('Hospital');
-    setDropoffLocation('Home');
+    setPickupLocation('');
+    setDropoffLocation('');
     setSearchLocationQuery('');
     setIsLocationModalVisible(false);
   }, []);
@@ -121,6 +121,7 @@ export default function TapToPayEnterAmountScreen() {
   const { showAlert, showConfirm } = useConfirmModal();
   const [isOnShift, setIsOnShift] = useState<boolean>(true);
   const [activeShiftId, setActiveShiftId] = useState<number | null>(null);
+  const [activeShiftDisplayId, setActiveShiftDisplayId] = useState<string>('');
   const [isStartingShift, setIsStartingShift] = useState<boolean>(false);
   const [isProcessingCash, setIsProcessingCash] = useState<boolean>(false);
 
@@ -131,6 +132,7 @@ export default function TapToPayEnterAmountScreen() {
       if (activeShift?.id) {
         setIsOnShift(true);
         setActiveShiftId(activeShift.id);
+        setActiveShiftDisplayId(activeShift.display_shift_id || String(activeShift.id));
         return;
       }
 
@@ -138,10 +140,17 @@ export default function TapToPayEnterAmountScreen() {
       const onShift = Boolean(dash?.data?.is_on_shift && dash?.data?.active_shift?.id);
       setIsOnShift(onShift);
       setActiveShiftId(dash?.data?.active_shift?.id || null);
+      setActiveShiftDisplayId(
+        dash?.data?.active_shift?.display_shift_id ||
+          (dash?.data?.active_shift?.id ? String(dash.data.active_shift.id) : '')
+      );
     } catch {
       const fallbackShift = shiftService.getActiveShift();
       setIsOnShift(Boolean(fallbackShift?.id));
       setActiveShiftId(fallbackShift?.id || null);
+      setActiveShiftDisplayId(
+        fallbackShift?.display_shift_id || (fallbackShift?.id ? String(fallbackShift.id) : '')
+      );
     }
   }, []);
 
@@ -150,6 +159,7 @@ export default function TapToPayEnterAmountScreen() {
     const unsub = onShiftChange((shift: ActiveShiftData | null) => {
       setIsOnShift(Boolean(shift?.id));
       setActiveShiftId(shift?.id || null);
+      setActiveShiftDisplayId(shift?.display_shift_id || (shift?.id ? String(shift.id) : ''));
     });
     return () => unsub();
   }, []);
@@ -168,12 +178,14 @@ export default function TapToPayEnterAmountScreen() {
       const res = await shiftService.startShift();
       if (res?.status && res?.data?.active_shift?.id) {
         const sid = res.data.active_shift.id;
+        const dispId = res.data.active_shift.display_shift_id || String(sid);
         setIsOnShift(true);
         setActiveShiftId(sid);
-        await dashboardService.getDashboard().catch(() => {});
+        setActiveShiftDisplayId(dispId);
+        await dashboardService.getDashboard().catch(() => { });
         showAlert({
           title: 'Shift Started',
-          message: `Shift #${res.data.active_shift.display_shift_id || sid} is now active. You can now accept payments.`,
+          message: `Shift #${dispId} is now active. You can now accept payments.`,
           type: 'success',
         });
         return sid;
@@ -342,12 +354,12 @@ export default function TapToPayEnterAmountScreen() {
             cardLast4: '----',
             cardBrand: 'Cash',
             paymentId: realTxnId,
-            storeName: user?.businessName || 'SE PAY',
+            storeName: user?.businessName || '--',
             timestamp: txnDate,
           });
 
           paymentSession.markPaymentCompleted();
-          dashboardService.getDashboard().catch(() => {});
+          dashboardService.getDashboard().catch(() => { });
 
           router.push({
             pathname: '/(tabs)/payment-success',
@@ -429,12 +441,12 @@ export default function TapToPayEnterAmountScreen() {
           cardLast4: '----',
           cardBrand: 'Cash',
           paymentId: realTxnId,
-          storeName: user?.businessName || 'SE PAY',
+          storeName: user?.businessName || '--',
           timestamp: txnDate,
         });
 
         paymentSession.markPaymentCompleted();
-        dashboardService.getDashboard().catch(() => {});
+        dashboardService.getDashboard().catch(() => { });
 
         router.push({
           pathname: '/(tabs)/payment-success',
@@ -547,17 +559,7 @@ export default function TapToPayEnterAmountScreen() {
             router.replace('/(tabs)');
           }
         }}
-        rightAction={
-          screenStep === 'amount' ? (
-            <TouchableOpacity
-              activeOpacity={0.7}
-              style={styles.settingsCircle}
-              onPress={() => console.log('Settings clicked')}
-            >
-              <Ionicons name="settings-sharp" size={18} color="#64748B" />
-            </TouchableOpacity>
-          ) : null
-        }
+
       />
 
       {/* ────────────────────────────────────────────────────────── */}
@@ -699,15 +701,23 @@ export default function TapToPayEnterAmountScreen() {
           ) : (
             <View style={styles.merchantCard}>
               <View style={styles.badgeWrap}>
-                <Image
-                  source={require('../../../assets/crown_cuts_badge_hd.png')}
-                  style={styles.crownBadgeImage}
-                  resizeMode="cover"
-                />
+                {user.logoUrl ? (
+                  <Image
+                    source={{ uri: user.logoUrl }}
+                    style={styles.crownBadgeImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={styles.fallbackLogoContainer}>
+                    <Feather name="briefcase" size={20} color="#D97706" />
+                  </View>
+                )}
               </View>
               <View style={styles.merchantTextCol}>
-                <Text style={styles.merchantTitleText}>{user.businessName || 'SE PAY Business'}</Text>
-                <Text style={styles.merchantSubtitleText}>{user.name || 'Merchant Owner'} • POS Terminal</Text>
+                <Text style={styles.merchantTitleText}>{user.businessName || '--'}</Text>
+                <Text style={styles.merchantSubtitleText}>
+                  {user.name ? `${user.name} • ` : ''}POS Terminal
+                </Text>
               </View>
             </View>
           )}
@@ -859,15 +869,27 @@ export default function TapToPayEnterAmountScreen() {
           {/* 1. Shift / Business Badge Card */}
           <View style={styles.shiftBadgeCard}>
             <View style={styles.shiftAvatarBox}>
-              <Image
-                source={require('../../../assets/taxi-logo.png')}
-                style={styles.shiftAvatarImage}
-                resizeMode="contain"
-              />
+              {user.logoUrl ? (
+                <Image
+                  source={{ uri: user.logoUrl }}
+                  style={styles.shiftAvatarImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View style={styles.fallbackAvatarBox}>
+                  {isOtherBusiness ? (
+                    <Feather name="briefcase" size={18} color="#B45309" />
+                  ) : (
+                    <Ionicons name="car-outline" size={20} color="#B45309" />
+                  )}
+                </View>
+              )}
             </View>
             <View style={styles.shiftBadgeTextCol}>
-              <Text style={styles.shiftBadgeTitle}>Elite Taxi Service</Text>
-              <Text style={styles.shiftBadgeSubtitle}>SHIFT:  26062021/M6061/537384</Text>
+              <Text style={styles.shiftBadgeTitle}>{user.businessName || '--'}</Text>
+              <Text style={styles.shiftBadgeSubtitle}>
+                {activeShiftDisplayId ? `SHIFT: ${activeShiftDisplayId}` : 'SHIFT: --'}
+              </Text>
             </View>
           </View>
 
@@ -1156,10 +1178,18 @@ const styles = StyleSheet.create({
     borderColor: '#FEF08A',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   shiftAvatarImage: {
-    width: 32,
-    height: 32,
+    width: '100%',
+    height: '100%',
+  },
+  fallbackAvatarBox: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FEF3C7',
   },
   shiftBadgeTextCol: {
     flex: 1,
@@ -1267,6 +1297,13 @@ const styles = StyleSheet.create({
   crownBadgeImage: {
     width: '100%',
     height: '100%',
+  },
+  fallbackLogoContainer: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FEF3C7',
   },
   merchantTextCol: {
     flex: 1,

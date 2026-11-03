@@ -84,6 +84,37 @@ export interface ActiveEmployeesSection {
   list: ActiveEmployeeItem[];
 }
 
+export interface ActiveDriverItem {
+  id: number | string;
+  name: string;
+  first_name?: string;
+  last_name?: string;
+  initials?: string;
+  taxi_no?: string;
+  dc_number?: string;
+  profile_photo_url?: string | null;
+  is_online?: boolean;
+  online_badge?: string;
+  is_on_shift?: boolean;
+  active_shift_revenue: number;
+  active_shift_revenue_formatted: string;
+  shifts: {
+    paid: number;
+    unpaid: number;
+  };
+}
+
+export interface ActiveDriversSummary {
+  total_count: number;
+  on_shift_count: number;
+  off_shift_count: number;
+}
+
+export interface ActiveDriversSection {
+  summary: ActiveDriversSummary;
+  list: ActiveDriverItem[];
+}
+
 export interface RecentTransactionItem {
   id: number | string;
   txn_id?: string;
@@ -95,6 +126,14 @@ export interface RecentTransactionItem {
   created_at?: string;
   time_formatted?: string;
   status?: string;
+  pickup?: string;
+  dropoff?: string;
+  pickup_location?: string;
+  dropoff_location?: string;
+  route?: {
+    pickup?: string;
+    dropoff?: string;
+  };
 }
 
 export interface RecentTransactionsSection {
@@ -119,6 +158,7 @@ export interface DashboardData {
   revenue: DashboardRevenue;
   section_type: string;
   active_employees?: ActiveEmployeesSection;
+  active_drivers?: ActiveDriversSection;
   recent_transactions?: RecentTransactionsSection;
 }
 

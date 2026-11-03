@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,14 +6,24 @@ import {
   ScrollView,
   Image,
   TouchableOpacity,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import HeaderBar from '../../common/HeaderBar';
+import { useAuth } from '../../../context/AuthContext';
 import { useConfirmModal } from '../../../context/ConfirmModalContext';
 import { paymentSession } from '../../../services/paymentSession';
+import {
+  dashboardService,
+  DashboardData,
+  RecentTransactionItem,
+} from '../../../services/dashboardService';
+import { shiftService, onShiftChange } from '../../../services/shiftService';
+import { formatSydneyToUserTime, formatSydneyShiftRange } from '../../../utils/dateUtils';
 
 interface TaxiOwnerDashboardProps {
   businessName?: string;
@@ -29,51 +39,273 @@ export default function TaxiOwnerDashboard({
   sessionStartTime = '',
 }: TaxiOwnerDashboardProps) {
   const router = useRouter();
+  const { user } = useAuth();
   const { showConfirm, showAlert } = useConfirmModal();
-  const [isOnShift, setIsOnShift] = useState(true);
 
-  // Compute initials for the badge (e.g. "Harpreet Singh Taxi Service" -> "HS")
+  // API State
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Shift state
+  const [isOnShift, setIsOnShift] = useState<boolean>(false);
+  const [isShiftActionLoading, setIsShiftActionLoading] = useState<boolean>(false);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    setErrorMessage(null);
+    try {
+      const res = await dashboardService.getDashboard();
+      if (res?.data) {
+        setDashboardData(res.data);
+        setIsOnShift(Boolean(res.data.is_on_shift));
+      }
+    } catch (err: any) {
+      console.warn('Failed to refresh dashboard data:', err?.message || err);
+      setErrorMessage(err?.message || 'Unable to refresh dashboard data.');
+    } finally {
+      setIsRefreshing(false);
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    let isMounted = true;
+    dashboardService
+      .getDashboard()
+      .then((res) => {
+        if (isMounted && res?.data) {
+          setDashboardData(res.data);
+          setIsOnShift(Boolean(res.data.is_on_shift));
+        }
+      })
+      .catch((err: any) => {
+        if (isMounted) {
+          console.warn('Failed to load dashboard data:', err?.message || err);
+          setErrorMessage(err?.message || 'Unable to load dashboard data.');
+        }
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Listen for shift changes across the app
+  useEffect(() => {
+    const unsub = onShiftChange(() => {
+      handleRefresh();
+    });
+    return () => unsub();
+  }, [handleRefresh]);
+
+  // Refresh on screen focus
+  useFocusEffect(
+    useCallback(() => {
+      handleRefresh();
+    }, [handleRefresh])
+  );
+
+  // Header data
+  const header = dashboardData?.header;
+  const displayBusinessName = header?.business_name || businessName || user?.businessName || '--';
+  const displayUserName = header?.full_name || header?.first_name || userName || user?.name || '--';
+  const displayTaxiNumber = header?.identifier_value || taxiNumber || user?.taxiNumber || '--';
+
+  // Compute initials for the badge
   const initials = (() => {
-    const parts = (businessName || userName).trim().split(' ').filter(Boolean);
+    const raw = displayBusinessName !== '--' ? displayBusinessName : displayUserName;
+    const parts = raw.trim().split(' ').filter(Boolean);
     if (parts.length >= 2) {
       return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
     }
-    return (businessName || userName).slice(0, 2).toUpperCase();
+    return raw.slice(0, 2).toUpperCase() || 'TO';
   })();
+
+  // Shift Start Time
+  const rawStartAt =
+    dashboardData?.active_shift?.start_at ||
+    (dashboardData as any)?.start_at ||
+    shiftService.getActiveShift()?.start_at;
+  const rawStartTime =
+    dashboardData?.active_shift?.start_time ||
+    dashboardData?.start_time ||
+    shiftService.getActiveShift()?.start_time;
+
+  const displayStartTime = isOnShift
+    ? (rawStartAt ? formatSydneyToUserTime(rawStartAt) : null) ||
+      (rawStartTime ? formatSydneyToUserTime(rawStartTime) : null) ||
+      sessionStartTime ||
+      '--'
+    : '--';
+
+  const activeShiftCode =
+    dashboardData?.active_shift?.display_shift_id ||
+    header?.active_shift_code ||
+    dashboardData?.active_shift_text ||
+    (isOnShift ? '--' : 'No Active Shift');
+
+  // Revenue metrics
+  const revenue = dashboardData?.revenue;
+  const timeframeLabel = revenue?.timeframe_label || 'Last 7 days';
+  const totalAmountFormatted = revenue?.total_amount_formatted || '$0.00';
+  const totalCountText = revenue?.total_count_formatted || `${revenue?.total_count ?? 0} ${revenue?.unit || 'Trips'}`;
+
+  const cardAmountFormatted = revenue?.card?.amount_formatted || '$0.00';
+  const cardCountText = revenue?.card?.count_formatted || `${revenue?.card?.count ?? 0} txns`;
+
+  const tapAmountFormatted = revenue?.tap_and_go?.amount_formatted || '$0.00';
+  const tapCountText = revenue?.tap_and_go?.count_formatted || `${revenue?.tap_and_go?.count ?? 0} txns`;
+
+  const splitAmount = (formatted: string) => {
+    const cleaned = formatted.replace('$', '').trim();
+    if (cleaned.includes('.')) {
+      const [whole, cents] = cleaned.split('.');
+      return { whole, cents: `.${cents}` };
+    }
+    return { whole: cleaned, cents: '.00' };
+  };
+
+  const totalSplit = splitAmount(totalAmountFormatted);
+  const cardSplit = splitAmount(cardAmountFormatted);
+  const tapSplit = splitAmount(tapAmountFormatted);
+
+  // Recent trips
+  const recentTrips: RecentTransactionItem[] =
+    dashboardData?.recent_transactions?.list || [];
 
   const handleStartTaxiFare = () => {
     paymentSession.markPaymentCompleted();
     router.push('/(tabs)/tap-to-pay');
   };
 
-  const handleToggleShift = () => {
+  const handleToggleShift = async () => {
     if (isOnShift) {
+      const shiftSessionId =
+        dashboardData?.active_shift?.id || shiftService.getActiveShift()?.id;
+
       showConfirm({
         title: 'End Shift',
-        message:
-          'Are you sure you want to end your current active shift? Total fare collections ($485.00) will be submitted to records.',
+        message: `Are you sure you want to end your current active shift (${activeShiftCode})?`,
         confirmText: 'End Shift',
         cancelText: 'Cancel',
         type: 'warning',
         icon: 'stop-circle-outline',
-        onConfirm: () => {
-          setIsOnShift(false);
-          showAlert({
-            title: 'Shift Ended',
-            message: 'Shift tally submitted to records.',
-            type: 'success',
-            icon: 'checkmark-circle-outline',
-          });
+        onConfirm: async () => {
+          if (!shiftSessionId) {
+            setIsOnShift(false);
+            showAlert({
+              title: 'Shift Reset',
+              message: 'Active shift state refreshed.',
+              type: 'info',
+              icon: 'information-circle-outline',
+            });
+            await handleRefresh();
+            return;
+          }
+
+          setIsShiftActionLoading(true);
+          try {
+            const userId = user?.id ? Number(user.id) : undefined;
+            const res = await shiftService.endShift({
+              shift_session_id: shiftSessionId,
+              user_id: userId,
+            });
+
+            if (res.status) {
+              setIsOnShift(false);
+              const shiftTimeRange = formatSydneyShiftRange(
+                res.data?.start_at,
+                res.data?.end_at
+              );
+              showAlert({
+                title: 'Shift Ended',
+                message: shiftTimeRange
+                  ? `Active shift ended.\nShift: ${shiftTimeRange}`
+                  : res.message || 'Active shift ended. Shift tally submitted to records.',
+                buttonText: 'OK',
+                type: 'success',
+                icon: 'checkmark-circle-outline',
+              });
+              await handleRefresh();
+            } else {
+              if (
+                res.message?.toLowerCase().includes('already ended') ||
+                res.message?.toLowerCase().includes('not active') ||
+                res.message?.toLowerCase().includes('no active shift')
+              ) {
+                setIsOnShift(false);
+                showAlert({
+                  title: 'Shift Status',
+                  message: res.message,
+                  buttonText: 'OK',
+                  type: 'info',
+                  icon: 'information-circle-outline',
+                });
+                await handleRefresh();
+              } else {
+                showAlert({
+                  title: 'Failed to End Shift',
+                  message: res.message || 'An error occurred while ending shift.',
+                  buttonText: 'OK',
+                  type: 'danger',
+                  icon: 'alert-circle-outline',
+                });
+              }
+            }
+          } catch (err: any) {
+            showAlert({
+              title: 'Error',
+              message: err?.message || 'Failed to communicate with shift service.',
+              buttonText: 'OK',
+              type: 'danger',
+              icon: 'alert-circle-outline',
+            });
+          } finally {
+            setIsShiftActionLoading(false);
+          }
         },
       });
     } else {
-      setIsOnShift(true);
-      showAlert({
-        title: 'Shift Started',
-        message: `Logged into taxi ${taxiNumber}. Active on shift.`,
-        type: 'success',
-        icon: 'checkmark-circle-outline',
-      });
+      setIsShiftActionLoading(true);
+      try {
+        const res = await shiftService.startShift();
+
+        if (res.status) {
+          setIsOnShift(true);
+          showAlert({
+            title: 'Shift Started',
+            message: `Shift #${res.data?.active_shift?.display_shift_id || ''} started successfully. Active on shift.`,
+            buttonText: 'OK',
+            type: 'success',
+            icon: 'checkmark-circle-outline',
+          });
+          await handleRefresh();
+        } else {
+          showAlert({
+            title: 'Failed to Start Shift',
+            message: res.message || 'Unable to start shift.',
+            buttonText: 'OK',
+            type: 'danger',
+            icon: 'alert-circle-outline',
+          });
+        }
+      } catch (err: any) {
+        showAlert({
+          title: 'Error',
+          message: err?.message || 'Failed to start shift.',
+          buttonText: 'OK',
+          type: 'danger',
+          icon: 'alert-circle-outline',
+        });
+      } finally {
+        setIsShiftActionLoading(false);
+      }
     }
   };
 
@@ -85,32 +317,64 @@ export default function TaxiOwnerDashboard({
     <View style={styles.root}>
       <StatusBar style="dark" />
 
-      {/* Header Bar with back arrow */}
-      <HeaderBar title="SE PAY DASHBOARD" />
+      {/* Header Bar with title */}
+      <HeaderBar title={header?.title || 'SE PAY DASHBOARD'} />
 
       <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 32 }]}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            colors={['#D97706']}
+            tintColor="#D97706"
+          />
+        }
       >
+        {/* Error banner if present */}
+        {errorMessage && (
+          <View style={styles.errorBanner}>
+            <Ionicons name="alert-circle" size={16} color="#DC2626" style={{ marginRight: 6 }} />
+            <Text style={styles.errorBannerText}>{errorMessage}</Text>
+          </View>
+        )}
+
         {/* 1. Combined Hero Banner & Owner Info Card */}
         <View style={styles.topCardContainer}>
-          {/* Banner with Cityscape and Taxi */}
+          {/* Banner */}
           <View style={styles.bannerContainer}>
-            <Image
-              source={require('../../../../assets/elite_taxi_hero.png')}
-              style={styles.bannerImage}
-              resizeMode="cover"
-            />
+            {header?.banner_image_url ? (
+              <Image
+                source={{ uri: header.banner_image_url }}
+                style={styles.bannerImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <Image
+                source={require('../../../../assets/elite_taxi_hero.png')}
+                style={styles.bannerImage}
+                resizeMode="cover"
+              />
+            )}
 
-            {/* Bottom-left branding: Initials Avatar + Business Name */}
+            {/* Bottom-left branding: Logo / Initials Avatar + Business Name */}
             <View style={styles.bannerBottomRow}>
               <View style={styles.avatarBox}>
-                <Text style={styles.avatarInitials}>{initials}</Text>
+                {header?.logo_url ? (
+                  <Image
+                    source={{ uri: header.logo_url }}
+                    style={styles.avatarLogo}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <Text style={styles.avatarInitials}>{initials}</Text>
+                )}
               </View>
 
               <View style={styles.bannerTextBadge}>
                 <Text style={styles.bannerTitle} numberOfLines={1}>
-                  {businessName}
+                  {displayBusinessName}
                 </Text>
               </View>
             </View>
@@ -120,12 +384,12 @@ export default function TaxiOwnerDashboard({
           <View style={styles.welcomeBody}>
             <View style={styles.welcomeCenterWrap}>
               <Text style={styles.welcomeTitle}>
-                Welcome, <Text style={styles.welcomeNameBold}>{userName}</Text>
+                Welcome, <Text style={styles.welcomeNameBold}>{displayUserName}</Text>
               </Text>
 
               <View style={styles.welcomeMetaRow}>
                 <Text style={styles.taxiMetaLabel}>
-                  Taxi No.: <Text style={styles.taxiNoHighlight}>{taxiNumber}</Text>
+                  Taxi No.: <Text style={styles.taxiNoHighlight}>{displayTaxiNumber}</Text>
                 </Text>
                 {isOnShift && (
                   <>
@@ -133,7 +397,7 @@ export default function TaxiOwnerDashboard({
                     <View style={styles.clockRow}>
                       <Feather name="clock" size={12} color="#64748B" style={styles.clockIcon} />
                       <Text style={styles.shiftStartText}>
-                        Shift Start: {sessionStartTime || '--'}
+                        Shift Start: {displayStartTime}
                       </Text>
                     </View>
                   </>
@@ -146,7 +410,7 @@ export default function TaxiOwnerDashboard({
               <Text style={styles.activeShiftLabel}>
                 ACTIVE SHIFT:{' '}
                 <Text style={styles.activeShiftCode}>
-                  26062021/{taxiNumber}/537384
+                  {activeShiftCode}
                 </Text>
               </Text>
 
@@ -209,11 +473,11 @@ export default function TaxiOwnerDashboard({
           <View style={styles.revenueHeader}>
             <View style={styles.revenueTitleRow}>
               <Text style={styles.revenueMainTitle}>Revenue </Text>
-              <Text style={styles.revenueSubTitle}>Last 7 days</Text>
+              <Text style={styles.revenueSubTitle}>{timeframeLabel}</Text>
             </View>
             <View style={styles.tripsCountBadge}>
               <Ionicons name="checkmark-circle-outline" size={15} color="#059669" />
-              <Text style={styles.tripsCountText}>14 Trips</Text>
+              <Text style={styles.tripsCountText}>{totalCountText}</Text>
             </View>
           </View>
 
@@ -226,10 +490,11 @@ export default function TaxiOwnerDashboard({
                 <Text style={[styles.metricLabelText, { color: '#B45309' }]}>TOTAL</Text>
               </View>
               <Text style={styles.metricValueText}>
-                <Text style={styles.metricDollarOrange}>$</Text>485
-                <Text style={styles.metricCents}>.00</Text>
+                <Text style={styles.metricDollarOrange}>$</Text>
+                {totalSplit.whole}
+                <Text style={styles.metricCents}>{totalSplit.cents}</Text>
               </Text>
-              <Text style={styles.metricSubInfo}>14 Trips</Text>
+              <Text style={styles.metricSubInfo}>{totalCountText}</Text>
             </View>
 
             {/* 2. Card */}
@@ -239,10 +504,11 @@ export default function TaxiOwnerDashboard({
                 <Text style={[styles.metricLabelText, { color: '#2563EB' }]}>CARD</Text>
               </View>
               <Text style={styles.metricValueText}>
-                <Text style={styles.metricDollarBlue}>$</Text>320
-                <Text style={styles.metricCents}>.00</Text>
+                <Text style={styles.metricDollarBlue}>$</Text>
+                {cardSplit.whole}
+                <Text style={styles.metricCents}>{cardSplit.cents}</Text>
               </Text>
-              <Text style={styles.metricSubInfo}>9 txns</Text>
+              <Text style={styles.metricSubInfo}>{cardCountText}</Text>
             </View>
 
             {/* 3. Tap & Go */}
@@ -252,10 +518,11 @@ export default function TaxiOwnerDashboard({
                 <Text style={[styles.metricLabelText, { color: '#EA580C' }]}>TAP & GO</Text>
               </View>
               <Text style={styles.metricValueText}>
-                <Text style={styles.metricDollarAmber}>$</Text>165
-                <Text style={styles.metricCents}>.00</Text>
+                <Text style={styles.metricDollarAmber}>$</Text>
+                {tapSplit.whole}
+                <Text style={styles.metricCents}>{tapSplit.cents}</Text>
               </Text>
-              <Text style={styles.metricSubInfo}>5 txns</Text>
+              <Text style={styles.metricSubInfo}>{tapCountText}</Text>
             </View>
           </View>
         </View>
@@ -263,24 +530,33 @@ export default function TaxiOwnerDashboard({
         {/* 4. End / Start Shift Action Button (Black) */}
         <TouchableOpacity
           activeOpacity={0.85}
+          disabled={isShiftActionLoading}
           onPress={handleToggleShift}
           style={styles.shiftButton}
         >
-          <MaterialCommunityIcons
-            name={isOnShift ? 'logout' : 'login'}
-            size={18}
-            color="#FFFFFF"
-            style={{ marginRight: 8 }}
-          />
-          <Text style={styles.shiftButtonText}>
-            {isOnShift ? 'End Shift' : 'Start Shift'}
-          </Text>
+          {isShiftActionLoading ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <>
+              <MaterialCommunityIcons
+                name={isOnShift ? 'logout' : 'login'}
+                size={18}
+                color="#FFFFFF"
+                style={{ marginRight: 8 }}
+              />
+              <Text style={styles.shiftButtonText}>
+                {isOnShift ? 'End Shift' : 'Start Shift'}
+              </Text>
+            </>
+          )}
         </TouchableOpacity>
 
         {/* 5. Recent Trips Section */}
         <View style={styles.recentSection}>
           <View style={styles.recentHeaderRow}>
-            <Text style={styles.recentTitle}>Recent Trips</Text>
+            <Text style={styles.recentTitle}>
+              {dashboardData?.recent_transactions?.title || 'Recent Trips'}
+            </Text>
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={handleNavigateToTransactions}
@@ -290,77 +566,101 @@ export default function TaxiOwnerDashboard({
             </TouchableOpacity>
           </View>
 
-          {/* Trip Card 1 */}
-          <TouchableOpacity
-            style={styles.tripCard}
-            activeOpacity={0.85}
-            onPress={handleNavigateToTransactions}
-          >
-            <View style={styles.tripHeaderRow}>
-              <Text style={styles.tripIdText}>#TXN-984210</Text>
-              <Text style={styles.tripTimeText}>04:45 PM</Text>
-              <View style={styles.cardPill}>
-                <Ionicons name="card" size={11} color="#2563EB" style={{ marginRight: 3 }} />
-                <Text style={styles.cardPillText}>Card</Text>
-              </View>
-              <View style={styles.spacer} />
-              <Text style={styles.tripAmountText}>
-                <Text style={styles.dollarOrange}>$</Text>106
-                <Text style={styles.tripCents}>.00</Text>
+          {/* Loading Indicator */}
+          {isLoading && !isRefreshing && (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color="#D97706" />
+            </View>
+          )}
+
+          {/* Empty State */}
+          {!isLoading && recentTrips.length === 0 && (
+            <View style={styles.emptyRecentBox}>
+              <Feather name="file-text" size={32} color="#CBD5E1" />
+              <Text style={styles.emptyRecentTitle}>No Recent Trips</Text>
+              <Text style={styles.emptyRecentSub}>
+                Trips processed during your active shift will appear here.
               </Text>
             </View>
+          )}
 
-            <View style={styles.routeContainer}>
-              {/* Pickup */}
-              <View style={styles.routePointRow}>
-                <View style={[styles.routeDot, { backgroundColor: '#2563EB' }]} />
-                <Text style={styles.routeAddressText}>St. Jude Medical Centre</Text>
-              </View>
-              {/* Connector */}
-              <View style={styles.routeConnector} />
-              {/* Dropoff */}
-              <View style={styles.routePointRow}>
-                <View style={[styles.routeDot, { backgroundColor: '#EA580C' }]} />
-                <Text style={styles.routeAddressText}>42 Richmond Road</Text>
-              </View>
-            </View>
-          </TouchableOpacity>
+          {/* Trip Cards dynamically rendered */}
+          {recentTrips.map((txn, index) => {
+            const txnCode = txn.txn_id || txn.transaction_id || `#TXN-${txn.id}`;
+            const timeText =
+              (txn.created_at ? formatSydneyToUserTime(txn.created_at) : null) ||
+              txn.time_formatted ||
+              '--';
+            const method = (txn.payment_method || 'card').toLowerCase();
+            const isTap = method.includes('tap') || method.includes('nfc');
+            const isCash = method.includes('cash');
+            const amountStr = txn.amount_formatted || (txn.amount !== undefined ? `$${Number(txn.amount).toFixed(2)}` : '$0.00');
+            const split = splitAmount(amountStr);
+            const pickupText = txn.pickup || txn.pickup_location || txn.route?.pickup;
+            const dropoffText = txn.dropoff || txn.dropoff_location || txn.route?.dropoff;
+            const hasRoute = Boolean(pickupText || dropoffText);
 
-          {/* Trip Card 2 */}
-          <TouchableOpacity
-            style={styles.tripCard}
-            activeOpacity={0.85}
-            onPress={handleNavigateToTransactions}
-          >
-            <View style={styles.tripHeaderRow}>
-              <Text style={styles.tripIdText}>#TXN-987541</Text>
-              <Text style={styles.tripTimeText}>05:58 PM</Text>
-              <View style={styles.cardPill}>
-                <Ionicons name="card" size={11} color="#2563EB" style={{ marginRight: 3 }} />
-                <Text style={styles.cardPillText}>Card</Text>
-              </View>
-              <View style={styles.spacer} />
-              <Text style={styles.tripAmountText}>
-                <Text style={styles.dollarOrange}>$</Text>85
-                <Text style={styles.tripCents}>.00</Text>
-              </Text>
-            </View>
+            return (
+              <TouchableOpacity
+                key={txn.id || index}
+                style={styles.tripCard}
+                activeOpacity={0.85}
+                onPress={handleNavigateToTransactions}
+              >
+                <View style={styles.tripHeaderRow}>
+                  <Text style={styles.tripIdText}>{txnCode}</Text>
+                  <Text style={styles.tripTimeText}>{timeText}</Text>
+                  <View
+                    style={[
+                      styles.cardPill,
+                      isTap && styles.tapPill,
+                      isCash && styles.cashPill,
+                    ]}
+                  >
+                    <Ionicons
+                      name={isCash ? 'cash-outline' : isTap ? 'radio-outline' : 'card'}
+                      size={11}
+                      color={isCash ? '#059669' : isTap ? '#EA580C' : '#2563EB'}
+                      style={{ marginRight: 3 }}
+                    />
+                    <Text
+                      style={[
+                        styles.cardPillText,
+                        isTap && styles.tapPillText,
+                        isCash && styles.cashPillText,
+                      ]}
+                    >
+                      {txn.payment_method_label || (isCash ? 'Cash' : isTap ? 'Tap & Go' : 'Card')}
+                    </Text>
+                  </View>
+                  <View style={styles.spacer} />
+                  <Text style={styles.tripAmountText}>
+                    <Text style={styles.dollarOrange}>$</Text>
+                    {split.whole}
+                    <Text style={styles.tripCents}>{split.cents}</Text>
+                  </Text>
+                </View>
 
-            <View style={styles.routeContainer}>
-              {/* Pickup */}
-              <View style={styles.routePointRow}>
-                <View style={[styles.routeDot, { backgroundColor: '#2563EB' }]} />
-                <Text style={styles.routeAddressText}>Melbourne Airport 2</Text>
-              </View>
-              {/* Connector */}
-              <View style={styles.routeConnector} />
-              {/* Dropoff */}
-              <View style={styles.routePointRow}>
-                <View style={[styles.routeDot, { backgroundColor: '#EA580C' }]} />
-                <Text style={styles.routeAddressText}>Great Central Hotel</Text>
-              </View>
-            </View>
-          </TouchableOpacity>
+                {hasRoute && (
+                  <View style={styles.routeContainer}>
+                    {pickupText && (
+                      <View style={styles.routePointRow}>
+                        <View style={[styles.routeDot, { backgroundColor: '#2563EB' }]} />
+                        <Text style={styles.routeAddressText}>{pickupText}</Text>
+                      </View>
+                    )}
+                    {pickupText && dropoffText && <View style={styles.routeConnector} />}
+                    {dropoffText && (
+                      <View style={styles.routePointRow}>
+                        <View style={[styles.routeDot, { backgroundColor: '#EA580C' }]} />
+                        <Text style={styles.routeAddressText}>{dropoffText}</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </ScrollView>
     </View>
@@ -376,6 +676,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
     gap: 14,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  errorBannerText: {
+    fontSize: 12,
+    color: '#DC2626',
+    flex: 1,
   },
 
   /* 1. Combined Top Card */
@@ -418,11 +733,16 @@ const styles = StyleSheet.create({
     borderColor: '#FEF08A',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 3,
+  },
+  avatarLogo: {
+    width: '100%',
+    height: '100%',
   },
   avatarInitials: {
     fontSize: 17,
@@ -739,6 +1059,33 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#2563EB',
   },
+  loadingContainer: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  emptyRecentBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 28,
+    paddingHorizontal: 16,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderStyle: 'dashed',
+  },
+  emptyRecentTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#475569',
+    marginTop: 8,
+  },
+  emptyRecentSub: {
+    fontSize: 11.5,
+    color: '#94A3B8',
+    textAlign: 'center',
+    marginTop: 4,
+  },
   tripCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
@@ -780,6 +1127,20 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     color: '#2563EB',
+  },
+  tapPill: {
+    backgroundColor: '#FFF7ED',
+    borderColor: '#FFEDD5',
+  },
+  tapPillText: {
+    color: '#EA580C',
+  },
+  cashPill: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
+  cashPillText: {
+    color: '#059669',
   },
   spacer: {
     flex: 1,

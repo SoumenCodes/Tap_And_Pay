@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,73 +6,24 @@ import {
   ScrollView,
   Image,
   TouchableOpacity,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import HeaderBar from '../../common/HeaderBar';
+import { useAuth } from '../../../context/AuthContext';
 import { useConfirmModal } from '../../../context/ConfirmModalContext';
 import { paymentSession } from '../../../services/paymentSession';
-
-interface DriverItem {
-  id: string;
-  name: string;
-  taxiNo: string;
-  dcNumber: string;
-  isOnline: boolean;
-  activeShiftRev: string;
-  paidShifts: number;
-  unpaidShifts: number;
-  avatar: any;
-}
-
-const MOCK_DRIVERS: DriverItem[] = [
-  {
-    id: 'drv_01',
-    name: 'Lovedeep Khangura',
-    taxiNo: 'M6061',
-    dcNumber: '93821048',
-    isOnline: true,
-    activeShiftRev: '108.00',
-    paidShifts: 2,
-    unpaidShifts: 0,
-    avatar: require('../../../../assets/emp_avatar_1.png'),
-  },
-  {
-    id: 'drv_02',
-    name: 'Harpreet Singh',
-    taxiNo: 'M6022',
-    dcNumber: '58745896',
-    isOnline: true,
-    activeShiftRev: '127.00',
-    paidShifts: 1,
-    unpaidShifts: 1,
-    avatar: require('../../../../assets/emp_avatar_2.png'),
-  },
-  {
-    id: 'drv_03',
-    name: 'David Miller',
-    taxiNo: 'M6088',
-    dcNumber: '59187425',
-    isOnline: true,
-    activeShiftRev: '54.00',
-    paidShifts: 1,
-    unpaidShifts: 0,
-    avatar: require('../../../../assets/emp_avatar_4.png'),
-  },
-  {
-    id: 'drv_04',
-    name: 'Navjot Sandhu',
-    taxiNo: 'M6015',
-    dcNumber: '44102938',
-    isOnline: false,
-    activeShiftRev: '0.00',
-    paidShifts: 3,
-    unpaidShifts: 0,
-    avatar: require('../../../../assets/emp_avatar_3.png'),
-  },
-];
+import {
+  dashboardService,
+  DashboardData,
+  ActiveDriverItem,
+} from '../../../services/dashboardService';
+import { shiftService, onShiftChange } from '../../../services/shiftService';
+import { formatSydneyToUserTime, formatSydneyShiftRange } from '../../../utils/dateUtils';
 
 interface TaxiBusinessDashboardProps {
   businessName?: string;
@@ -88,378 +39,712 @@ export default function TaxiBusinessDashboard({
   sessionStartTime = '',
 }: TaxiBusinessDashboardProps) {
   const router = useRouter();
+  const { user } = useAuth();
   const { showConfirm, showAlert } = useConfirmModal();
 
-  // Shift & Online state (defaults to on shift)
-  const [isOnShift, setIsOnShift] = useState(true);
+  // API State
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Shift & Online state
+  const [isOnShift, setIsOnShift] = useState<boolean>(false);
+  const [isShiftActionLoading, setIsShiftActionLoading] = useState<boolean>(false);
   const [filterMode, setFilterMode] = useState<'on_shift' | 'off_shift'>('on_shift');
 
-  const onShiftCount = MOCK_DRIVERS.filter((d) => d.isOnline).length;
-  const offShiftCount = MOCK_DRIVERS.filter((d) => !d.isOnline).length;
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    setErrorMessage(null);
+    try {
+      const res = await dashboardService.getDashboard();
+      if (res?.data) {
+        setDashboardData(res.data);
+        setIsOnShift(Boolean(res.data.is_on_shift));
+      }
+    } catch (err: any) {
+      console.warn('Failed to refresh dashboard data:', err?.message || err);
+      setErrorMessage(err?.message || 'Unable to refresh dashboard data.');
+    } finally {
+      setIsRefreshing(false);
+      setIsLoading(false);
+    }
+  }, []);
 
-  const filteredDrivers = MOCK_DRIVERS.filter((d) =>
-    filterMode === 'on_shift' ? d.isOnline : !d.isOnline
+  // Initial load
+  useEffect(() => {
+    let isMounted = true;
+    dashboardService
+      .getDashboard()
+      .then((res) => {
+        if (isMounted && res?.data) {
+          setDashboardData(res.data);
+          setIsOnShift(Boolean(res.data.is_on_shift));
+        }
+      })
+      .catch((err: any) => {
+        if (isMounted) {
+          console.warn('Failed to load dashboard data:', err?.message || err);
+          setErrorMessage(err?.message || 'Unable to load dashboard data.');
+        }
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Sync shift changes across the app
+  useEffect(() => {
+    const unsub = onShiftChange(() => {
+      handleRefresh();
+    });
+    return () => unsub();
+  }, [handleRefresh]);
+
+  // Refresh on screen focus
+  useFocusEffect(
+    useCallback(() => {
+      handleRefresh();
+    }, [handleRefresh])
   );
+
+  // Derived Header values
+  const header = dashboardData?.header;
+  const displayBusinessName = header?.business_name || businessName || user?.businessName || '--';
+  const displayUserName = header?.full_name || header?.first_name || userName || user?.name || '--';
+  const displayIdentifier = header?.identifier_value || taxiNumber || user?.taxiNumber || user?.empId || '--';
+
+  const initials = (() => {
+    const raw = displayBusinessName || displayUserName;
+    const parts = raw.trim().split(' ').filter(Boolean);
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    }
+    return raw.slice(0, 2).toUpperCase() || 'TB';
+  })();
+
+  // Shift Start Time
+  const rawStartAt =
+    dashboardData?.active_shift?.start_at ||
+    (dashboardData as any)?.start_at ||
+    shiftService.getActiveShift()?.start_at;
+  const rawStartTime =
+    dashboardData?.active_shift?.start_time ||
+    dashboardData?.start_time ||
+    shiftService.getActiveShift()?.start_time;
+
+  const displayStartTime = isOnShift
+    ? (rawStartAt ? formatSydneyToUserTime(rawStartAt) : null) ||
+      (rawStartTime ? formatSydneyToUserTime(rawStartTime) : null) ||
+      sessionStartTime ||
+      '--'
+    : '--';
+
+  const activeShiftCode =
+    dashboardData?.active_shift?.display_shift_id ||
+    header?.active_shift_code ||
+    dashboardData?.active_shift_text ||
+    (isOnShift ? '--' : 'No Active Shift');
+
+  // Drivers List & Summary
+  const drivers: ActiveDriverItem[] = dashboardData?.active_drivers?.list || [];
+  const summary = dashboardData?.active_drivers?.summary;
+
+  const onShiftCount =
+    summary?.on_shift_count ??
+    drivers.filter((d) => (d.is_on_shift !== undefined ? d.is_on_shift : d.is_online)).length;
+  const offShiftCount =
+    summary?.off_shift_count ??
+    drivers.filter((d) => !(d.is_on_shift !== undefined ? d.is_on_shift : d.is_online)).length;
+  const totalCount = summary?.total_count ?? drivers.length;
+
+  const filteredDrivers = drivers.filter((d) => {
+    const isDriverOnShift = d.is_on_shift !== undefined ? d.is_on_shift : d.is_online;
+    return filterMode === 'on_shift' ? isDriverOnShift : !isDriverOnShift;
+  });
+
+  // Revenue Metrics
+  const revenue = dashboardData?.revenue;
+  const timeframeLabel = revenue?.timeframe_label || 'Last 7 days';
+  const totalAmountFormatted = revenue?.total_amount_formatted || '$0.00';
+  const totalCountText = revenue?.total_count_formatted || `${revenue?.total_count ?? 0} ${revenue?.unit || 'Trips'}`;
+
+  const cardAmountFormatted = revenue?.card?.amount_formatted || '$0.00';
+  const cardCountText = revenue?.card?.count_formatted || `${revenue?.card?.count ?? 0} txns`;
+
+  const tapAmountFormatted = revenue?.tap_and_go?.amount_formatted || '$0.00';
+  const tapCountText = revenue?.tap_and_go?.count_formatted || `${revenue?.tap_and_go?.count ?? 0} txns`;
+
+  const splitAmount = (formatted: string) => {
+    const cleaned = formatted.replace('$', '').trim();
+    if (cleaned.includes('.')) {
+      const [whole, cents] = cleaned.split('.');
+      return { whole, cents: `.${cents}` };
+    }
+    return { whole: cleaned, cents: '.00' };
+  };
+
+  const totalSplit = splitAmount(totalAmountFormatted);
+  const cardSplit = splitAmount(cardAmountFormatted);
+  const tapSplit = splitAmount(tapAmountFormatted);
 
   const handleStartTaxiFare = () => {
     paymentSession.markPaymentCompleted();
     router.push('/(tabs)/tap-to-pay');
   };
 
-  const handleToggleShift = () => {
+  const handleToggleShift = async () => {
     if (isOnShift) {
+      const shiftSessionId =
+        dashboardData?.active_shift?.id || shiftService.getActiveShift()?.id;
+
       showConfirm({
         title: 'End Shift',
-        message:
-          'Are you sure you want to end your current active shift? Total fares ($485.00) will be submitted to records.',
+        message: `Are you sure you want to end your current active shift (${activeShiftCode})?`,
         confirmText: 'End Shift',
         cancelText: 'Cancel',
         type: 'warning',
         icon: 'stop-circle-outline',
-        onConfirm: () => {
-          setIsOnShift(false);
-          showAlert({
-            title: 'Shift Ended',
-            message: 'Shift tally submitted to records.',
-            type: 'success',
-            icon: 'checkmark-circle-outline',
-          });
+        onConfirm: async () => {
+          if (!shiftSessionId) {
+            setIsOnShift(false);
+            showAlert({
+              title: 'Shift Reset',
+              message: 'Active shift state refreshed.',
+              type: 'info',
+              icon: 'information-circle-outline',
+            });
+            await handleRefresh();
+            return;
+          }
+
+          try {
+            const userId = user?.id ? Number(user.id) : undefined;
+            const res = await shiftService.endShift({
+              shift_session_id: shiftSessionId,
+              user_id: userId,
+            });
+
+            if (res.status) {
+              setIsOnShift(false);
+              const shiftTimeRange = formatSydneyShiftRange(
+                res.data?.start_at,
+                res.data?.end_at
+              );
+              showAlert({
+                title: 'Shift Ended',
+                message: shiftTimeRange
+                  ? `Shift tally submitted to records.\nShift: ${shiftTimeRange}`
+                  : res.message || 'Shift tally submitted to records.',
+                buttonText: 'OK',
+                type: 'success',
+                icon: 'checkmark-circle-outline',
+              });
+              await handleRefresh();
+            } else {
+              if (
+                res.message?.toLowerCase().includes('already ended') ||
+                res.message?.toLowerCase().includes('not active')
+              ) {
+                setIsOnShift(false);
+                const shiftTimeRange = formatSydneyShiftRange(
+                  res.data?.start_at,
+                  res.data?.end_at
+                );
+                showAlert({
+                  title: 'Shift Closed',
+                  message: shiftTimeRange
+                    ? `${res.message}\nShift: ${shiftTimeRange}`
+                    : res.message,
+                  buttonText: 'OK',
+                  type: 'info',
+                  icon: 'information-circle-outline',
+                });
+                await handleRefresh();
+              } else {
+                showAlert({
+                  title: 'End Shift Failed',
+                  message: res.message || 'Unable to end shift. Please try again.',
+                  buttonText: 'OK',
+                  type: 'danger',
+                  icon: 'alert-circle-outline',
+                });
+              }
+            }
+          } catch (err: any) {
+            showAlert({
+              title: 'End Shift Failed',
+              message:
+                err?.response?.data?.message ||
+                err?.message ||
+                'Unable to end shift. Please try again.',
+              buttonText: 'OK',
+              type: 'danger',
+              icon: 'alert-circle-outline',
+            });
+          }
         },
       });
     } else {
-      setIsOnShift(true);
-      showAlert({
-        title: 'Shift Started',
-        message: 'Active on shift. Ready to accept sales.',
-        type: 'success',
-        icon: 'checkmark-circle-outline',
-      });
+      setIsShiftActionLoading(true);
+      try {
+        const res = await shiftService.startShift();
+        if (res.status && res.data) {
+          setIsOnShift(true);
+          const localStartTime = formatSydneyToUserTime(
+            res.data.active_shift?.start_at || res.data.active_shift?.start_time
+          );
+          showAlert({
+            title: 'Shift Started',
+            message: localStartTime
+              ? `Shift started at ${localStartTime}. Ready to accept sales.`
+              : res.message || 'Active on shift. Ready to accept sales.',
+            buttonText: 'OK',
+            type: 'success',
+            icon: 'checkmark-circle-outline',
+          });
+          await handleRefresh();
+        } else {
+          showAlert({
+            title: 'Start Shift Failed',
+            message: res.message || 'Unable to start shift. Please try again.',
+            buttonText: 'OK',
+            type: 'danger',
+            icon: 'alert-circle-outline',
+          });
+        }
+      } catch (err: any) {
+        showAlert({
+          title: 'Start Shift Failed',
+          message:
+            err?.response?.data?.message ||
+            err?.message ||
+            'Unable to start shift. Please try again.',
+          buttonText: 'OK',
+          type: 'danger',
+          icon: 'alert-circle-outline',
+        });
+      } finally {
+        setIsShiftActionLoading(false);
+      }
     }
   };
 
-  const handleNavigateToHistory = () => {
-    router.push('/(tabs)/transactions');
+  const handleDriverPress = (driver: ActiveDriverItem) => {
+    router.push({
+      pathname: '/driver-details',
+      params: { id: String(driver.id) },
+    });
   };
 
   return (
     <View style={styles.root}>
       <StatusBar style="dark" />
 
-      {/* Header Bar without back icon */}
+      {/* Header Bar */}
       <HeaderBar title="SE PAY DASHBOARD" />
 
-      <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 32 }]}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* 1. Hero Banner */}
-        <View style={styles.bannerContainer}>
-          <Image
-            source={require('../../../../assets/elite_taxi_hero.png')}
-            style={styles.bannerImage}
-            resizeMode="cover"
-          />
-
-          {/* Bottom-left row: Avatar + Translucent Text Badge */}
-          <View style={styles.bannerBottomRow}>
-            <View style={styles.avatarBox}>
-              <Text style={styles.avatarInitials}>ET</Text>
-            </View>
-
-            {/* Translucent Text Badge */}
-            <View style={styles.bannerTextBadge}>
-              <Text style={styles.bannerTitle} numberOfLines={1}>
-                {businessName}
-              </Text>
-              <Text style={styles.bannerSubtitle} numberOfLines={1}>
-                SHIFT: {isOnShift ? 'Active' : 'Start Shift Now!'}
-              </Text>
-            </View>
-          </View>
+      {isLoading && !dashboardData ? (
+        <View style={styles.centerLoading}>
+          <ActivityIndicator size="large" color="#D97706" />
+          <Text style={styles.loadingText}>Loading taxi dashboard...</Text>
         </View>
+      ) : (
+        <ScrollView
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: 32 }]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              colors={['#D97706']}
+              tintColor="#D97706"
+            />
+          }
+        >
+          {errorMessage && (
+            <View style={styles.errorBanner}>
+              <Ionicons name="alert-circle-outline" size={16} color="#DC2626" />
+              <Text style={styles.errorBannerText}>{errorMessage}</Text>
+            </View>
+          )}
 
-        {/* 2. Welcome Card */}
-        <View style={styles.welcomeCard}>
-          <View style={styles.welcomeCenterWrap}>
-            <Text style={styles.welcomeTitle}>
-              Welcome, <Text style={styles.welcomeNameBold}>{userName}</Text>
-            </Text>
+          {/* 1. Hero Banner */}
+          <View style={styles.bannerContainer}>
+            {header?.banner_image_url ? (
+              <Image
+                source={{ uri: header.banner_image_url }}
+                style={styles.bannerImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={[styles.bannerImage, { backgroundColor: '#0F172A' }]} />
+            )}
 
-            <View style={styles.welcomeMetaRow}>
-              <Text style={styles.taxiMetaLabel}>
-                Taxi No.: <Text style={styles.taxiNoHighlight}>{taxiNumber}</Text>
-              </Text>
-              {isOnShift && (
-                <>
-                  <Text style={styles.metaDot}>•</Text>
-                  <View style={styles.clockRow}>
-                    <Feather name="clock" size={13} color="#64748B" style={styles.clockIcon} />
-                    <Text style={styles.shiftStartText}>
-                      Shift Start: {sessionStartTime || '--'}
-                    </Text>
-                  </View>
-                </>
-              )}
+            {/* Bottom-left row: Avatar + Translucent Text Badge */}
+            <View style={styles.bannerBottomRow}>
+              <View style={styles.avatarBox}>
+                {header?.logo_url ? (
+                  <Image
+                    source={{ uri: header.logo_url }}
+                    style={styles.avatarLogoImage}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <Text style={styles.avatarInitials}>{initials}</Text>
+                )}
+              </View>
+
+              {/* Translucent Text Badge */}
+              <View style={styles.bannerTextBadge}>
+                <Text style={styles.bannerTitle} numberOfLines={1}>
+                  {displayBusinessName}
+                </Text>
+                <Text style={styles.bannerSubtitle} numberOfLines={1}>
+                  SHIFT: {isOnShift ? 'Active' : 'Start Shift Now!'}
+                </Text>
+              </View>
             </View>
           </View>
 
-          <View style={styles.activeShiftRow}>
-            <Text style={styles.activeShiftLabel}>
-              ACTIVE SHIFT: <Text style={styles.activeShiftCode}>26062021/M6061/537384</Text>
-            </Text>
+          {/* 2. Welcome Card */}
+          <View style={styles.welcomeCard}>
+            <View style={styles.welcomeCenterWrap}>
+              <Text style={styles.welcomeTitle}>
+                Welcome, <Text style={styles.welcomeNameBold}>{displayUserName}</Text>
+              </Text>
 
-            <View
-              style={[
-                styles.onShiftBadge,
-                !isOnShift && styles.offShiftBadge,
-              ]}
-            >
+              <View style={styles.welcomeMetaRow}>
+                <Text style={styles.taxiMetaLabel}>
+                  Taxi No.: <Text style={styles.taxiNoHighlight}>{displayIdentifier}</Text>
+                </Text>
+                {isOnShift && (
+                  <>
+                    <Text style={styles.metaDot}>•</Text>
+                    <View style={styles.clockRow}>
+                      <Feather name="clock" size={13} color="#64748B" style={styles.clockIcon} />
+                      <Text style={styles.shiftStartText}>
+                        Shift Start: {displayStartTime}
+                      </Text>
+                    </View>
+                  </>
+                )}
+              </View>
+            </View>
+
+            <View style={styles.activeShiftRow}>
+              <Text style={styles.activeShiftLabel}>
+                ACTIVE SHIFT: <Text style={styles.activeShiftCode}>{activeShiftCode}</Text>
+              </Text>
+
               <View
                 style={[
-                  styles.onShiftDot,
-                  !isOnShift && styles.offShiftDot,
+                  styles.onShiftBadge,
+                  !isOnShift && styles.offShiftBadge,
                 ]}
-              />
-              <Text
-                style={[
-                  styles.onShiftText,
-                  !isOnShift && styles.offShiftText,
-                ]}
-              >
-                {isOnShift ? 'ON SHIFT' : 'OFF SHIFT'}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* 3. TAXI FARE Big Golden Card (Only visible when On Shift) */}
-        {isOnShift && (
-          <TouchableOpacity
-            activeOpacity={0.88}
-            onPress={handleStartTaxiFare}
-            style={styles.taxiFareCard}
-          >
-            <LinearGradient
-              colors={['#F59E0B', '#FBBF24', '#FCD34D']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.taxiFareGradient}
-            >
-              {/* Left Taxi Icon Box */}
-              <View style={styles.taxiIconWrap}>
-                <MaterialCommunityIcons name="taxi" size={28} color="#0F172A" />
-              </View>
-
-              {/* Text Information */}
-              <View style={styles.taxiFareTextWrap}>
-                <Text style={styles.taxiFareTitle}>TAXI FARE</Text>
-                <Text style={styles.taxiFareSubtitle}>Ready to charge passengers</Text>
-              </View>
-
-              {/* Right Circular Arrow */}
-              <View style={styles.fareArrowCircle}>
-                <Feather name="chevron-right" size={22} color="#0F172A" />
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
-        )}
-
-        {/* 4. Revenue Card */}
-        <View style={styles.revenueCard}>
-          <View style={styles.revenueHeader}>
-            <View style={styles.revenueTitleRow}>
-              <Text style={styles.revenueMainTitle}>Revenue </Text>
-              <Text style={styles.revenueSubTitle}>Last 7 days</Text>
-            </View>
-            <View style={styles.tripsCountBadge}>
-              <Ionicons name="checkmark-circle-outline" size={17} color="#059669" />
-              <Text style={styles.tripsCountText}>14 Trips</Text>
-            </View>
-          </View>
-
-          {/* 3 Metrics: Total, Card, Tap & Go */}
-          <View style={styles.metricsRow}>
-            {/* 1. Total */}
-            <View style={styles.metricCol}>
-              <View style={styles.metricLabelRow}>
-                <View style={[styles.metricColorDot, { backgroundColor: '#D97706' }]} />
-                <Text style={[styles.metricLabelText, { color: '#B45309' }]}>TOTAL</Text>
-              </View>
-              <Text style={styles.metricValueText}>
-                <Text style={{ color: '#D97706', fontWeight: '800' }}>$</Text>485
-                <Text style={styles.metricCents}>.00</Text>
-              </Text>
-              <Text style={styles.metricSubInfo}>14 Trips</Text>
-            </View>
-
-            {/* 2. Card */}
-            <View style={styles.metricCol}>
-              <View style={styles.metricLabelRow}>
-                <Ionicons name="card" size={13} color="#2563EB" style={{ marginRight: 4 }} />
-                <Text style={[styles.metricLabelText, { color: '#2563EB' }]}>CARD</Text>
-              </View>
-              <Text style={styles.metricValueText}>
-                <Text style={{ color: '#2563EB', fontWeight: '800' }}>$</Text>320
-                <Text style={styles.metricCents}>.00</Text>
-              </Text>
-              <Text style={styles.metricSubInfo}>9 txns</Text>
-            </View>
-
-            {/* 3. Tap & Go */}
-            <View style={styles.metricCol}>
-              <View style={styles.metricLabelRow}>
-                <View style={[styles.metricColorDot, { backgroundColor: '#EA580C' }]} />
-                <Text style={[styles.metricLabelText, { color: '#EA580C' }]}>TAP & GO</Text>
-              </View>
-              <Text style={styles.metricValueText}>
-                <Text style={{ color: '#EA580C', fontWeight: '800' }}>$</Text>165
-                <Text style={styles.metricCents}>.00</Text>
-              </Text>
-              <Text style={styles.metricSubInfo}>5 txns</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* 5. End Shift Action Button */}
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={handleToggleShift}
-          style={styles.shiftButton}
-        >
-          <MaterialCommunityIcons
-            name={isOnShift ? 'logout' : 'login'}
-            size={20}
-            color="#FFFFFF"
-            style={{ marginRight: 8 }}
-          />
-          <Text style={styles.shiftButtonText}>
-            {isOnShift ? 'End Shift' : 'Start Shift'}
-          </Text>
-        </TouchableOpacity>
-
-        {/* 6. Active Drivers Section */}
-        <View style={styles.driversSection}>
-          <View style={styles.driversHeaderRow}>
-            <View style={styles.driversTitleWrap}>
-              <Text style={styles.driversMainTitle}>Active Drivers</Text>
-              <View style={styles.totalDriversBadge}>
-                <Text style={styles.totalDriversText}>4 Total</Text>
-              </View>
-            </View>
-
-            {/* Filter Toggle Pills */}
-            <View style={styles.filtersWrap}>
-              <TouchableOpacity
-                style={[
-                  styles.filterPill,
-                  filterMode === 'on_shift'
-                    ? styles.filterPillActiveOn
-                    : styles.filterPillInactive,
-                ]}
-                activeOpacity={0.7}
-                onPress={() => setFilterMode('on_shift')}
               >
                 <View
                   style={[
-                    styles.filterDot,
-                    filterMode === 'on_shift' ? styles.filterDotActive : styles.filterDotInactive,
+                    styles.onShiftDot,
+                    !isOnShift && styles.offShiftDot,
                   ]}
                 />
                 <Text
                   style={[
-                    styles.filterText,
-                    filterMode === 'on_shift'
-                      ? styles.filterTextActiveOn
-                      : styles.filterTextInactive,
+                    styles.onShiftText,
+                    !isOnShift && styles.offShiftText,
                   ]}
                 >
-                  On Shift {onShiftCount}
+                  {isOnShift ? 'ON SHIFT' : 'OFF SHIFT'}
                 </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.filterPill,
-                  filterMode === 'off_shift'
-                    ? styles.filterPillActiveOff
-                    : styles.filterPillInactive,
-                ]}
-                activeOpacity={0.7}
-                onPress={() => setFilterMode('off_shift')}
-              >
-                <Text
-                  style={[
-                    styles.filterText,
-                    filterMode === 'off_shift'
-                      ? styles.filterTextActiveOff
-                      : styles.filterTextInactive,
-                  ]}
-                >
-                  Off Shift {offShiftCount}
-                </Text>
-              </TouchableOpacity>
+              </View>
             </View>
           </View>
 
-          {/* Driver List Cards */}
-          <View style={styles.driversList}>
-            {filteredDrivers.map((driver) => (
-              <TouchableOpacity
-                key={driver.id}
-                style={styles.driverCard}
-                activeOpacity={0.8}
-                onPress={handleNavigateToHistory}
+          {/* 3. TAXI FARE Big Golden Card (Only visible when On Shift) */}
+          {isOnShift && (
+            <TouchableOpacity
+              activeOpacity={0.88}
+              onPress={handleStartTaxiFare}
+              style={styles.taxiFareCard}
+            >
+              <LinearGradient
+                colors={['#F59E0B', '#FBBF24', '#FCD34D']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.taxiFareGradient}
               >
-                {/* Top Row: Avatar + Info + Shift Rev */}
-                <View style={styles.driverTopRow}>
-                  <Image source={driver.avatar} style={styles.driverAvatar} />
-
-                  <View style={styles.driverInfoCol}>
-                    <View style={styles.driverNameRow}>
-                      <Text style={styles.driverNameText}>{driver.name}</Text>
-                      <View
-                        style={[
-                          styles.driverOnlinePill,
-                          !driver.isOnline && styles.driverOfflinePill,
-                        ]}
-                      >
-                        <View
-                          style={[
-                            styles.driverStatusDot,
-                            !driver.isOnline && styles.driverOfflineDot,
-                          ]}
-                        />
-                        <Text
-                          style={[
-                            styles.driverOnlineText,
-                            !driver.isOnline && styles.driverOfflineText,
-                          ]}
-                        >
-                          {driver.isOnline ? 'Online' : 'Offline'}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <Text style={styles.driverPlateDC}>
-                      Taxi No.: <Text style={styles.plateHighlight}>{driver.taxiNo}</Text>
-                      {'  |  '}DC {driver.dcNumber}
-                    </Text>
-                  </View>
-
-                  <View style={styles.driverRevCol}>
-                    <Text style={styles.driverRevLabel}>ACTIVE SHIFT REV</Text>
-                    <Text style={styles.driverRevAmount}>
-                      <Text style={styles.revDollarSign}>$</Text>
-                      {driver.activeShiftRev.split('.')[0]}
-                      <Text style={styles.revCents}>.{driver.activeShiftRev.split('.')[1] || '00'}</Text>
-                    </Text>
-                  </View>
+                {/* Left Taxi Icon Box */}
+                <View style={styles.taxiIconWrap}>
+                  <MaterialCommunityIcons name="taxi" size={28} color="#0F172A" />
                 </View>
-              </TouchableOpacity>
-            ))}
+
+                {/* Text Information */}
+                <View style={styles.taxiFareTextWrap}>
+                  <Text style={styles.taxiFareTitle}>TAXI FARE</Text>
+                  <Text style={styles.taxiFareSubtitle}>Ready to charge passengers</Text>
+                </View>
+
+                {/* Right Circular Arrow */}
+                <View style={styles.fareArrowCircle}>
+                  <Feather name="chevron-right" size={22} color="#0F172A" />
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+
+          {/* 4. Revenue Card */}
+          <View style={styles.revenueCard}>
+            <View style={styles.revenueHeader}>
+              <View style={styles.revenueTitleRow}>
+                <Text style={styles.revenueMainTitle}>Revenue </Text>
+                <Text style={styles.revenueSubTitle}>{timeframeLabel}</Text>
+              </View>
+              <View style={styles.tripsCountBadge}>
+                <Ionicons name="checkmark-circle-outline" size={17} color="#059669" />
+                <Text style={styles.tripsCountText}>{totalCountText}</Text>
+              </View>
+            </View>
+
+            {/* 3 Metrics: Total, Card, Tap & Go */}
+            <View style={styles.metricsRow}>
+              {/* 1. Total */}
+              <View style={styles.metricCol}>
+                <View style={styles.metricLabelRow}>
+                  <View style={[styles.metricColorDot, { backgroundColor: '#D97706' }]} />
+                  <Text style={[styles.metricLabelText, { color: '#B45309' }]}>TOTAL</Text>
+                </View>
+                <Text style={styles.metricValueText}>
+                  <Text style={{ color: '#D97706', fontWeight: '800' }}>$</Text>
+                  {totalSplit.whole}
+                  <Text style={styles.metricCents}>{totalSplit.cents}</Text>
+                </Text>
+                <Text style={styles.metricSubInfo}>{totalCountText}</Text>
+              </View>
+
+              {/* 2. Card */}
+              <View style={styles.metricCol}>
+                <View style={styles.metricLabelRow}>
+                  <Ionicons name="card" size={13} color="#2563EB" style={{ marginRight: 4 }} />
+                  <Text style={[styles.metricLabelText, { color: '#2563EB' }]}>CARD</Text>
+                </View>
+                <Text style={styles.metricValueText}>
+                  <Text style={{ color: '#2563EB', fontWeight: '800' }}>$</Text>
+                  {cardSplit.whole}
+                  <Text style={styles.metricCents}>{cardSplit.cents}</Text>
+                </Text>
+                <Text style={styles.metricSubInfo}>{cardCountText}</Text>
+              </View>
+
+              {/* 3. Tap & Go */}
+              <View style={styles.metricCol}>
+                <View style={styles.metricLabelRow}>
+                  <View style={[styles.metricColorDot, { backgroundColor: '#EA580C' }]} />
+                  <Text style={[styles.metricLabelText, { color: '#EA580C' }]}>TAP & GO</Text>
+                </View>
+                <Text style={styles.metricValueText}>
+                  <Text style={{ color: '#EA580C', fontWeight: '800' }}>$</Text>
+                  {tapSplit.whole}
+                  <Text style={styles.metricCents}>{tapSplit.cents}</Text>
+                </Text>
+                <Text style={styles.metricSubInfo}>{tapCountText}</Text>
+              </View>
+            </View>
           </View>
-        </View>
-      </ScrollView>
+
+          {/* 5. End / Start Shift Action Button */}
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={handleToggleShift}
+            disabled={isShiftActionLoading}
+            style={[styles.shiftButton, isShiftActionLoading && { opacity: 0.7 }]}
+          >
+            {isShiftActionLoading ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <MaterialCommunityIcons
+                  name={isOnShift ? 'logout' : 'login'}
+                  size={20}
+                  color="#FFFFFF"
+                  style={{ marginRight: 8 }}
+                />
+                <Text style={styles.shiftButtonText}>
+                  {isOnShift ? 'End Shift' : 'Start Shift'}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          {/* 6. Active Drivers Section */}
+          <View style={styles.driversSection}>
+            <View style={styles.driversHeaderRow}>
+              <View style={styles.driversTitleWrap}>
+                <Text style={styles.driversMainTitle}>Active Drivers</Text>
+                <View style={styles.totalDriversBadge}>
+                  <Text style={styles.totalDriversText}>{totalCount} Total</Text>
+                </View>
+              </View>
+
+              {/* Filter Toggle Pills */}
+              <View style={styles.filtersWrap}>
+                <TouchableOpacity
+                  style={[
+                    styles.filterPill,
+                    filterMode === 'on_shift'
+                      ? styles.filterPillActiveOn
+                      : styles.filterPillInactive,
+                  ]}
+                  activeOpacity={0.7}
+                  onPress={() => setFilterMode('on_shift')}
+                >
+                  <View
+                    style={[
+                      styles.filterDot,
+                      filterMode === 'on_shift' ? styles.filterDotActive : styles.filterDotInactive,
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      styles.filterText,
+                      filterMode === 'on_shift'
+                        ? styles.filterTextActiveOn
+                        : styles.filterTextInactive,
+                    ]}
+                  >
+                    On Shift {onShiftCount}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.filterPill,
+                    filterMode === 'off_shift'
+                      ? styles.filterPillActiveOff
+                      : styles.filterPillInactive,
+                  ]}
+                  activeOpacity={0.7}
+                  onPress={() => setFilterMode('off_shift')}
+                >
+                  <Text
+                    style={[
+                      styles.filterText,
+                      filterMode === 'off_shift'
+                        ? styles.filterTextActiveOff
+                        : styles.filterTextInactive,
+                    ]}
+                  >
+                    Off Shift {offShiftCount}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Driver List Cards */}
+            <View style={styles.driversList}>
+              {filteredDrivers.length === 0 ? (
+                <View style={styles.emptyDriversWrap}>
+                  <Feather name="users" size={24} color="#94A3B8" />
+                  <Text style={styles.emptyDriversText}>
+                    {filterMode === 'on_shift'
+                      ? 'No drivers currently on shift'
+                      : 'No drivers currently off shift'}
+                  </Text>
+                </View>
+              ) : (
+                filteredDrivers.map((driver) => {
+                  const isDriverOnline =
+                    driver.is_on_shift !== undefined ? driver.is_on_shift : driver.is_online;
+                  const driverInitials =
+                    driver.initials ||
+                    driver.name
+                      .split(' ')
+                      .map((n) => n[0])
+                      .join('')
+                      .toUpperCase()
+                      .slice(0, 2) ||
+                    'DR';
+
+                  const revFormatted = driver.active_shift_revenue_formatted || '$0.00';
+                  const revSplit = splitAmount(revFormatted);
+
+                  return (
+                    <TouchableOpacity
+                      key={String(driver.id)}
+                      style={styles.driverCard}
+                      activeOpacity={0.8}
+                      onPress={() => handleDriverPress(driver)}
+                    >
+                      {/* Top Row: Avatar + Info + Shift Rev */}
+                      <View style={styles.driverTopRow}>
+                        {driver.profile_photo_url ? (
+                          <Image
+                            source={{ uri: driver.profile_photo_url }}
+                            style={styles.driverAvatar}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <View style={[styles.driverAvatar, styles.initialsAvatarBox]}>
+                            <Text style={styles.driverInitialsText}>{driverInitials}</Text>
+                          </View>
+                        )}
+
+                        <View style={styles.driverInfoCol}>
+                          <View style={styles.driverNameRow}>
+                            <Text style={styles.driverNameText} numberOfLines={1}>
+                              {driver.name}
+                            </Text>
+                            <View
+                              style={[
+                                styles.driverOnlinePill,
+                                !isDriverOnline && styles.driverOfflinePill,
+                              ]}
+                            >
+                              <View
+                                style={[
+                                  styles.driverStatusDot,
+                                  !isDriverOnline && styles.driverOfflineDot,
+                                ]}
+                              />
+                              <Text
+                                style={[
+                                  styles.driverOnlineText,
+                                  !isDriverOnline && styles.driverOfflineText,
+                                ]}
+                              >
+                                {isDriverOnline ? 'Online' : 'Offline'}
+                              </Text>
+                            </View>
+                          </View>
+
+                          <Text style={styles.driverPlateDC}>
+                            Taxi No.:{' '}
+                            <Text style={styles.plateHighlight}>{driver.taxi_no || '--'}</Text>
+                            {'  |  '}DC {driver.dc_number || '--'}
+                          </Text>
+                        </View>
+
+                        <View style={styles.driverRevCol}>
+                          <Text style={styles.driverRevLabel}>ACTIVE SHIFT REV</Text>
+                          <Text style={styles.driverRevAmount}>
+                            <Text style={styles.revDollarSign}>$</Text>
+                            {revSplit.whole}
+                            <Text style={styles.revCents}>{revSplit.cents}</Text>
+                          </Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+            </View>
+          </View>
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -468,6 +753,35 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  centerLoading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  errorBannerText: {
+    fontSize: 12,
+    color: '#DC2626',
+    fontWeight: '500',
+    flex: 1,
   },
   scrollContent: {
     paddingHorizontal: 16,
@@ -503,11 +817,16 @@ const styles = StyleSheet.create({
     borderColor: '#FEF08A',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 3,
+  },
+  avatarLogoImage: {
+    width: '100%',
+    height: '100%',
   },
   avatarInitials: {
     fontSize: 17,
@@ -885,6 +1204,17 @@ const styles = StyleSheet.create({
   driversList: {
     gap: 10,
   },
+  emptyDriversWrap: {
+    paddingVertical: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  emptyDriversText: {
+    fontSize: 12.5,
+    color: '#64748B',
+    fontWeight: '600',
+  },
   driverCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
@@ -907,6 +1237,18 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginRight: 10,
     backgroundColor: '#F1F5F9',
+  },
+  initialsAvatarBox: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  driverInitialsText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#B45309',
   },
   driverInfoCol: {
     flex: 1,

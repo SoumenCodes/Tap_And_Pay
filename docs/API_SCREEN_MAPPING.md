@@ -33,9 +33,9 @@ Comprehensive mapping between application screens, backend endpoints, and the 5 
 | :--- | :--- | :--- | :---: | :--- | :---: | :--- |
 | **Other Business Dashboard** | `src/components/other-business/owner/OtherBusinessDashboard.tsx` | `other_business` | `GET` | `/api/user/dashboard` | ✅ Live | Revenue (Card / Tap & Go), active employees summary & list, header details. |
 | **Employee Dashboard** | `src/components/other-business/employee/OtherBusinessEmployeeDashboard.tsx` | `other_business_employee` | `GET` | `/api/user/dashboard` | ✅ Live | Personal shift status, revenue (Card / Tap & Go), recent transactions list. |
-| **Taxi Fleet Dashboard** | `src/components/taxi/business/TaxiBusinessDashboard.tsx` | `taxi_business` | `GET` | `/api/user/dashboard` | ⏳ Pending Contract | Fleet revenue, active drivers on/off shift summary & list. |
-| **Taxi Owner Dashboard** | `src/components/taxi/owner/TaxiOwnerDashboard.tsx` | `taxi_owner` | `GET` | `/api/user/dashboard` | ⏳ Pending Contract | Single-vehicle revenue, active shift tally, ride triggers. |
-| **Taxi Driver Dashboard** | `src/components/taxi/driver/TaxiDriverDashboard.tsx` | `taxi_business_driver` | `GET` | `/api/user/dashboard` | ⏳ Pending Contract | Driver active shift revenue, vehicle assignment status. |
+| **Taxi Fleet Dashboard** | `src/components/taxi/business/TaxiBusinessDashboard.tsx` | `taxi_business` | `GET` | `/api/user/dashboard` | ✅ Live | Fleet revenue, active drivers on/off shift summary & list, live shift start/end. |
+| **Taxi Owner Dashboard** | `src/components/taxi/owner/TaxiOwnerDashboard.tsx` | `taxi_owner` | `GET` | `/api/user/dashboard` | ✅ Live | Single-vehicle revenue, active shift tally, live shift start/end, recent trips. |
+| **Taxi Driver Dashboard** | `src/components/taxi/driver/TaxiDriverDashboard.tsx` | `taxi_business_driver` | `GET` | `/api/user/dashboard` | ✅ Live | Driver active shift revenue, vehicle assignment status, live shift start/end, recent trips. |
 
 ---
 

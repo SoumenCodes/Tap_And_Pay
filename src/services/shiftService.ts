@@ -56,26 +56,33 @@ export interface EndShiftResponse {
 /**
  * Shift History Types & Interfaces (GET /api/shift/history)
  */
-export interface ShiftSelectorEmployee {
-  id: number;
+export interface ShiftSelectorItem {
+  id: number | string;
   name: string;
   code: string;
   photo: string | null;
   initials: string;
 }
 
+export type ShiftSelectorEmployee = ShiftSelectorItem;
+export type ShiftSelectorDriver = ShiftSelectorItem;
+
 export interface ShiftHistoryHeaderSelector {
   is_visible: boolean;
   type: string;
-  title: string;
+  title: string | null;
+  label?: string | null;
+  options_label?: string | null;
   total_count: number;
-  employee_list: ShiftSelectorEmployee[];
+  employee_list?: ShiftSelectorItem[];
+  driver_list?: ShiftSelectorItem[];
+  options?: ShiftSelectorItem[];
 }
 
 export interface ShiftHistoryHeader {
   title: string;
-  emp_id: string | null;
-  taxi_no: string | null;
+  emp_id?: string | null;
+  taxi_no?: string | null;
   selector?: ShiftHistoryHeaderSelector;
 }
 
@@ -137,6 +144,7 @@ export interface ShiftRecordItem {
   card?: ShiftMethodBreakdown;
   tap_and_go?: ShiftMethodBreakdown;
   cash?: ShiftMethodBreakdown;
+  taxi_number?: string | null;
 }
 
 export interface ShiftPagination {
@@ -171,6 +179,7 @@ export interface ShiftHistoryResponse {
 
 export interface ShiftHistoryParams {
   employee_id?: number | string;
+  driver_id?: number | string;
   status?: 'all' | 'paid' | 'unpaid' | string;
   search?: string;
   start_date?: string;
@@ -302,6 +311,9 @@ export const shiftService = {
     const queryParams: Record<string, any> = {};
     if (params?.employee_id !== undefined && params?.employee_id !== null && params?.employee_id !== '') {
       queryParams.employee_id = params.employee_id;
+    }
+    if (params?.driver_id !== undefined && params?.driver_id !== null && params?.driver_id !== '') {
+      queryParams.driver_id = params.driver_id;
     }
     if (params?.status) {
       queryParams.status = params.status;

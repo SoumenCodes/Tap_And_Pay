@@ -164,21 +164,31 @@ function DateRangePickerContent({
     }
   };
 
-  // Build calendar days grid
+  // Build calendar weeks grid
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   let firstDayIndex = new Date(viewYear, viewMonth, 1).getDay() - 1;
   if (firstDayIndex === -1) firstDayIndex = 6;
 
-  const calendarDays: ({ day: number; dateStr: string } | null)[] = [];
+  const allCalendarDays: ({ day: number; dateStr: string } | null)[] = [];
   for (let i = 0; i < firstDayIndex; i++) {
-    calendarDays.push(null);
+    allCalendarDays.push(null);
   }
   for (let d = 1; d <= daysInMonth; d++) {
     const dateObj = new Date(viewYear, viewMonth, d);
-    calendarDays.push({
+    allCalendarDays.push({
       day: d,
       dateStr: formatDateToYMD(dateObj),
     });
+  }
+
+  // Chunk into rows of 7
+  const calendarWeeks: ({ day: number; dateStr: string } | null)[][] = [];
+  for (let i = 0; i < allCalendarDays.length; i += 7) {
+    const week = allCalendarDays.slice(i, i + 7);
+    while (week.length < 7) {
+      week.push(null);
+    }
+    calendarWeeks.push(week);
   }
 
   // Handle Apply
@@ -383,61 +393,83 @@ function DateRangePickerContent({
           {/* Weekdays Row */}
           <View style={styles.weekdaysRow}>
             {WEEKDAYS.map((wd) => (
-              <Text key={wd} style={styles.weekdayText}>
-                {wd}
-              </Text>
+              <View key={wd} style={styles.weekdayCol}>
+                <Text style={styles.weekdayText}>{wd}</Text>
+              </View>
             ))}
           </View>
 
-          {/* Day Grid */}
-          <View style={styles.daysGrid}>
-            {calendarDays.map((item, idx) => {
-              if (!item) {
-                return <View key={`empty-${idx}`} style={styles.dayCellEmpty} />;
-              }
+          {/* Calendar Weeks */}
+          <View style={styles.calendarWeeksContainer}>
+            {calendarWeeks.map((week, weekIdx) => (
+              <View key={`week-${weekIdx}`} style={styles.weekRow}>
+                {week.map((item, colIdx) => {
+                  if (!item) {
+                    return <View key={`empty-${weekIdx}-${colIdx}`} style={styles.dayCellContainer} />;
+                  }
 
-              const isStart = tempStartDate === item.dateStr;
-              const isEnd = (tempEndDate || tempStartDate) === item.dateStr;
-              const isInRange =
-                tempStartDate &&
-                tempEndDate &&
-                item.dateStr > tempStartDate &&
-                item.dateStr < tempEndDate;
-              const isToday = item.dateStr === todayStr;
+                  const hasRange = Boolean(
+                    tempStartDate && tempEndDate && tempStartDate < tempEndDate
+                  );
+                  const isStart = tempStartDate === item.dateStr;
+                  const isEnd = hasRange ? tempEndDate === item.dateStr : isStart;
+                  const isInRange = Boolean(
+                    hasRange &&
+                    tempStartDate &&
+                    tempEndDate &&
+                    item.dateStr > tempStartDate &&
+                    item.dateStr < tempEndDate
+                  );
+                  const isToday = item.dateStr === todayStr;
 
-              return (
-                <TouchableOpacity
-                  key={item.dateStr}
-                  style={[
-                    styles.dayCell,
-                    isInRange && styles.dayCellInRange,
-                    isStart && styles.dayCellStart,
-                    isEnd && styles.dayCellEnd,
-                  ]}
-                  onPress={() => handleDayPress(item.dateStr)}
-                  activeOpacity={0.7}
-                >
-                  <View
-                    style={[
-                      styles.dayCircle,
-                      (isStart || isEnd) && styles.dayCircleSelected,
-                      isToday && !isStart && !isEnd && styles.dayCircleToday,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.dayText,
-                        isToday && styles.dayTextToday,
-                        (isStart || isEnd) && styles.dayTextSelected,
-                        isInRange && styles.dayTextInRange,
-                      ]}
+                  return (
+                    <TouchableOpacity
+                      key={item.dateStr}
+                      style={styles.dayCellContainer}
+                      onPress={() => handleDayPress(item.dateStr)}
+                      activeOpacity={0.7}
                     >
-                      {item.day}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
+                      {/* Range Ribbon Background */}
+                      {hasRange && (
+                        <>
+                          {isInRange && (
+                            <View
+                              style={[
+                                styles.rangeRibbon,
+                                colIdx === 0 && styles.rangeRibbonLeftRounded,
+                                colIdx === 6 && styles.rangeRibbonRightRounded,
+                              ]}
+                            />
+                          )}
+                          {isStart && <View style={styles.rangeRibbonStart} />}
+                          {isEnd && <View style={styles.rangeRibbonEnd} />}
+                        </>
+                      )}
+
+                      {/* Day Circle */}
+                      <View
+                        style={[
+                          styles.dayCircle,
+                          (isStart || (hasRange && isEnd)) && styles.dayCircleSelected,
+                          isToday && !isStart && !isEnd && styles.dayCircleToday,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.dayText,
+                            isToday && styles.dayTextToday,
+                            (isStart || (hasRange && isEnd)) && styles.dayTextSelected,
+                            isInRange && styles.dayTextInRange,
+                          ]}
+                        >
+                          {item.day}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ))}
           </View>
         </View>
       </ScrollView>
@@ -631,62 +663,85 @@ const styles = StyleSheet.create({
   },
   weekdaysRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 6,
+    marginBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
     paddingBottom: 6,
   },
+  weekdayCol: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   weekdayText: {
-    width: 38,
     textAlign: 'center',
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
     color: '#94A3B8',
   },
-  daysGrid: {
+  calendarWeeksContainer: {
+    gap: 4,
+  },
+  weekRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    height: 40,
   },
-  dayCellEmpty: {
-    width: `${100 / 7}%`,
-    height: 38,
-  },
-  dayCell: {
-    width: `${100 / 7}%`,
-    height: 38,
+  dayCellContainer: {
+    flex: 1,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
   },
-  dayCellInRange: {
+  rangeRibbon: {
+    position: 'absolute',
+    top: 3,
+    bottom: 3,
+    left: 0,
+    right: 0,
     backgroundColor: '#FEF3C7',
   },
-  dayCellStart: {
-    borderTopLeftRadius: 19,
-    borderBottomLeftRadius: 19,
+  rangeRibbonLeftRounded: {
+    borderTopLeftRadius: 17,
+    borderBottomLeftRadius: 17,
+  },
+  rangeRibbonRightRounded: {
+    borderTopRightRadius: 17,
+    borderBottomRightRadius: 17,
+  },
+  rangeRibbonStart: {
+    position: 'absolute',
+    top: 3,
+    bottom: 3,
+    left: '50%',
+    right: 0,
     backgroundColor: '#FEF3C7',
   },
-  dayCellEnd: {
-    borderTopRightRadius: 19,
-    borderBottomRightRadius: 19,
+  rangeRibbonEnd: {
+    position: 'absolute',
+    top: 3,
+    bottom: 3,
+    left: 0,
+    right: '50%',
     backgroundColor: '#FEF3C7',
   },
   dayCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 2,
   },
   dayCircleSelected: {
     backgroundColor: '#D97706',
   },
   dayCircleToday: {
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#D97706',
   },
   dayText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '500',
     color: '#1E293B',
   },

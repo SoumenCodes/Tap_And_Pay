@@ -453,7 +453,15 @@ export default function TaxiOwnerDashboard({
               style={styles.taxiFareGradient}
             >
               <View style={styles.taxiFareIconBox}>
-                <MaterialCommunityIcons name="taxi" size={26} color="#0F172A" />
+                {Boolean(user?.logoUrl || header?.logo_url) ? (
+                  <Image
+                    source={{ uri: (user?.logoUrl || header?.logo_url)! }}
+                    style={styles.taxiLogoImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <MaterialCommunityIcons name="taxi" size={26} color="#0F172A" />
+                )}
               </View>
 
               <View style={styles.taxiFareTextCol}>
@@ -892,6 +900,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
+    overflow: 'hidden',
+  },
+  taxiLogoImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 14,
   },
   taxiFareTextCol: {
     flex: 1,

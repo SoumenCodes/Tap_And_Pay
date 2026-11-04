@@ -438,9 +438,17 @@ export default function OtherBusinessEmployeeDashboard({
               end={{ x: 1, y: 1 }}
               style={styles.saleGradient}
             >
-              {/* Left Scissors Icon Pill */}
+              {/* Left Logo / Scissors Icon Pill */}
               <View style={styles.scissorsIconWrap}>
-                <Ionicons name="cut" size={24} color="#0F172A" />
+                {Boolean(user?.logoUrl || header?.logo_url) ? (
+                  <Image
+                    source={{ uri: (user?.logoUrl || header?.logo_url)! }}
+                    style={styles.crownBadgeImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Ionicons name="card-outline" size={22} color="#0F172A" />
+                )}
               </View>
 
               {/* Text Information */}
@@ -890,6 +898,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
+    overflow: 'hidden',
+  },
+  crownBadgeImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 6,
   },
   saleTextWrap: {
     flex: 1,

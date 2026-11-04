@@ -36,6 +36,8 @@ export default function ProcessingScreen() {
     cardInput?: string;
     pickup?: string;
     dropoff?: string;
+    pickup_id?: string;
+    dropoff_id?: string;
   }>();
 
   const { runSimulatedPayment, statusMessage, errorMessage } = useTerminal();
@@ -83,6 +85,8 @@ export default function ProcessingScreen() {
     parsedCardInput,
     pickup: params.pickup || '',
     dropoff: params.dropoff || '',
+    pickup_id: params.pickup_id || '',
+    dropoff_id: params.dropoff_id || '',
     runSimulatedPayment,
     router,
   });
@@ -95,6 +99,8 @@ export default function ProcessingScreen() {
       parsedCardInput,
       pickup: params.pickup || '',
       dropoff: params.dropoff || '',
+      pickup_id: params.pickup_id || '',
+      dropoff_id: params.dropoff_id || '',
       runSimulatedPayment,
       router,
     };
@@ -129,13 +135,20 @@ export default function ProcessingScreen() {
         parsedCardInput: cardInput,
         pickup,
         dropoff,
+        pickup_id: pId,
+        dropoff_id: dId,
         runSimulatedPayment: executePayment,
         router: navRouter,
       } = paymentStateRef.current;
 
       try {
         const feeBreakdown = calculateFee(amt, method);
-        const result = await executePayment(amt, method, feeBreakdown, cardInput);
+        const result = await executePayment(amt, method, feeBreakdown, cardInput, {
+          pickup_id: pId || null,
+          dropoff_id: dId || null,
+          pickup: pickup || null,
+          dropoff: dropoff || null,
+        });
 
         if (result.success && result.paymentIntent) {
           const pi = result.paymentIntent;

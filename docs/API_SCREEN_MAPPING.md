@@ -45,8 +45,8 @@ Comprehensive mapping between application screens, backend endpoints, and the 5 
 | **User Profile** | All 5 Profile Screens (`src/components/*/profile/`) | All 5 Roles | `GET` | `/api/user/profile` | ✅ Live | Fetches user info, business details, bank details, and active session revenue. |
 | **Bank Details** | Profile Bank Modal | All 5 Roles | `GET` | `/api/user/bank-details` | ✅ Live | Current bank account name, BSB, masked account number, approval status. |
 | **Update Bank** | Profile Bank Edit Modal | All 5 Roles | `POST` | `/api/user/update-bank-details` | ✅ Live | Submits updated bank details for admin approval. |
-| **Start Shift** | Profile Shift Card (`OtherBusinessProfileScreen.tsx`, `OtherBusinessEmployeeProfileScreen.tsx`) | `other_business`, `other_business_employee` | `POST` | `/api/shift/start` | ✅ Live | Starts session and records start timestamp and shift code. |
-| **End Shift** | Profile Shift Card (`OtherBusinessProfileScreen.tsx`, `OtherBusinessEmployeeProfileScreen.tsx`) | `other_business`, `other_business_employee` | `POST` | `/api/shift/end` | ✅ Live | Closes session and registers shift duration and tallies to history. |
+| **Start Shift** | Profile Shift Card (All 5 Profile Screens) & Dashboards | All 5 Roles | `POST` | `/api/shift/start` | ✅ Live | Starts session and records start timestamp and shift code. |
+| **End Shift** | Profile Shift Card (All 5 Profile Screens) & Dashboards | All 5 Roles | `POST` | `/api/shift/end` | ✅ Live | Closes session and registers shift duration and tallies to history. |
 | **Logout** | All Profile Screens | All 5 Roles | `POST` | `/api/logout` | ✅ Live | Invalidates active user session and clears stored tokens. |
 
 ---
@@ -85,6 +85,7 @@ Comprehensive mapping between application screens, backend endpoints, and the 5 
 | **End Shift** | Dashboard buttons | All Roles | `POST` | `/api/shift/end` | ✅ Live | Closes work session; sends shift_session_id and user_id, updates shift state. |
 | **Shift History** | `src/components/taxi/business/TaxiBusinessHistoryScreen.tsx`, `src/components/taxi/driver/TaxiDriverHistoryScreen.tsx`, `src/components/taxi/owner/TaxiOwnerHistoryScreen.tsx`, `src/components/other-business/owner/OtherBusinessTransactionsScreen.tsx`, `src/components/other-business/employee/OtherBusinessEmployeeHistoryScreen.tsx` | All 5 Roles (`taxi_business`, `taxi_owner`, `taxi_business_driver`, `other_business`, `other_business_employee`) | `GET` | `/api/shift/history` | ✅ Live | Shift history supporting infinite scroll pagination (`?page=1&limit=10`), date range search (`?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD`), shift ID/keyword search (`?search=shiftid`), status tabs (`?status=all|paid|unpaid`), driver/employee selector (`?driver_id=<id>` / `?employee_id=<id>`), collections summary, and detailed shift audit report export. |
 | **Shift History Details** | `src/components/other-business/owner/OtherBusinessShiftDetailsScreen.tsx` | All 5 Roles | `GET` | `/api/shift/history/details/:id` | ✅ Live | Full breakdown of individual shift metrics, card & tap sales, line-item transactions, and printable tally slip/receipt. |
+| **Location / Suburb Search** | `src/services/locationService.ts`, `src/app/(tabs)/tap-to-pay.tsx` | Taxi Roles (`taxi_business`, `taxi_owner`, `taxi_business_driver`) | `GET` | `/api/location?search=<query>` | ✅ Live | Dynamic search for Australian suburbs/locations for Pickup and Drop-off route selection. Returns `{ id, suburb }` records; IDs are passed to payment intents and cash records. |
 
 ---
 

@@ -26,6 +26,8 @@ export default function CardEntryScreen() {
     showFraudWarning?: string;
     pickup?: string;
     dropoff?: string;
+    pickup_id?: string;
+    dropoff_id?: string;
   }>();
 
   const rawAmount = params.amount || '104.00';
@@ -166,6 +168,8 @@ export default function CardEntryScreen() {
         }),
         pickup: params.pickup || '',
         dropoff: params.dropoff || '',
+        pickup_id: params.pickup_id || '',
+        dropoff_id: params.dropoff_id || '',
       },
     });
     setIsProcessing(false);

@@ -70,7 +70,7 @@ export interface SessionRevenue {
 export interface CurrentSession {
   has_active_session: boolean;
   status_badge: string;
-  shift_id?: string | null;
+  shift_id?: number | string | null;
   session_uuid?: string | null;
   display_shift_id?: string | null;
   started_at?: string | null;
@@ -85,7 +85,7 @@ export interface CurrentSession {
 export interface ProfileMenuOption {
   key: string;
   title: string;
-  subtitle: string;
+  subtitle?: string;
   action: string;
 }
 

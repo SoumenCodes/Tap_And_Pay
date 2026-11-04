@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -22,8 +22,18 @@ import {
   ProfileResponseData,
   BankDetailsData,
 } from '../../../services/profileService';
-import { formatSubmittedDate } from '../../../utils/dateUtils';
+import {
+  shiftService,
+  onShiftChange,
+} from '../../../services/shiftService';
+import { dashboardService } from '../../../services/dashboardService';
+import {
+  formatSubmittedDate,
+  formatSydneyToUserTime,
+  formatSydneyShiftRange,
+} from '../../../utils/dateUtils';
 import { useConfirmModal } from '../../../context/ConfirmModalContext';
+import { DiagnosticLogsModal } from '../../common/DiagnosticLogsModal';
 
 export default function TaxiOwnerProfileScreen() {
   const router = useRouter();
@@ -40,10 +50,12 @@ export default function TaxiOwnerProfileScreen() {
   const [isBankLoading, setIsBankLoading] = useState(false);
 
   const [isOnShift, setIsOnShift] = useState(false);
+  const [isShiftActionLoading, setIsShiftActionLoading] = useState(false);
 
-  // Bank Modals State
+  // Modals State
   const [isBankModalVisible, setIsBankModalVisible] = useState(false);
   const [isUpdateBankModalVisible, setIsUpdateBankModalVisible] = useState(false);
+  const [isLogsModalVisible, setIsLogsModalVisible] = useState(false);
 
   // Current Bank Account Information
   const [accountName, setAccountName] = useState('');
@@ -58,7 +70,7 @@ export default function TaxiOwnerProfileScreen() {
   const [isSubmittingBank, setIsSubmittingBank] = useState(false);
 
   // Helper to apply profile data to local state
-  const applyProfileData = (data: ProfileResponseData) => {
+  const applyProfileData = useCallback((data: ProfileResponseData) => {
     setProfileData(data);
 
     if (data.user?.bank_details) {
@@ -84,31 +96,40 @@ export default function TaxiOwnerProfileScreen() {
     if (data.current_session) {
       setIsOnShift(Boolean(data.current_session.has_active_session));
     }
-  };
+  }, []);
+
+  const fetchProfile = useCallback(async () => {
+    try {
+      const data = await profileService.getProfile();
+      applyProfileData(data);
+    } catch (err: any) {
+      console.log('Failed to fetch taxi owner profile:', err.message || err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [applyProfileData]);
 
   // Initial load via GET /api/user/profile
   useEffect(() => {
     let isMounted = true;
-
-    profileService
-      .getProfile()
-      .then((data) => {
-        if (!isMounted) return;
-        applyProfileData(data);
-      })
-      .catch((err) => {
-        console.log('Failed to fetch taxi owner profile:', err.message || err);
-      })
-      .finally(() => {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      });
+    const timer = setTimeout(() => {
+      if (!isMounted) return;
+      fetchProfile();
+    }, 0);
 
     return () => {
       isMounted = false;
+      clearTimeout(timer);
     };
-  }, []);
+  }, [fetchProfile]);
+
+  // Synchronize profile state when shift status is changed across the app
+  useEffect(() => {
+    const unsub = onShiftChange(() => {
+      fetchProfile();
+    });
+    return () => unsub();
+  }, [fetchProfile]);
 
   // Pull-to-refresh handler
   const handleRefresh = async () => {
@@ -173,6 +194,16 @@ export default function TaxiOwnerProfileScreen() {
     `${u?.first_name || ''} ${u?.last_name || ''}`.trim() ||
     user.name ||
     '';
+
+  const initials = (userName || 'User')
+    .trim()
+    .split(/\s+/)
+    .map((n) => n[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase() || 'U';
+
   const taxiNumber = u?.taxi_no || user.taxiNumber || '';
   const dcNumber = u?.dc_number || '';
   const abn = u?.abn || '';
@@ -180,14 +211,20 @@ export default function TaxiOwnerProfileScreen() {
   const email = u?.email || '';
   const activeShiftId =
     session?.display_shift_id ||
-    session?.shift_id ||
-    '--';
+    (session?.shift_id != null ? String(session.shift_id) : '--');
+
+  const avatarUri = u?.profile_photo_url || u?.logo_url || null;
 
   const shiftStatusText =
     session?.status_badge || (isOnShift ? 'Active • On Shift' : 'Active • Off Shift');
-  const shiftStartTimeText = session?.started_at_formatted
-    ? `Started ${session.started_at_formatted}${session.duration ? ` (${session.duration})` : ''}`
-    : 'No active shift session';
+
+  let shiftStartTimeText = 'No active shift session';
+  if (isOnShift && session?.started_at) {
+    const userTime = formatSydneyToUserTime(session.started_at);
+    shiftStartTimeText = `Started ${userTime}${session.duration ? ` (${session.duration})` : ''}`;
+  } else if (session?.started_at_formatted) {
+    shiftStartTimeText = `Started ${session.started_at_formatted}${session.duration ? ` (${session.duration})` : ''}`;
+  }
 
   // Revenue values
   const rev = session?.revenue;
@@ -223,8 +260,9 @@ export default function TaxiOwnerProfileScreen() {
     });
   };
 
-  const handleToggleShift = () => {
+  const handleToggleShift = async () => {
     if (isOnShift) {
+      const shiftSessionId = session?.shift_id;
       showConfirm({
         title: 'End Shift',
         message: `Are you sure you want to end your current active shift (${activeShiftId})?`,
@@ -232,24 +270,106 @@ export default function TaxiOwnerProfileScreen() {
         cancelText: 'Cancel',
         type: 'warning',
         icon: 'stop-circle-outline',
-        onConfirm: () => {
-          setIsOnShift(false);
-          showAlert({
-            title: 'Shift Ended',
-            message: 'Shift tally submitted to records.',
-            type: 'success',
-            icon: 'checkmark-circle-outline',
-          });
+        onConfirm: async () => {
+          if (!shiftSessionId) {
+            setIsOnShift(false);
+            showAlert({
+              title: 'Shift Reset',
+              message: 'Active shift state refreshed.',
+              type: 'info',
+              icon: 'information-circle-outline',
+            });
+            await fetchProfile();
+            return;
+          }
+
+          setIsShiftActionLoading(true);
+          try {
+            const userId = u?.id ? Number(u.id) : undefined;
+            const res = await shiftService.endShift({
+              shift_session_id: shiftSessionId,
+              user_id: userId,
+            });
+
+            if (res.status) {
+              setIsOnShift(false);
+              const shiftTimeRange = formatSydneyShiftRange(
+                res.data?.start_at,
+                res.data?.end_at
+              );
+              showAlert({
+                title: 'Shift Ended',
+                message: shiftTimeRange
+                  ? `Shift tally submitted to records.\nShift: ${shiftTimeRange}`
+                  : res.message || 'Active shift ended. Summary submitted to records.',
+                type: 'success',
+                icon: 'checkmark-circle-outline',
+              });
+              await fetchProfile();
+              dashboardService.getDashboard().catch(() => {});
+            } else {
+              showAlert({
+                title: 'End Shift Failed',
+                message: res.message || 'Unable to end shift. Please try again.',
+                type: 'danger',
+                icon: 'alert-circle-outline',
+              });
+            }
+          } catch (err: any) {
+            showAlert({
+              title: 'End Shift Failed',
+              message:
+                err?.response?.data?.message ||
+                err?.message ||
+                'Unable to end shift. Please try again.',
+              type: 'danger',
+              icon: 'alert-circle-outline',
+            });
+          } finally {
+            setIsShiftActionLoading(false);
+          }
         },
       });
     } else {
-      setIsOnShift(true);
-      showAlert({
-        title: 'Shift Started',
-        message: `Logged into taxi ${taxiNumber}. Active on shift.`,
-        type: 'success',
-        icon: 'checkmark-circle-outline',
-      });
+      setIsShiftActionLoading(true);
+      try {
+        const res = await shiftService.startShift();
+        if (res.status && res.data) {
+          setIsOnShift(true);
+          const localStartTime = formatSydneyToUserTime(
+            res.data.active_shift?.start_at || res.data.active_shift?.start_time
+          );
+          showAlert({
+            title: 'Shift Started',
+            message: localStartTime
+              ? `Shift commenced at ${localStartTime}. Safe driving!`
+              : res.message || 'Active shift session started. Safe driving!',
+            type: 'success',
+            icon: 'checkmark-circle-outline',
+          });
+          await fetchProfile();
+          dashboardService.getDashboard().catch(() => {});
+        } else {
+          showAlert({
+            title: 'Start Shift Failed',
+            message: res.message || 'Could not start shift session.',
+            type: 'danger',
+            icon: 'alert-circle-outline',
+          });
+        }
+      } catch (err: any) {
+        showAlert({
+          title: 'Start Shift Failed',
+          message:
+            err?.response?.data?.message ||
+            err?.message ||
+            'Could not start shift session. Please try again.',
+          type: 'danger',
+          icon: 'alert-circle-outline',
+        });
+      } finally {
+        setIsShiftActionLoading(false);
+      }
     }
   };
 
@@ -358,16 +478,18 @@ export default function TaxiOwnerProfileScreen() {
 
         {/* ── MAIN GOLDEN-BORDERED PROFILE CARD ── */}
         <View style={styles.profileCard}>
-          {/* Driver Avatar with Gold Border (No Emblem Badge) */}
+          {/* Driver Avatar with Gold Border */}
           <View style={styles.avatarContainer}>
-            <Image
-              source={
-                u?.profile_photo_url || u?.logo_url
-                  ? { uri: u.profile_photo_url || u.logo_url }
-                  : require('../../../../assets/emp_avatar_2.png')
-              }
-              style={styles.avatarImage}
-            />
+            {avatarUri ? (
+              <Image
+                source={{ uri: avatarUri }}
+                style={styles.avatarImage}
+              />
+            ) : (
+              <View style={[styles.avatarImage, styles.avatarPlaceholder]}>
+                <Text style={styles.avatarInitialsText}>{initials}</Text>
+              </View>
+            )}
           </View>
 
           {/* Owner/Driver Name */}
@@ -484,19 +606,27 @@ export default function TaxiOwnerProfileScreen() {
             style={[
               styles.endShiftBtn,
               !isOnShift && styles.startShiftBtn,
+              isShiftActionLoading && { opacity: 0.7 },
             ]}
             onPress={handleToggleShift}
+            disabled={isShiftActionLoading}
             activeOpacity={0.85}
           >
-            <Feather
-              name={isOnShift ? 'log-out' : 'log-in'}
-              size={17}
-              color="#FFFFFF"
-              style={{ marginRight: 8 }}
-            />
-            <Text style={styles.endShiftBtnText}>
-              {isOnShift ? session?.end_button_title || 'End Shift' : 'Start Shift'}
-            </Text>
+            {isShiftActionLoading ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <Feather
+                  name={isOnShift ? 'log-out' : 'log-in'}
+                  size={17}
+                  color="#FFFFFF"
+                  style={{ marginRight: 8 }}
+                />
+                <Text style={styles.endShiftBtnText}>
+                  {isOnShift ? session?.end_button_title || 'End Shift' : 'Start Shift'}
+                </Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -511,6 +641,8 @@ export default function TaxiOwnerProfileScreen() {
                 handleOpenBankModal();
               } else if (item.action === 'navigate_manage_drivers' || item.key === 'manage_staff') {
                 router.push('/manage-driver');
+              } else if (item.action === 'navigate_app_logs' || item.key === 'app_logs') {
+                setIsLogsModalVisible(true);
               } else {
                 router.push('/(tabs)/transactions');
               }
@@ -523,6 +655,8 @@ export default function TaxiOwnerProfileScreen() {
                     ? 'business-outline'
                     : item.key === 'manage_staff'
                     ? 'people-outline'
+                    : item.key === 'app_logs'
+                    ? 'document-text-outline'
                     : 'swap-horizontal'
                 }
                 size={20}
@@ -531,7 +665,18 @@ export default function TaxiOwnerProfileScreen() {
             </View>
             <View style={styles.actionTextCol}>
               <Text style={styles.actionTitle}>{item.title}</Text>
-              <Text style={styles.actionSub}>{item.subtitle}</Text>
+              <Text style={styles.actionSub}>
+                {item.subtitle ||
+                  (item.key === 'history'
+                    ? 'Past shifts & trip tallies'
+                    : item.key === 'manage_staff'
+                    ? 'View & manage drivers'
+                    : item.key === 'bank_details'
+                    ? 'Payout account & settlements'
+                    : item.key === 'app_logs'
+                    ? 'Diagnostic logs & reports'
+                    : '')}
+              </Text>
             </View>
             <Feather name="chevron-right" size={18} color="#94A3B8" />
           </TouchableOpacity>
@@ -938,6 +1083,12 @@ export default function TaxiOwnerProfileScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* Diagnostic Logs Modal */}
+      <DiagnosticLogsModal
+        visible={isLogsModalVisible}
+        onClose={() => setIsLogsModalVisible(false)}
+      />
     </View>
   );
 }
@@ -983,6 +1134,18 @@ const styles = StyleSheet.create({
     height: 68,
     borderRadius: 13,
     backgroundColor: '#0F172A',
+  },
+  avatarPlaceholder: {
+    backgroundColor: '#FEF3C7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FDE047',
+  },
+  avatarInitialsText: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#B45309',
   },
   driverNameText: {
     fontSize: 18,

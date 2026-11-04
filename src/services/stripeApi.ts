@@ -185,7 +185,13 @@ export async function createPaymentIntentOnBackend(
   currency: string = 'aud',
   paymentMethodType: PaymentMethodType = 'tap',
   card?: { number: string; expMonth: string | number; expYear: string | number; cvc: string },
-  paymentMethodId?: string
+  paymentMethodId?: string,
+  routeDetails?: {
+    pickup_id?: number | string | null;
+    dropoff_id?: number | string | null;
+    pickup?: string | null;
+    dropoff?: string | null;
+  }
 ): Promise<CreatePaymentIntentResponse> {
   const formattedCard = card
     ? {
@@ -196,13 +202,18 @@ export async function createPaymentIntentOnBackend(
       }
     : undefined;
 
-  const payload = {
+  const payload: Record<string, any> = {
     amount,
     currency,
     paymentMethodType,
     paymentMethodId,
     card: formattedCard,
   };
+
+  if (routeDetails?.pickup_id) payload.pickup_id = routeDetails.pickup_id;
+  if (routeDetails?.dropoff_id) payload.dropoff_id = routeDetails.dropoff_id;
+  if (routeDetails?.pickup) payload.pickup = routeDetails.pickup;
+  if (routeDetails?.dropoff) payload.dropoff = routeDetails.dropoff;
 
   try {
     let res: any;

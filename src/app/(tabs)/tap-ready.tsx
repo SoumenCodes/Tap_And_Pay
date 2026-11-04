@@ -181,6 +181,8 @@ export default function TapReadyScreen() {
     amount?: string;
     pickup?: string;
     dropoff?: string;
+    pickup_id?: string;
+    dropoff_id?: string;
   }>();
 
   const rawAmount = params.amount || '104.00';
@@ -209,8 +211,10 @@ export default function TapReadyScreen() {
       params: {
         amount: rawAmount,
         method: 'tap',
-        pickup: params.pickup || 'Hospital',
-        dropoff: params.dropoff || 'Home',
+        pickup: params.pickup || '',
+        dropoff: params.dropoff || '',
+        pickup_id: params.pickup_id || '',
+        dropoff_id: params.dropoff_id || '',
       },
     });
   };

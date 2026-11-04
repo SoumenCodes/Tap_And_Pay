@@ -1071,6 +1071,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
+    overflow: 'hidden',
   },
   saleTextWrap: {
     flex: 1,

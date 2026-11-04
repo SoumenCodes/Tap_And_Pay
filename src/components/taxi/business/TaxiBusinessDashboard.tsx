@@ -480,7 +480,15 @@ export default function TaxiBusinessDashboard({
               >
                 {/* Left Taxi Icon Box */}
                 <View style={styles.taxiIconWrap}>
-                  <MaterialCommunityIcons name="taxi" size={28} color="#0F172A" />
+                  {Boolean(user?.logoUrl || header?.logo_url) ? (
+                    <Image
+                      source={{ uri: (user?.logoUrl || header?.logo_url)! }}
+                      style={styles.taxiLogoImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <MaterialCommunityIcons name="taxi" size={28} color="#0F172A" />
+                  )}
                 </View>
 
                 {/* Text Information */}
@@ -989,6 +997,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
+    overflow: 'hidden',
+  },
+  taxiLogoImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 14,
   },
   taxiFareTextWrap: {
     flex: 1,

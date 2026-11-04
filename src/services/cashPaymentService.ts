@@ -4,6 +4,10 @@ import { appLogger } from './appLogger';
 export interface CashPaymentPayload {
   amount: number;
   shift_session_id: number | string;
+  pickup_id?: number | string | null;
+  dropoff_id?: number | string | null;
+  pickup?: string | null;
+  dropoff?: string | null;
 }
 
 export interface CashPaymentData {

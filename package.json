@@ -27,16 +27,20 @@
     "expo-status-bar": "~57.0.1",
     "expo-video": "~57.0.5",
     "expo-web-browser": "~57.0.3",
+    "omggif": "^1.0.10",
     "react": "19.2.3",
     "react-native": "0.86.3",
     "react-native-gesture-handler": "~2.32.0",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
     "react-native-svg": "15.15.4",
-    "react-native-view-shot": "5.1.0"
+    "react-native-view-shot": "5.1.0",
+    "upng-js": "^2.1.0"
   },
   "devDependencies": {
+    "@types/omggif": "^1.0.5",
     "@types/react": "~19.2.2",
+    "@types/upng-js": "^2.1.5",
     "babel-preset-expo": "~57.0.0",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~57.0.2",

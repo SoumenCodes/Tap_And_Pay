@@ -32,6 +32,7 @@ import {
 } from '../../services/dashboardService';
 import { tokenStorage } from '../../services/tokenStorage';
 import { receiptService, ReceiptData } from '../../services/receiptService';
+import { animatedGifService } from '../../services/animatedGifService';
 import { formatSydneyToUserDateTime } from '../../utils/dateUtils';
 
 function getExportFilename(prefix: string, bizName: string, ext: string): string {
@@ -45,6 +46,7 @@ function TaxiReceiptScreen() {
   const { user } = useAuth();
   const { showAlert } = useConfirmModal();
   const receiptCardRef = useRef<View>(null);
+  const adBannerCardRef = useRef<View>(null);
 
   const params = useLocalSearchParams<{
     amount?: string;
@@ -153,6 +155,9 @@ function TaxiReceiptScreen() {
     receiptData?.pickup_location || receiptData?.pickup || params.pickup || '--';
   const dropoff =
     receiptData?.drop_location || receiptData?.dropoff || params.dropoff || '--';
+
+  const hasAdBanner = Boolean(receiptData?.ad_banner && receiptData?.banner_image_url);
+  const bannerImageUrl = normalizeImageUrl(receiptData?.banner_image_url);
 
   const [failedLogoUrl, setFailedLogoUrl] = useState<string | null>(null);
 
@@ -482,9 +487,206 @@ function TaxiReceiptScreen() {
       height: auto;
       object-fit: contain;
     }
+    .page-container {
+      width: 100%;
+      max-width: 640px;
+      margin: 0 auto;
+      height: 100vh;
+      max-height: 276mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      page-break-inside: avoid;
+      box-sizing: border-box;
+    }
+    .receipt-card-70 {
+      height: 68%;
+      background: #FFFDF7;
+      border: 2px solid #FEF08A;
+      border-radius: 20px;
+      padding: 18px 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-sizing: border-box;
+      text-align: center;
+      overflow: hidden;
+    }
+    .header-compact {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-align: left;
+      border-bottom: 1.5px solid #F1F5F9;
+      padding-bottom: 8px;
+    }
+    .logo-badge-compact {
+      width: 48px;
+      height: 48px;
+      background: #FEF9C3;
+      border: 1.5px solid #FDE047;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      padding: 4px;
+      flex-shrink: 0;
+    }
+    .logo-badge-compact img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .route-box-compact {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #F8FAFC;
+      border-radius: 10px;
+      padding: 6px 14px;
+      margin: 6px 0;
+      text-align: left;
+    }
+    .ad-banner-30 {
+      height: 29%;
+      background: #FFFFFF;
+      border: 1.5px solid #E2E8F0;
+      border-radius: 18px;
+      padding: 10px 14px 12px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+    }
+    .ad-tag-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .ad-tag {
+      font-size: 9px;
+      font-weight: 800;
+      color: #94A3B8;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+    .ad-provider {
+      font-size: 9px;
+      font-weight: 700;
+      color: #D97706;
+      letter-spacing: 0.5px;
+    }
+    .ad-img-box {
+      flex: 1;
+      width: 100%;
+      height: calc(100% - 18px);
+      border-radius: 12px;
+      overflow: hidden;
+      background: #0F172A;
+    }
+    .ad-img-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
   </style>
 </head>
 <body>
+  ${hasAdBanner && bannerImageUrl ? `
+  <div class="page-container">
+    <div class="receipt-card-70">
+      <div class="header-compact">
+        <div class="logo-badge-compact">
+          ${logoUrl
+            ? `<img src="${logoUrl}" alt="Logo" />`
+            : taxiLogoUri
+              ? `<img src="${taxiLogoUri}" alt="Taxi" />`
+              : `<div style="font-size: 22px; text-align: center;">🚕</div>`
+          }
+        </div>
+        <div style="flex: 1;">
+          <div class="biz-name" style="font-size: 20px; margin-bottom: 2px;">${businessName}</div>
+          <div class="biz-meta" style="font-size: 11.5px; margin-bottom: 2px;">ABN: ${abn} • PH: ${phone}</div>
+          <div class="biz-meta" style="font-size: 11.5px; margin-bottom: 0;">TAXI NO.: ${taxiNumber}${dcNumber ? ` &nbsp;&nbsp; DC: ${dcNumber}` : ''}</div>
+        </div>
+      </div>
+
+      <div style="margin: 8px 0 6px;">
+        <div class="total-paid-label" style="margin-top: 4px; margin-bottom: 2px; font-size: 11px;">TOTAL PAID (INC GST)</div>
+        <div class="amount" style="font-size: 42px; margin: 0 0 4px;">
+          <span class="dollar" style="font-size: 28px;">$</span>${formattedWithComma}<span class="decimal" style="font-size: 24px;">.${decimalPart}</span>
+        </div>
+        <div>
+          <span class="paid-badge" style="padding: 4px 14px; font-size: 12px; margin-bottom: 6px;"><span class="paid-dot"></span>PAID</span>
+        </div>
+      </div>
+
+      <div class="route-box-compact">
+        <div class="route-col">
+          <div class="route-label" style="font-size: 10px;">PICKUP</div>
+          <div class="route-val" style="font-size: 14px;">${pickup}</div>
+        </div>
+        <div class="arrow" style="font-size: 18px; padding: 0 10px;">→</div>
+        <div class="route-col right">
+          <div class="route-label" style="font-size: 10px;">DROP OFF</div>
+          <div class="route-val" style="font-size: 14px;">${dropoff}</div>
+        </div>
+      </div>
+
+      <div class="meta-list" style="margin-top: 6px;">
+        <div class="meta-row" style="margin-bottom: 8px;">
+          <div>
+            <div class="meta-label" style="font-size: 11.5px;">Date & Time</div>
+            <div class="meta-value" style="font-size: 13.5px;">${formattedDate}</div>
+          </div>
+          <div class="${isCash ? 'pill-cash-tag' : 'pill-card'}" style="font-size: 11.5px; padding: 3px 10px;">
+            ${isCash ? '💵 Cash' : isTap ? '⚡ Tap & Go' : '💳 Card'}
+          </div>
+        </div>
+
+        <div class="meta-row" style="margin-bottom: 8px;">
+          <div>
+            <div class="meta-label" style="font-size: 11.5px;">Payment Method</div>
+            <div class="meta-value" style="font-size: 13.5px;">${paymentMethodLabel}</div>
+          </div>
+          <div class="${isCash ? 'pill-cash' : cardBrandFinal.toUpperCase() === 'MASTERCARD' ? 'pill-mastercard' : 'pill-visa'}" style="font-size: 11.5px; padding: 3px 10px;">
+            ${isCash ? 'CASH' : (cardBrandFinal.toUpperCase() || 'VISA')}
+          </div>
+        </div>
+
+        <div class="meta-row" style="margin-bottom: 0;">
+          <div>
+            <div class="meta-label" style="font-size: 11.5px;">${isCash ? 'Receipt ID' : 'Payment ID'}</div>
+            <div class="meta-value" style="font-size: 13.5px;">${paymentId}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-compact" style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #F1F5F9; display: flex; justify-content: space-between; align-items: center;">
+        <div style="font-size: 10.5px; font-weight: 700; color: #0F172A;">THANK YOU FOR CHOOSING TAXI ${taxiNumber}</div>
+        ${sePayLogoUri
+          ? `<img class="se-pay-gif-logo" src="${sePayLogoUri}" alt="SE PAY" style="width: 90px; margin: 0;" />`
+          : `<div style="font-weight: 800; font-size: 11px; color: #0F172A;">SE PAY</div>`
+        }
+      </div>
+    </div>
+
+    <!-- Bottom 30%: Advertisement Banner -->
+    <div class="ad-banner-30">
+      <div class="ad-tag-row">
+        <span class="ad-tag">SPONSORED ADVERTISEMENT</span>
+        <span class="ad-provider">SE PAY SPECIAL OFFER</span>
+      </div>
+      <div class="ad-img-box">
+        <img src="${bannerImageUrl}" alt="Special Promotion" />
+      </div>
+    </div>
+  </div>
+  ` : `
   <div class="receipt-card">
     <div class="logo-badge">
       ${logoUrl
@@ -560,6 +762,7 @@ function TaxiReceiptScreen() {
       }
     </div>
   </div>
+  `}
 </body>
 </html>
     `;
@@ -570,7 +773,7 @@ function TaxiReceiptScreen() {
     setIsShareModalVisible(true);
   };
 
-  // 1. Share as High-Resolution PNG Image
+  // 1. Share as Lossless High-Resolution PNG Image (100% Crisp Quality)
   const handleSharePhoto = async () => {
     setIsShareModalVisible(false);
     try {
@@ -580,14 +783,13 @@ function TaxiReceiptScreen() {
         throw new Error('Receipt view is not ready');
       }
 
-      // Capture exact rendered card to base64 and write into sandboxed document directory
+      const baseDir = FileSystem.documentDirectory || FileSystem.cacheDirectory;
       const base64Image = await captureRef(receiptCardRef, {
         format: 'png',
         quality: 1.0,
         result: 'base64',
       });
 
-      const baseDir = FileSystem.documentDirectory || FileSystem.cacheDirectory;
       const filename = getExportFilename('Receipt_Card', businessName, 'png');
       const targetUri = `${baseDir}${filename}`;
 
@@ -627,19 +829,97 @@ function TaxiReceiptScreen() {
       );
     } catch (error) {
       console.error('Error sharing receipt image:', error);
-      try {
-        const shareMsg = `Digital Receipt: ${businessName}\nTaxi: ${taxiNumber}\nRoute: ${pickup} to ${dropoff}\nAmount: $${formattedWithComma}.${decimalPart} AUD\nMethod: ${isCash ? 'Cash' : isTap ? 'Tap & Go' : 'Card'}\nDate: ${formattedDate}\n${isCash ? 'Receipt ID' : 'Payment ID'}: ${paymentId}`;
-        await Share.share({
-          title: `Receipt Image - ${businessName}`,
-          message: shareMsg,
-        });
-      } catch {
-        showAlert({
-          title: 'Share Receipt',
-          message: 'Could not generate receipt image. Please try sharing as PDF.',
-          type: 'danger',
-        });
+      showAlert({
+        title: 'Share Receipt',
+        message: 'Could not generate receipt image. Please try sharing as PDF.',
+        type: 'danger',
+      });
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  // 2. Share as Animated Card (GIF: 4.0s Receipt + 4.0s Ad Banner)
+  const handleShareAnimatedGif = async () => {
+    setIsShareModalVisible(false);
+    try {
+      setIsSharing(true);
+
+      if (!receiptCardRef.current || !adBannerCardRef.current) {
+        throw new Error('Receipt or Ad view is not ready');
       }
+
+      const baseDir = FileSystem.documentDirectory || FileSystem.cacheDirectory;
+
+      if (bannerImageUrl) {
+        try {
+          await Image.prefetch(bannerImageUrl);
+        } catch (e) {
+          console.warn('Ad banner prefetch error:', e);
+        }
+      }
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      const receiptBase64 = await captureRef(receiptCardRef, {
+        format: 'png',
+        quality: 1.0,
+        result: 'base64',
+      });
+
+      const adBase64 = await captureRef(adBannerCardRef, {
+        format: 'png',
+        quality: 1.0,
+        result: 'base64',
+      });
+
+      const filename = getExportFilename('Animated_Receipt', businessName, 'gif');
+      const targetUri = `${baseDir}${filename}`;
+
+      // Configured timing: 4.0s for Receipt, 4.0s for Advertisement Banner
+      await animatedGifService.createAndSaveAnimatedGif(targetUri, {
+        receiptBase64Png: receiptBase64,
+        adBannerBase64Png: adBase64,
+        receiptDelaySec: 4.0, // <-- RECEIPT TIMER: 4.0s
+        adDelaySec: 4.0,      // <-- AD BANNER TIMER: 4.0s
+      });
+
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (isAvailable) {
+        try {
+          const fileInfo = await FileSystem.getInfoAsync(targetUri);
+          if (fileInfo.exists) {
+            await Sharing.shareAsync(targetUri, {
+              mimeType: 'image/gif',
+              dialogTitle: `Share Animated Receipt - ${businessName}`,
+              UTI: 'com.compuserve.gif',
+            });
+            return;
+          }
+        } catch (shareAsyncErr) {
+          console.warn('Sharing.shareAsync (gif) failed, falling back to Share.share:', shareAsyncErr);
+        }
+      }
+
+      const shareMsg = `Digital Receipt: ${businessName}\nTaxi: ${taxiNumber}\nRoute: ${pickup} to ${dropoff}\nAmount: $${formattedWithComma}.${decimalPart} AUD\nMethod: ${isCash ? 'Cash' : isTap ? 'Tap & Go' : 'Card'}\nDate: ${formattedDate}\n${isCash ? 'Receipt ID' : 'Payment ID'}: ${paymentId}`;
+      await Share.share(
+        Platform.OS === 'ios'
+          ? {
+            title: `Animated Receipt - ${businessName}`,
+            message: shareMsg,
+            url: targetUri,
+          }
+          : {
+            title: `Animated Receipt - ${businessName}`,
+            message: shareMsg,
+          }
+      );
+    } catch (error) {
+      console.error('Error sharing animated receipt:', error);
+      showAlert({
+        title: 'Share Receipt',
+        message: 'Could not generate animated receipt. Please try sharing as Image or PDF.',
+        type: 'danger',
+      });
     } finally {
       setIsSharing(false);
     }
@@ -759,6 +1039,34 @@ function TaxiReceiptScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+
+      {/* ── HIDDEN AD BANNER CARD FOR ANIMATED GIF CAPTURE (100% OPAQUE BEHIND SCREEN) ── */}
+      {hasAdBanner && bannerImageUrl && (
+        <View style={styles.hiddenAdCaptureContainer} pointerEvents="none" collapsable={false}>
+          <View ref={adBannerCardRef} collapsable={false} style={styles.adBannerCard}>
+            <View style={styles.adCardHeader}>
+              <View style={styles.adSponsoredPill}>
+                <Ionicons name="sparkles" size={11} color="#92400E" style={{ marginRight: 4 }} />
+                <Text style={styles.adSponsoredPillText}>SPONSORED ADVERTISEMENT</Text>
+              </View>
+              <Text style={styles.adBrandLogoText}>SE PAY</Text>
+            </View>
+
+            <View style={styles.adCardImageWrap}>
+              <Image
+                source={{ uri: bannerImageUrl }}
+                style={styles.adCardImage}
+                resizeMode="contain"
+              />
+            </View>
+
+            <View style={styles.adCardFooter}>
+              <Text style={styles.adCardFooterThank}>THANK YOU FOR CHOOSING {businessName.toUpperCase()}</Text>
+              <Text style={styles.adCardFooterPowered}>POWERED BY SE PAY</Text>
+            </View>
+          </View>
+        </View>
+      )}
 
       {/* ── Top Header ── */}
       <HeaderBar
@@ -1019,7 +1327,7 @@ function TaxiReceiptScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {/* Option 1: Card Photo as PNG Image */}
+                {/* Option 1: Lossless High-Resolution PNG Image (100% Crisp Quality) */}
                 <TouchableOpacity
                   style={styles.modalOptionCard}
                   activeOpacity={0.75}
@@ -1030,19 +1338,48 @@ function TaxiReceiptScreen() {
                   </View>
                   <View style={styles.modalOptionTextWrap}>
                     <View style={styles.modalOptionTitleRow}>
-                      <Text style={styles.modalOptionTitle}>Share as Image (PNG)</Text>
+                      <Text style={styles.modalOptionTitle}>
+                        {hasAdBanner ? 'Share High-Resolution Image (PNG)' : 'Share as Image (PNG)'}
+                      </Text>
                       <View style={styles.gifBadge}>
-                        <Text style={styles.gifBadgeText}>PNG</Text>
+                        <Text style={styles.gifBadgeText}>
+                          {hasAdBanner ? 'PNG (100% HD)' : 'PNG'}
+                        </Text>
                       </View>
                     </View>
                     <Text style={styles.modalOptionDesc}>
-                      High-resolution PNG image of your receipt card for WhatsApp, Messages or Email
+                      Lossless, pixel-perfect digital receipt image for WhatsApp, Messages or Email
                     </Text>
                   </View>
                   <Feather name="chevron-right" size={18} color="#94A3B8" />
                 </TouchableOpacity>
 
-                {/* Option 2: PDF Document */}
+                {/* Option 2: Animated Card with Ad Banner (When ad_banner is true) */}
+                {hasAdBanner && bannerImageUrl && (
+                  <TouchableOpacity
+                    style={styles.modalOptionCard}
+                    activeOpacity={0.75}
+                    onPress={handleShareAnimatedGif}
+                  >
+                    <View style={[styles.modalOptionIconBox, { backgroundColor: '#F3E8FF' }]}>
+                      <Ionicons name="film-outline" size={24} color="#9333EA" />
+                    </View>
+                    <View style={styles.modalOptionTextWrap}>
+                      <View style={styles.modalOptionTitleRow}>
+                        <Text style={styles.modalOptionTitle}>Share Animated Card</Text>
+                        <View style={styles.gifAnimBadge}>
+                          <Text style={styles.gifAnimBadgeText}>GIF (4s+4s)</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.modalOptionDesc}>
+                        Animated loop cycling 4s digital receipt and 4s advertisement banner
+                      </Text>
+                    </View>
+                    <Feather name="chevron-right" size={18} color="#94A3B8" />
+                  </TouchableOpacity>
+                )}
+
+                {/* Option 3: PDF Document */}
                 <TouchableOpacity
                   style={styles.modalOptionCard}
                   activeOpacity={0.75}
@@ -1054,12 +1391,16 @@ function TaxiReceiptScreen() {
                   <View style={styles.modalOptionTextWrap}>
                     <View style={styles.modalOptionTitleRow}>
                       <Text style={styles.modalOptionTitle}>Share as PDF Document</Text>
-                      <View style={styles.pdfBadge}>
-                        <Text style={styles.pdfBadgeText}>PDF</Text>
+                      <View style={hasAdBanner ? styles.pdfSplitBadge : styles.pdfBadge}>
+                        <Text style={hasAdBanner ? styles.pdfSplitBadgeText : styles.pdfBadgeText}>
+                          {hasAdBanner ? '1-PAGE (70/30)' : 'PDF'}
+                        </Text>
                       </View>
                     </View>
                     <Text style={styles.modalOptionDesc}>
-                      Formal printable digital PDF document with full breakdown
+                      {hasAdBanner
+                        ? 'Single-page document with 70% receipt and 30% sponsored advertisement'
+                        : 'Formal printable digital PDF document with full breakdown'}
                     </Text>
                   </View>
                   <Feather name="chevron-right" size={18} color="#94A3B8" />
@@ -1504,6 +1845,20 @@ const styles = StyleSheet.create({
     color: '#B45309',
     letterSpacing: 0.5,
   },
+  gifAnimBadge: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+  },
+  gifAnimBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#B45309',
+    letterSpacing: 0.5,
+  },
   pdfBadge: {
     backgroundColor: '#EFF6FF',
     borderWidth: 1,
@@ -1517,6 +1872,93 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#1D4ED8',
     letterSpacing: 0.5,
+  },
+  pdfSplitBadge: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#93C5FD',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+  },
+  pdfSplitBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#1D4ED8',
+    letterSpacing: 0.5,
+  },
+  hiddenAdCaptureContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: -1,
+    opacity: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 10,
+  },
+  adBannerCard: {
+    width: 350,
+    height: 560,
+    backgroundColor: '#0F172A',
+    borderRadius: 24,
+    padding: 16,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  adCardHeader: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  adSponsoredPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  adSponsoredPillText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#92400E',
+    letterSpacing: 0.8,
+  },
+  adBrandLogoText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#F59E0B',
+    letterSpacing: 1.2,
+  },
+  adCardImageWrap: {
+    width: '100%',
+    height: 420,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#1E293B',
+  },
+  adCardImage: {
+    width: '100%',
+    height: '100%',
+  },
+  adCardFooter: {
+    alignItems: 'center',
+    gap: 2,
+  },
+  adCardFooterThank: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#94A3B8',
+    letterSpacing: 0.5,
+  },
+  adCardFooterPowered: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 1,
   },
   modalOptionDesc: {
     fontSize: 11.5,

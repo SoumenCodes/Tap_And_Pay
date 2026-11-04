@@ -602,11 +602,11 @@ function TaxiReceiptScreen() {
       <div class="header-compact">
         <div class="logo-badge-compact">
           ${logoUrl
-            ? `<img src="${logoUrl}" alt="Logo" />`
-            : taxiLogoUri
-              ? `<img src="${taxiLogoUri}" alt="Taxi" />`
-              : `<div style="font-size: 22px; text-align: center;">🚕</div>`
-          }
+          ? `<img src="${logoUrl}" alt="Logo" />`
+          : taxiLogoUri
+            ? `<img src="${taxiLogoUri}" alt="Taxi" />`
+            : `<div style="font-size: 22px; text-align: center;">🚕</div>`
+        }
         </div>
         <div style="flex: 1;">
           <div class="biz-name" style="font-size: 20px; margin-bottom: 2px;">${businessName}</div>
@@ -1339,17 +1339,17 @@ function TaxiReceiptScreen() {
                   <View style={styles.modalOptionTextWrap}>
                     <View style={styles.modalOptionTitleRow}>
                       <Text style={styles.modalOptionTitle}>
-                        {hasAdBanner ? 'Share High-Resolution Image (PNG)' : 'Share as Image (PNG)'}
+                        {hasAdBanner ? 'Share as Image (PNG)' : 'Share as Image (PNG)'}
                       </Text>
-                      <View style={styles.gifBadge}>
+                      {/* <View style={styles.gifBadge}>
                         <Text style={styles.gifBadgeText}>
                           {hasAdBanner ? 'PNG (100% HD)' : 'PNG'}
                         </Text>
-                      </View>
+                      </View> */}
                     </View>
-                    <Text style={styles.modalOptionDesc}>
+                    {/* <Text style={styles.modalOptionDesc}>
                       Lossless, pixel-perfect digital receipt image for WhatsApp, Messages or Email
-                    </Text>
+                    </Text> */}
                   </View>
                   <Feather name="chevron-right" size={18} color="#94A3B8" />
                 </TouchableOpacity>
@@ -1366,14 +1366,14 @@ function TaxiReceiptScreen() {
                     </View>
                     <View style={styles.modalOptionTextWrap}>
                       <View style={styles.modalOptionTitleRow}>
-                        <Text style={styles.modalOptionTitle}>Share Animated Card</Text>
-                        <View style={styles.gifAnimBadge}>
+                        <Text style={styles.modalOptionTitle}>Share as Image Card</Text>
+                        {/* <View style={styles.gifAnimBadge}>
                           <Text style={styles.gifAnimBadgeText}>GIF (4s+4s)</Text>
-                        </View>
+                        </View> */}
                       </View>
-                      <Text style={styles.modalOptionDesc}>
+                      {/* <Text style={styles.modalOptionDesc}>
                         Animated loop cycling 4s digital receipt and 4s advertisement banner
-                      </Text>
+                      </Text> */}
                     </View>
                     <Feather name="chevron-right" size={18} color="#94A3B8" />
                   </TouchableOpacity>
@@ -1391,17 +1391,17 @@ function TaxiReceiptScreen() {
                   <View style={styles.modalOptionTextWrap}>
                     <View style={styles.modalOptionTitleRow}>
                       <Text style={styles.modalOptionTitle}>Share as PDF Document</Text>
-                      <View style={hasAdBanner ? styles.pdfSplitBadge : styles.pdfBadge}>
+                      {/* <View style={hasAdBanner ? styles.pdfSplitBadge : styles.pdfBadge}>
                         <Text style={hasAdBanner ? styles.pdfSplitBadgeText : styles.pdfBadgeText}>
                           {hasAdBanner ? '1-PAGE (70/30)' : 'PDF'}
                         </Text>
-                      </View>
+                      </View> */}
                     </View>
-                    <Text style={styles.modalOptionDesc}>
+                    {/* <Text style={styles.modalOptionDesc}>
                       {hasAdBanner
                         ? 'Single-page document with 70% receipt and 30% sponsored advertisement'
                         : 'Formal printable digital PDF document with full breakdown'}
-                    </Text>
+                    </Text> */}
                   </View>
                   <Feather name="chevron-right" size={18} color="#94A3B8" />
                 </TouchableOpacity>

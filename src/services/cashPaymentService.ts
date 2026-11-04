@@ -4,7 +4,9 @@ import { appLogger } from './appLogger';
 export interface CashPaymentPayload {
   amount: number;
   shift_session_id: number | string;
+  service_charges?: number | null;
   pickup_id?: number | string | null;
+  dropup_id?: number | string | null;
   dropoff_id?: number | string | null;
   pickup?: string | null;
   dropoff?: string | null;
@@ -39,9 +41,30 @@ export const cashPaymentService = {
    * Usable by both Business Owner and Employee.
    */
   recordCashPayment: async (payload: CashPaymentPayload): Promise<CashPaymentData> => {
-    appLogger.info('CASH_PAYMENT', 'Sending cash payment to backend:', payload);
+    const cleanPayload: Record<string, any> = {
+      amount: payload.amount,
+      shift_session_id: payload.shift_session_id,
+    };
+
+    if (payload.service_charges !== undefined && payload.service_charges !== null) {
+      cleanPayload.service_charges = Number(payload.service_charges) || 0;
+    }
+    if (payload.pickup_id !== undefined && payload.pickup_id !== null && payload.pickup_id !== '') {
+      const pId = Number(payload.pickup_id);
+      cleanPayload.pickup_id = !isNaN(pId) ? pId : payload.pickup_id;
+    }
+    const rawDropId = payload.dropup_id ?? payload.dropoff_id;
+    if (rawDropId !== undefined && rawDropId !== null && rawDropId !== '') {
+      const dId = Number(rawDropId);
+      cleanPayload.dropup_id = !isNaN(dId) ? dId : rawDropId;
+      cleanPayload.dropoff_id = !isNaN(dId) ? dId : rawDropId;
+    }
+    if (payload.pickup) cleanPayload.pickup = payload.pickup;
+    if (payload.dropoff) cleanPayload.dropoff = payload.dropoff;
+
+    appLogger.info('CASH_PAYMENT', 'Sending cash payment to backend:', cleanPayload);
     try {
-      const response = await apiClient.post<CashPaymentResponse>('/api/payment/cash', payload);
+      const response = await apiClient.post<CashPaymentResponse>('/api/payment/cash', cleanPayload);
       appLogger.info('CASH_PAYMENT', 'Cash payment response:', response.data);
 
       if (!response.data?.status || !response.data?.data) {

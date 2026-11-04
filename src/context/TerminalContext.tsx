@@ -31,6 +31,8 @@ interface TerminalContextValue {
     routeDetails?: {
       pickup_id?: number | string | null;
       dropoff_id?: number | string | null;
+      dropup_id?: number | string | null;
+      service_charges?: number | null;
       pickup?: string | null;
       dropoff?: string | null;
     }
@@ -214,6 +216,8 @@ const SimulatedTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       routeDetails?: {
         pickup_id?: number | string | null;
         dropoff_id?: number | string | null;
+        dropup_id?: number | string | null;
+        service_charges?: number | null;
         pickup?: string | null;
         dropoff?: string | null;
       }
@@ -656,6 +660,8 @@ const NativeTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ child
       routeDetails?: {
         pickup_id?: number | string | null;
         dropoff_id?: number | string | null;
+        dropup_id?: number | string | null;
+        service_charges?: number | null;
         pickup?: string | null;
         dropoff?: string | null;
       }

@@ -179,9 +179,11 @@ export default function TapReadyScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{
     amount?: string;
+    service_charges?: string;
     pickup?: string;
     dropoff?: string;
     pickup_id?: string;
+    dropup_id?: string;
     dropoff_id?: string;
   }>();
 
@@ -211,10 +213,12 @@ export default function TapReadyScreen() {
       params: {
         amount: rawAmount,
         method: 'tap',
+        service_charges: params.service_charges || '0',
         pickup: params.pickup || '',
         dropoff: params.dropoff || '',
         pickup_id: params.pickup_id || '',
-        dropoff_id: params.dropoff_id || '',
+        dropup_id: params.dropup_id || params.dropoff_id || '',
+        dropoff_id: params.dropup_id || params.dropoff_id || '',
       },
     });
   };

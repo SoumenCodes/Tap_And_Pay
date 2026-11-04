@@ -33,10 +33,12 @@ export default function ProcessingScreen() {
   const params = useLocalSearchParams<{
     amount?: string;
     method?: string;
+    service_charges?: string;
     cardInput?: string;
     pickup?: string;
     dropoff?: string;
     pickup_id?: string;
+    dropup_id?: string;
     dropoff_id?: string;
   }>();
 
@@ -82,11 +84,13 @@ export default function ProcessingScreen() {
     numericAmount,
     rawAmount,
     paymentMethod,
+    service_charges: params.service_charges ? Number(params.service_charges) : undefined,
     parsedCardInput,
     pickup: params.pickup || '',
     dropoff: params.dropoff || '',
     pickup_id: params.pickup_id || '',
-    dropoff_id: params.dropoff_id || '',
+    dropup_id: params.dropup_id || params.dropoff_id || '',
+    dropoff_id: params.dropup_id || params.dropoff_id || '',
     runSimulatedPayment,
     router,
   });
@@ -96,11 +100,13 @@ export default function ProcessingScreen() {
       numericAmount,
       rawAmount,
       paymentMethod,
+      service_charges: params.service_charges ? Number(params.service_charges) : undefined,
       parsedCardInput,
       pickup: params.pickup || '',
       dropoff: params.dropoff || '',
       pickup_id: params.pickup_id || '',
-      dropoff_id: params.dropoff_id || '',
+      dropup_id: params.dropup_id || params.dropoff_id || '',
+      dropoff_id: params.dropup_id || params.dropoff_id || '',
       runSimulatedPayment,
       router,
     };
@@ -132,11 +138,12 @@ export default function ProcessingScreen() {
         numericAmount: amt,
         rawAmount: rawAmt,
         paymentMethod: method,
+        service_charges,
         parsedCardInput: cardInput,
         pickup,
         dropoff,
         pickup_id: pId,
-        dropoff_id: dId,
+        dropup_id: dId,
         runSimulatedPayment: executePayment,
         router: navRouter,
       } = paymentStateRef.current;
@@ -144,8 +151,10 @@ export default function ProcessingScreen() {
       try {
         const feeBreakdown = calculateFee(amt, method);
         const result = await executePayment(amt, method, feeBreakdown, cardInput, {
-          pickup_id: pId || null,
-          dropoff_id: dId || null,
+          service_charges: service_charges !== undefined ? service_charges : 0,
+          pickup_id: pId ? (Number(pId) || pId) : null,
+          dropup_id: dId ? (Number(dId) || dId) : null,
+          dropoff_id: dId ? (Number(dId) || dId) : null,
           pickup: pickup || null,
           dropoff: dropoff || null,
         });
@@ -198,6 +207,10 @@ export default function ProcessingScreen() {
                 timestamp,
                 pickup,
                 dropoff,
+                pickup_id: pId || '',
+                dropup_id: dId || '',
+                dropoff_id: dId || '',
+                service_charges: service_charges !== undefined ? String(service_charges) : '',
               },
             });
           }, 450);

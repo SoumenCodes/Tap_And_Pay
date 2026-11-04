@@ -189,6 +189,8 @@ export async function createPaymentIntentOnBackend(
   routeDetails?: {
     pickup_id?: number | string | null;
     dropoff_id?: number | string | null;
+    dropup_id?: number | string | null;
+    service_charges?: number | null;
     pickup?: string | null;
     dropoff?: string | null;
   }
@@ -210,10 +212,23 @@ export async function createPaymentIntentOnBackend(
     card: formattedCard,
   };
 
-  if (routeDetails?.pickup_id) payload.pickup_id = routeDetails.pickup_id;
-  if (routeDetails?.dropoff_id) payload.dropoff_id = routeDetails.dropoff_id;
-  if (routeDetails?.pickup) payload.pickup = routeDetails.pickup;
-  if (routeDetails?.dropoff) payload.dropoff = routeDetails.dropoff;
+  if (routeDetails) {
+    if (routeDetails.service_charges !== undefined && routeDetails.service_charges !== null) {
+      payload.service_charges = Number(routeDetails.service_charges) || 0;
+    }
+    if (routeDetails.pickup_id !== undefined && routeDetails.pickup_id !== null && routeDetails.pickup_id !== '') {
+      const pId = Number(routeDetails.pickup_id);
+      payload.pickup_id = !isNaN(pId) ? pId : routeDetails.pickup_id;
+    }
+    const rawDropId = routeDetails.dropup_id ?? routeDetails.dropoff_id;
+    if (rawDropId !== undefined && rawDropId !== null && rawDropId !== '') {
+      const dId = Number(rawDropId);
+      payload.dropup_id = !isNaN(dId) ? dId : rawDropId;
+      payload.dropoff_id = !isNaN(dId) ? dId : rawDropId;
+    }
+    if (routeDetails.pickup) payload.pickup = routeDetails.pickup;
+    if (routeDetails.dropoff) payload.dropoff = routeDetails.dropoff;
+  }
 
   try {
     let res: any;

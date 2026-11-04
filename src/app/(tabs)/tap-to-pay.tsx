@@ -163,7 +163,7 @@ export default function TapToPayEnterAmountScreen() {
       setActiveShiftId(dash?.data?.active_shift?.id || null);
       setActiveShiftDisplayId(
         dash?.data?.active_shift?.display_shift_id ||
-          (dash?.data?.active_shift?.id ? String(dash.data.active_shift.id) : '')
+        (dash?.data?.active_shift?.id ? String(dash.data.active_shift.id) : '')
       );
     } catch {
       const fallbackShift = shiftService.getActiveShift();
@@ -317,8 +317,8 @@ export default function TapToPayEnterAmountScreen() {
   const displayAmount = formatDisplayAmount();
   const numericAmount = parseFloat(amountStr) || 0;
 
-  // Breakdown values for confirmation screen (defaulting to $100 if user continues with default)
-  const baseFare = numericAmount > 0 ? numericAmount : 100;
+  // Breakdown values for confirmation screen (strict numeric values, no mock defaults)
+  const baseFare = numericAmount;
   const serviceCharge = baseFare * 0.04;
   const totalAmount = baseFare + serviceCharge;
 
@@ -327,16 +327,54 @@ export default function TapToPayEnterAmountScreen() {
   const totalAmountFormatted = totalAmount.toFixed(2);
   const [totalIntPart, totalDecPart] = totalAmountFormatted.split('.');
 
+  // Validation flags: Amount must be > 0; for Taxi roles, Pickup and Drop-off are strictly mandatory
+  const isAmountValid = numericAmount > 0;
+  const isTaxiReady =
+    isOtherBusiness ||
+    (Boolean(pickupId && pickupLocation && pickupLocation.trim() !== '' && pickupLocation !== 'Select Pickup') &&
+      Boolean(dropoffId && dropoffLocation && dropoffLocation.trim() !== '' && dropoffLocation !== 'Select Drop Off'));
+  const isReadyToContinue = isAmountValid && isTaxiReady;
+
   // Continue from keypad to Confirm screen (Taxi) or directly to Payment (Other Business)
   const handleContinueToConfirm = async () => {
-    // Strictly verify shift session before accepting payment
+    // 1. Amount validation (Mandatory for all user types)
+    if (numericAmount <= 0) {
+      showAlert({
+        title: 'Amount Required',
+        message: 'Please enter a valid amount greater than $0.00 to continue.',
+        type: 'warning',
+      });
+      return;
+    }
+
+    // 2. Route validation: Pickup & Drop-off are mandatory for Taxi roles
+    if (!isOtherBusiness) {
+      if (!pickupId || !pickupLocation || pickupLocation.trim() === '' || pickupLocation === 'Select Pickup') {
+        showAlert({
+          title: 'Pickup Location Required',
+          message: 'Selecting a Pickup location is mandatory. Please select a pickup suburb from the dropdown.',
+          type: 'warning',
+        });
+        return;
+      }
+
+      if (!dropoffId || !dropoffLocation || dropoffLocation.trim() === '' || dropoffLocation === 'Select Drop Off') {
+        showAlert({
+          title: 'Drop-off Location Required',
+          message: 'Selecting a Drop-off location is mandatory. Please select a drop-off suburb from the dropdown.',
+          type: 'warning',
+        });
+        return;
+      }
+    }
+
+    // 3. Strictly verify shift session before accepting payment
     const sid = await ensureActiveShift();
     if (!sid) return;
 
     if (isOtherBusiness) {
       // Other business skips the taxi confirm/route/breakup screen and goes directly to payment
-      const finalAmountFormatted =
-        numericAmount > 0 ? numericAmount.toFixed(2) : '100.00';
+      const finalAmountFormatted = numericAmount.toFixed(2);
 
       if (selectedMethod === 'card') {
         router.push({
@@ -356,7 +394,7 @@ export default function TapToPayEnterAmountScreen() {
         // Record Cash Payment via POST /api/payment/cash
         setIsProcessingCash(true);
         try {
-          const amt = numericAmount > 0 ? numericAmount : 100.0;
+          const amt = numericAmount;
           const cashTxnData = await cashPaymentService.recordCashPayment({
             amount: amt,
             shift_session_id: sid,
@@ -417,7 +455,38 @@ export default function TapToPayEnterAmountScreen() {
 
   // Continue from Confirm Screen to Next Stage (Taxi)
   const handleFinalProceed = async () => {
-    // Strictly verify shift session before proceeding
+    // 1. Amount validation
+    if (numericAmount <= 0) {
+      showAlert({
+        title: 'Amount Required',
+        message: 'Please enter a valid amount greater than $0.00 to continue.',
+        type: 'warning',
+      });
+      return;
+    }
+
+    // 2. Route validation: Pickup & Drop-off are mandatory for Taxi roles
+    if (!isOtherBusiness) {
+      if (!pickupId || !pickupLocation || pickupLocation.trim() === '' || pickupLocation === 'Select Pickup') {
+        showAlert({
+          title: 'Pickup Location Required',
+          message: 'Selecting a Pickup location is mandatory. Please select a pickup suburb from the dropdown.',
+          type: 'warning',
+        });
+        return;
+      }
+
+      if (!dropoffId || !dropoffLocation || dropoffLocation.trim() === '' || dropoffLocation === 'Select Drop Off') {
+        showAlert({
+          title: 'Drop-off Location Required',
+          message: 'Selecting a Drop-off location is mandatory. Please select a drop-off suburb from the dropdown.',
+          type: 'warning',
+        });
+        return;
+      }
+    }
+
+    // 3. Strictly verify shift session before proceeding
     const sid = await ensureActiveShift();
     if (!sid) return;
 
@@ -426,9 +495,11 @@ export default function TapToPayEnterAmountScreen() {
         pathname: '/(tabs)/card-entry',
         params: {
           amount: totalAmountFormatted,
+          service_charges: serviceChargeFormatted,
           pickup: pickupLocation,
           dropoff: dropoffLocation,
           pickup_id: pickupId ? String(pickupId) : '',
+          dropup_id: dropoffId ? String(dropoffId) : '',
           dropoff_id: dropoffId ? String(dropoffId) : '',
         },
       });
@@ -437,9 +508,11 @@ export default function TapToPayEnterAmountScreen() {
         pathname: '/(tabs)/tap-ready',
         params: {
           amount: totalAmountFormatted,
+          service_charges: serviceChargeFormatted,
           pickup: pickupLocation,
           dropoff: dropoffLocation,
           pickup_id: pickupId ? String(pickupId) : '',
+          dropup_id: dropoffId ? String(dropoffId) : '',
           dropoff_id: dropoffId ? String(dropoffId) : '',
         },
       });
@@ -451,8 +524,10 @@ export default function TapToPayEnterAmountScreen() {
         const cashTxnData = await cashPaymentService.recordCashPayment({
           amount: amt,
           shift_session_id: sid,
-          pickup_id: pickupId,
-          dropoff_id: dropoffId,
+          service_charges: serviceCharge,
+          pickup_id: pickupId ? Number(pickupId) : null,
+          dropup_id: dropoffId ? Number(dropoffId) : null,
+          dropoff_id: dropoffId ? Number(dropoffId) : null,
           pickup: pickupLocation,
           dropoff: dropoffLocation,
         });
@@ -482,9 +557,11 @@ export default function TapToPayEnterAmountScreen() {
           params: {
             amount: totalAmountFormatted,
             method: 'cash',
+            service_charges: serviceChargeFormatted,
             pickup: pickupLocation,
             dropoff: dropoffLocation,
             pickup_id: pickupId ? String(pickupId) : '',
+            dropup_id: dropoffId ? String(dropoffId) : '',
             dropoff_id: dropoffId ? String(dropoffId) : '',
             paymentId: realTxnId,
             cardBrand: 'Cash',
@@ -690,8 +767,19 @@ export default function TapToPayEnterAmountScreen() {
                   onPress={() => handleOpenLocationPicker('pickup')}
                 >
                   <View style={styles.routeStopTextCol}>
-                    <Text style={styles.routeTypeLabel}>PICKUP</Text>
-                    <Text style={styles.routeLocationName}>{pickupLocation || 'Select Pickup'}</Text>
+                    <View style={styles.routeLabelRow}>
+                      <Text style={styles.routeTypeLabel}>PICKUP</Text>
+                      <Text style={styles.requiredAsterisk}>*</Text>
+                    </View>
+                    <Text
+                      style={[
+                        styles.routeLocationName,
+                        !pickupLocation && styles.routeLocationPlaceholder,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {pickupLocation || 'Select Pickup '}
+                    </Text>
                   </View>
                   <Feather name="chevron-down" size={16} color="#94A3B8" />
                 </TouchableOpacity>
@@ -705,8 +793,19 @@ export default function TapToPayEnterAmountScreen() {
                   onPress={() => handleOpenLocationPicker('dropoff')}
                 >
                   <View style={styles.routeStopTextCol}>
-                    <Text style={styles.routeTypeLabel}>DROP OFF</Text>
-                    <Text style={styles.routeLocationName}>{dropoffLocation || 'Select Drop Off'}</Text>
+                    <View style={styles.routeLabelRow}>
+                      <Text style={styles.routeTypeLabel}>DROP OFF</Text>
+                      <Text style={styles.requiredAsterisk}>*</Text>
+                    </View>
+                    <Text
+                      style={[
+                        styles.routeLocationName,
+                        !dropoffLocation && styles.routeLocationPlaceholder,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {dropoffLocation || 'Select Drop Off '}
+                    </Text>
                   </View>
 
                   {dropoffLocation ? (
@@ -765,15 +864,26 @@ export default function TapToPayEnterAmountScreen() {
               onPress={handleContinueToConfirm}
               style={[
                 styles.continueButton,
-                (!isOnShift || isProcessingCash) && styles.continueButtonDisabled,
+                (!isOnShift || isProcessingCash || !isReadyToContinue) && styles.continueButtonDisabled,
               ]}
               disabled={isProcessingCash}
             >
               {isProcessingCash ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <Text style={styles.continueButtonText}>
-                  {!isOnShift ? 'Start Shift to Continue' : 'Continue'}
+                <Text
+                  style={[
+                    styles.continueButtonText,
+                    (!isOnShift || !isReadyToContinue) && styles.continueButtonTextDisabled,
+                  ]}
+                >
+                  {!isOnShift
+                    ? 'Start Shift to Continue'
+                    : !isAmountValid
+                      ? 'Enter Amount to Continue'
+                      : !isTaxiReady
+                        ? 'Select Route to Continue'
+                        : 'Continue'}
                 </Text>
               )}
             </TouchableOpacity>
@@ -937,8 +1047,19 @@ export default function TapToPayEnterAmountScreen() {
                 onPress={() => handleOpenLocationPicker('pickup')}
               >
                 <View style={styles.routeStopTextCol}>
-                  <Text style={styles.routeTypeLabel}>PICKUP</Text>
-                  <Text style={styles.routeLocationName}>{pickupLocation}</Text>
+                  <View style={styles.routeLabelRow}>
+                    <Text style={styles.routeTypeLabel}>PICKUP</Text>
+                    <Text style={styles.requiredAsterisk}>*</Text>
+                  </View>
+                  <Text
+                    style={[
+                      styles.routeLocationName,
+                      !pickupLocation && styles.routeLocationPlaceholder,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {pickupLocation || 'Select Pickup '}
+                  </Text>
                 </View>
               </TouchableOpacity>
 
@@ -950,8 +1071,19 @@ export default function TapToPayEnterAmountScreen() {
                 onPress={() => handleOpenLocationPicker('dropoff')}
               >
                 <View style={styles.routeStopTextCol}>
-                  <Text style={styles.routeTypeLabel}>DROP OFF</Text>
-                  <Text style={styles.routeLocationName}>{dropoffLocation}</Text>
+                  <View style={styles.routeLabelRow}>
+                    <Text style={styles.routeTypeLabel}>DROP OFF</Text>
+                    <Text style={styles.requiredAsterisk}>*</Text>
+                  </View>
+                  <Text
+                    style={[
+                      styles.routeLocationName,
+                      !dropoffLocation && styles.routeLocationPlaceholder,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {dropoffLocation || 'Select Drop Off '}
+                  </Text>
                 </View>
                 {dropoffLocation ? (
                   <TouchableOpacity
@@ -1004,7 +1136,7 @@ export default function TapToPayEnterAmountScreen() {
           <TouchableOpacity
             style={[
               styles.primaryActionButton,
-              isProcessingCash && styles.continueButtonDisabled,
+              (isProcessingCash || !isReadyToContinue) && styles.continueButtonDisabled,
             ]}
             activeOpacity={0.88}
             onPress={handleFinalProceed}
@@ -1013,12 +1145,19 @@ export default function TapToPayEnterAmountScreen() {
             {isProcessingCash ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
-              <Text style={styles.primaryActionText}>
-                {selectedMethod === 'tap'
-                  ? 'Tap to Pay'
-                  : selectedMethod === 'card'
-                    ? 'Continue to Charge'
-                    : 'Confirm Cash Payment'}
+              <Text
+                style={[
+                  styles.primaryActionText,
+                  !isReadyToContinue && styles.continueButtonTextDisabled,
+                ]}
+              >
+                {!isTaxiReady
+                  ? 'Select Route to Continue'
+                  : selectedMethod === 'tap'
+                    ? 'Tap to Pay'
+                    : selectedMethod === 'card'
+                      ? 'Continue to Charge'
+                      : 'Confirm Cash Payment'}
               </Text>
             )}
           </TouchableOpacity>
@@ -1288,17 +1427,31 @@ const styles = StyleSheet.create({
   routeStopTextCol: {
     flex: 1,
   },
+  routeLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   routeTypeLabel: {
     fontSize: 9,
     fontWeight: '700',
     color: '#64748B',
     letterSpacing: 0.5,
   },
+  requiredAsterisk: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#DC2626',
+    marginLeft: 3,
+  },
   routeLocationName: {
     fontSize: 13.5,
     fontWeight: '700',
     color: '#0F172A',
     marginTop: 1,
+  },
+  routeLocationPlaceholder: {
+    color: '#94A3B8',
+    fontWeight: '500',
   },
   routeDivider: {
     height: 1,
@@ -1693,6 +1846,10 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   continueButtonDisabled: {
-    opacity: 0.75,
+    opacity: 0.65,
+    backgroundColor: '#334155',
+  },
+  continueButtonTextDisabled: {
+    color: '#CBD5E1',
   },
 });

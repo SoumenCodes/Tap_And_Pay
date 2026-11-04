@@ -23,10 +23,12 @@ export default function CardEntryScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{
     amount?: string;
+    service_charges?: string;
     showFraudWarning?: string;
     pickup?: string;
     dropoff?: string;
     pickup_id?: string;
+    dropup_id?: string;
     dropoff_id?: string;
   }>();
 
@@ -160,6 +162,7 @@ export default function CardEntryScreen() {
       params: {
         amount: rawAmount,
         method: 'card',
+        service_charges: params.service_charges || '0',
         cardInput: JSON.stringify({
           number: cardNumber.replace(/\s/g, ''),
           expMonth: expMonthRaw?.trim() || '',
@@ -169,7 +172,8 @@ export default function CardEntryScreen() {
         pickup: params.pickup || '',
         dropoff: params.dropoff || '',
         pickup_id: params.pickup_id || '',
-        dropoff_id: params.dropoff_id || '',
+        dropup_id: params.dropup_id || params.dropoff_id || '',
+        dropoff_id: params.dropup_id || params.dropoff_id || '',
       },
     });
     setIsProcessing(false);

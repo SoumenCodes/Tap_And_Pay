@@ -1271,7 +1271,7 @@ const styles = StyleSheet.create({
   },
   sePayLogo: {
     // width: 90,
-    height: 70,
+    maxHeight: 80,
   },
 
   /* ── Action Buttons ── */

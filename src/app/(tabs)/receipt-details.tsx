@@ -962,11 +962,13 @@ function TaxiReceiptScreen() {
               activeOpacity={0.85}
             >
               {isPrinting ? (
-                <ActivityIndicator size="small" color="#0F172A" style={{ marginRight: 8 }} />
+                <ActivityIndicator size="small" color="#0F172A" style={{ marginRight: 6 }} />
               ) : (
-                <Ionicons name="print-outline" size={19} color="#0F172A" style={{ marginRight: 8 }} />
+                <Ionicons name="print-outline" size={17} color="#0F172A" style={{ marginRight: 6 }} />
               )}
-              <Text style={styles.printBtnText}>Print Digital Receipt</Text>
+              <Text style={styles.printBtnText} numberOfLines={1} adjustsFontSizeToFit>
+                Print Digital Receipt
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -976,11 +978,13 @@ function TaxiReceiptScreen() {
               activeOpacity={0.85}
             >
               {isSharing ? (
-                <ActivityIndicator size="small" color="#0A3977" style={{ marginRight: 8 }} />
+                <ActivityIndicator size="small" color="#0A3977" style={{ marginRight: 6 }} />
               ) : (
-                <Ionicons name="share-outline" size={19} color="#0A3977" style={{ marginRight: 8 }} />
+                <Ionicons name="share-outline" size={17} color="#0A3977" style={{ marginRight: 6 }} />
               )}
-              <Text style={styles.shareBtnText}>Share Digital Receipt Via</Text>
+              <Text style={styles.shareBtnText} numberOfLines={1} adjustsFontSizeToFit>
+                Share Digital Receipt
+              </Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -1353,42 +1357,54 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   sePayLogo: {
-    height: 200,
+    maxHeight: 80,
   },
   actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
+    marginTop: 4,
   },
   printBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FBBF24',
-    height: 44,
+    height: 48,
+    paddingHorizontal: 8,
     borderRadius: 12,
     shadowColor: '#F59E0B',
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.25,
     shadowRadius: 6,
     elevation: 3,
   },
   printBtnText: {
     color: '#0F172A',
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 12.5,
+    fontWeight: '800',
   },
   shareBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    height: 44,
+    height: 48,
+    paddingHorizontal: 8,
     borderRadius: 12,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
   },
   shareBtnText: {
     color: '#0F172A',
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '700',
   },
 

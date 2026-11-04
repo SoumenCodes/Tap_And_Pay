@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Platform,
   ScrollView,
   BackHandler,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,6 +17,7 @@ import { useAuth } from '../../context/AuthContext';
 import { getCachedDashboardHeader, dashboardService } from '../../services/dashboardService';
 import { tokenStorage } from '../../services/tokenStorage';
 import { paymentSession } from '../../services/paymentSession';
+import { receiptService } from '../../services/receiptService';
 import { formatSydneyToUserDateTime } from '../../utils/dateUtils';
 
 export default function PaymentSuccessScreen() {
@@ -65,35 +67,78 @@ export default function PaymentSuccessScreen() {
         : numericAmount.toFixed(2);
 
   const businessName = user?.businessName || user?.name || '--';
+  const [isFetchingReceipt, setIsFetchingReceipt] = useState(false);
 
-  const handleViewReceipt = () => {
+  const handleViewReceipt = async () => {
     const cachedHeader = getCachedDashboardHeader();
     const cachedUser = tokenStorage.getCachedUser();
     const isOtherBiz =
       user?.loginType === 'other_business' ||
       user?.loginType === 'other_business_employee';
-    const abnValue =
+    let abnValue =
       user?.abn ||
       cachedHeader?.abn ||
       cachedUser?.abn ||
       (isOtherBiz ? '-' : '');
-    const phoneValue =
+    let phoneValue =
       user?.phone ||
       cachedHeader?.phone ||
       cachedUser?.phone ||
       (isOtherBiz ? '-' : '');
+    let realAmount = rawAmount;
+    let realCardBrand = cardBrand;
+
+    let pickupVal = params.pickup || '';
+    let dropoffVal = params.dropoff || '';
+    let taxiNoVal = '';
+    let dcNoVal = '';
+
+    // Fetch official server receipt if valid payment ID exists
+    if (paymentId && paymentId !== '--' && paymentId !== 'CASH-PAYMENT') {
+      setIsFetchingReceipt(true);
+      try {
+        const receipt = await receiptService.getReceipt(paymentId);
+        if (receipt.abn) abnValue = receipt.abn;
+        if (receipt.phone_no) phoneValue = receipt.phone_no;
+        if (receipt.amount !== undefined && receipt.amount !== null) {
+          realAmount = String(receipt.amount);
+        }
+        if (receipt.card_brand) {
+          realCardBrand = receipt.card_brand;
+        }
+        if (receipt.pickup_location || receipt.pickup) {
+          pickupVal = receipt.pickup_location || receipt.pickup || pickupVal;
+        }
+        if (receipt.drop_location || receipt.dropoff) {
+          dropoffVal = receipt.drop_location || receipt.dropoff || dropoffVal;
+        }
+        if (receipt.taxi_number || receipt.taxi_no) {
+          taxiNoVal = receipt.taxi_number || receipt.taxi_no || '';
+        }
+        if (receipt.dc_number) {
+          dcNoVal = receipt.dc_number;
+        }
+      } catch (err) {
+        // Non-blocking graceful fallback to route params
+        console.warn('Failed to pre-fetch receipt from server:', err);
+      } finally {
+        setIsFetchingReceipt(false);
+      }
+    }
 
     router.push({
       pathname: '/(tabs)/receipt-details',
       params: {
-        amount: rawAmount,
+        amount: realAmount,
         method: isCash ? 'cash' : isTap ? 'tap' : 'card',
         paymentId,
         cardLast4,
-        cardBrand,
+        cardBrand: realCardBrand,
         dateStr: formattedDate,
-        pickup: params.pickup || '',
-        dropoff: params.dropoff || '',
+        pickup: pickupVal,
+        dropoff: dropoffVal,
+        taxiNumber: taxiNoVal,
+        dcNumber: dcNoVal,
         abn: abnValue,
         phone: phoneValue,
       },
@@ -213,11 +258,16 @@ export default function PaymentSuccessScreen() {
       {/* ── Action Buttons ── */}
       <View style={styles.footer}>
         <TouchableOpacity
-          style={styles.viewReceiptBtn}
+          style={[styles.viewReceiptBtn, isFetchingReceipt && { opacity: 0.85 }]}
           onPress={handleViewReceipt}
           activeOpacity={0.85}
+          disabled={isFetchingReceipt}
         >
-          <Text style={styles.viewReceiptText}>View Receipt</Text>
+          {isFetchingReceipt ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Text style={styles.viewReceiptText}>View Receipt</Text>
+          )}
         </TouchableOpacity>
 
         <TouchableOpacity

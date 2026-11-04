@@ -29,3 +29,30 @@ export async function getAssetDataUri(assetModule: number, mimeType: string): Pr
     return '';
   }
 }
+
+/**
+ * Normalizes backend image and logo URLs to ensure static assets resolve correctly.
+ * On stageserv, files in public/logo, public/advertisements, public/profile, etc.
+ * must have the '/public/' segment, otherwise CodeIgniter routing throws a 404 error.
+ */
+export function normalizeImageUrl(url?: string | null): string | null {
+  if (!url || typeof url !== 'string') return null;
+  let trimmed = url.trim();
+  if (!trimmed) return null;
+
+  // If localhost (e.g. from local server test http://localhost/SEPAY_WEB/...), rewrite to stageserv
+  if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/SEPAY_WEB)?\//i.test(trimmed)) {
+    trimmed = trimmed.replace(
+      /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/SEPAY_WEB)?\//i,
+      'https://sepay.stageserv.in/'
+    );
+  }
+
+  // Ensure /public/ segment exists on known asset directories
+  // e.g. https://sepay.stageserv.in/logo/... -> https://sepay.stageserv.in/public/logo/...
+  // e.g. https://sepay.stageserv.in/advertisements/... -> https://sepay.stageserv.in/public/advertisements/...
+  return trimmed.replace(
+    /(https?:\/\/[^\/]+)\/(?!public\/)(logo|advertisements|profile|documents|images)\//i,
+    (_match, p1, p2) => `${p1}/public/${p2}/`
+  );
+}

@@ -10,3 +10,4 @@ export * from './dashboardService';
 export * from './shiftService';
 export * from './locationService';
 export * from './cashPaymentService';
+export * from './receiptService';

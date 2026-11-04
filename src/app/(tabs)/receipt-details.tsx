@@ -24,13 +24,15 @@ import { useAuth } from '../../context/AuthContext';
 import { useConfirmModal } from '../../context/ConfirmModalContext';
 import HeaderBar from '../../components/common/HeaderBar';
 import { OtherBusinessReceiptScreen } from '../../components/other-business';
-import { getAssetDataUri } from '../../utils/assetUtils';
+import { getAssetDataUri, normalizeImageUrl } from '../../utils/assetUtils';
 import {
   dashboardService,
   onDashboardHeaderSync,
   getCachedDashboardHeader,
 } from '../../services/dashboardService';
 import { tokenStorage } from '../../services/tokenStorage';
+import { receiptService, ReceiptData } from '../../services/receiptService';
+import { formatSydneyToUserDateTime } from '../../utils/dateUtils';
 
 function getExportFilename(prefix: string, bizName: string, ext: string): string {
   const sanitize = (name: string) => name.replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -71,11 +73,25 @@ function TaxiReceiptScreen() {
     : (params.cardBrand || (isTap ? 'Contactless' : 'Visa')).trim();
   const cardLast4 = isCash ? '' : (params.cardLast4 || '••••');
   const paymentId = params.paymentId || (isCash ? 'CASH-PAYMENT' : '--');
-  const pickup = params.pickup || '--';
-  const dropoff = params.dropoff || '--';
-  const taxiNumber = params.taxiNumber || user?.taxiNumber || '--';
-  const dcNumber = params.dcNumber || (user as any)?.dcNumber || '--';
-  const businessName = user?.businessName || user?.name || '--';
+
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(() =>
+    receiptService.getCachedReceipt(params.paymentId)
+  );
+
+  useEffect(() => {
+    if (params.paymentId && params.paymentId !== '--' && params.paymentId !== 'CASH-PAYMENT' && !receiptData) {
+      let isMounted = true;
+      receiptService
+        .getReceipt(params.paymentId)
+        .then((data) => {
+          if (isMounted) setReceiptData(data);
+        })
+        .catch(() => { });
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [params.paymentId, receiptData]);
 
   const cachedHeader = getCachedDashboardHeader();
   const cachedUser = tokenStorage.getCachedUser();
@@ -124,7 +140,31 @@ function TaxiReceiptScreen() {
     return () => unsub();
   }, []);
 
+  const businessName =
+    receiptData?.business_name || user?.businessName || user?.name || '--';
+  const logoUrl = normalizeImageUrl(
+    receiptData?.business_logo || user?.logoUrl || cachedHeader?.logo_url
+  );
+  const taxiNumber =
+    receiptData?.taxi_number || receiptData?.taxi_no || params.taxiNumber || user?.taxiNumber || '--';
+  const dcNumber =
+    receiptData?.dc_number || params.dcNumber || (user as any)?.dcNumber || '';
+  const pickup =
+    receiptData?.pickup_location || receiptData?.pickup || params.pickup || '--';
+  const dropoff =
+    receiptData?.drop_location || receiptData?.dropoff || params.dropoff || '--';
+
+  const [failedLogoUrl, setFailedLogoUrl] = useState<string | null>(null);
+
+  const isLogoValid = Boolean(logoUrl) && failedLogoUrl !== logoUrl;
+
+  const effectiveNumericAmount =
+    receiptData?.amount !== undefined && receiptData?.amount !== null
+      ? receiptData.amount
+      : numericAmount;
+
   const abn =
+    receiptData?.abn ||
     (params.abn && params.abn.trim() !== '' && params.abn !== '--' ? params.abn : null) ||
     extraHeader.abn ||
     user?.abn ||
@@ -133,6 +173,7 @@ function TaxiReceiptScreen() {
     (isOtherBiz ? '50110219475' : '--');
 
   const phone =
+    receiptData?.phone_no ||
     (params.phone && params.phone.trim() !== '' && params.phone !== '--' ? params.phone : null) ||
     extraHeader.phone ||
     user?.phone ||
@@ -140,7 +181,20 @@ function TaxiReceiptScreen() {
     cachedUser?.phone ||
     (isOtherBiz ? '9932783473' : '--');
 
+  const cardBrandFinal =
+    receiptData?.card_brand || cardBrand;
+
+  const paymentMethodLabel =
+    receiptData?.payment_method || (isCash ? 'Cash Payment' : `${cardBrandFinal} •••• ${cardLast4}`);
+
+  const paymentMethodBadgeLabel =
+    receiptData?.payment_type || receiptData?.payment_method_badge || (isCash ? 'Cash' : isTap ? 'Tap & Go' : 'Card');
+
+  const receiptDateTime = receiptData?.date_time;
   const formattedDate = useMemo(() => {
+    if (receiptDateTime) {
+      return formatSydneyToUserDateTime(receiptDateTime);
+    }
     if (params.dateStr) return params.dateStr;
     const d = params.timestamp ? new Date(params.timestamp) : new Date();
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -153,14 +207,11 @@ function TaxiReceiptScreen() {
     hours = hours % 12 || 12;
     const hoursStr = String(hours).padStart(2, '0');
     return `${day} ${month} ${year}, ${hoursStr}:${minutes} ${ampm}`;
-  }, [params.timestamp, params.dateStr]);
+  }, [receiptDateTime, params.timestamp, params.dateStr]);
 
   // Amount formatting: integer and decimal parts
-  const formattedWithComma =
-    numericAmount >= 10000
-      ? Math.floor(numericAmount).toLocaleString('en-US')
-      : Math.floor(numericAmount).toString();
-  const decimalPart = (numericAmount % 1).toFixed(2).split('.')[1] || '00';
+  const formattedWithComma = Math.floor(effectiveNumericAmount).toLocaleString('en-US');
+  const decimalPart = (effectiveNumericAmount % 1).toFixed(2).split('.')[1] || '00';
 
   const [isSharing, setIsSharing] = useState(false);
   const [isShareModalVisible, setIsShareModalVisible] = useState(false);
@@ -436,14 +487,16 @@ function TaxiReceiptScreen() {
 <body>
   <div class="receipt-card">
     <div class="logo-badge">
-      ${taxiLogoUri
-        ? `<img src="${taxiLogoUri}" alt="Taxi" />`
-        : `<div style="font-size: 26px; line-height: 52px; text-align: center;">🚕</div>`
+      ${logoUrl
+        ? `<img src="${logoUrl}" alt="Logo" />`
+        : taxiLogoUri
+          ? `<img src="${taxiLogoUri}" alt="Taxi" />`
+          : `<div style="font-size: 26px; line-height: 52px; text-align: center;">🚕</div>`
       }
     </div>
     <div class="biz-name">${businessName}</div>
     <div class="biz-meta">ABN: ${abn} • PH: ${phone}</div>
-    <div class="biz-meta">TAXI NO.: ${taxiNumber} &nbsp;&nbsp; DC: ${dcNumber}</div>
+    <div class="biz-meta">TAXI NO.: ${taxiNumber}${dcNumber ? ` &nbsp;&nbsp; DC: ${dcNumber}` : ''}</div>
 
     <div class="total-paid-label">TOTAL PAID (INC GST)</div>
     <div class="amount"><span class="dollar">$</span>${formattedWithComma}<span class="decimal">.${decimalPart}</span></div>
@@ -482,11 +535,11 @@ function TaxiReceiptScreen() {
         <div>
           <div class="meta-label">Payment Method</div>
           <div class="meta-value">
-            ${isCash ? 'Cash Payment' : `${cardBrand} •••• ${cardLast4}`}
+            ${paymentMethodLabel}
           </div>
         </div>
-        <div class="${isCash ? 'pill-cash' : cardBrand.toUpperCase() === 'MASTERCARD' ? 'pill-mastercard' : 'pill-visa'}">
-          ${isCash ? 'CASH' : (cardBrand.toUpperCase() || 'VISA')}
+        <div class="${isCash ? 'pill-cash' : cardBrandFinal.toUpperCase() === 'MASTERCARD' ? 'pill-mastercard' : 'pill-visa'}">
+          ${isCash ? 'CASH' : (cardBrandFinal.toUpperCase() || 'VISA')}
         </div>
       </div>
 
@@ -756,11 +809,20 @@ function TaxiReceiptScreen() {
             {/* Top Avatar Logo Box */}
             <View style={styles.badgeWrap}>
               <View style={styles.logoBox}>
-                <Image
-                  source={require('../../../assets/taxi-logo.png')}
-                  style={styles.logoImage}
-                  resizeMode="contain"
-                />
+                {isLogoValid ? (
+                  <Image
+                    source={{ uri: logoUrl! }}
+                    style={styles.logoImage}
+                    resizeMode="contain"
+                    onError={() => setFailedLogoUrl(logoUrl)}
+                  />
+                ) : (
+                  <Image
+                    source={require('../../../assets/taxi-logo.png')}
+                    style={styles.logoImage}
+                    resizeMode="contain"
+                  />
+                )}
               </View>
             </View>
 
@@ -770,7 +832,7 @@ function TaxiReceiptScreen() {
               ABN: {abn} • PH: {phone}
             </Text>
             <Text style={styles.bizMeta}>
-              TAXI NO.: {taxiNumber}   DC: {dcNumber}
+              TAXI NO.: {taxiNumber}{dcNumber ? `   DC: ${dcNumber}` : ''}
             </Text>
 
             {/* Amount and PAID Pill Badge */}
@@ -828,7 +890,7 @@ function TaxiReceiptScreen() {
                     style={{ marginRight: 4 }}
                   />
                   <Text style={[styles.methodCapsuleText, isCash && styles.cashMethodCapsuleText]}>
-                    {isCash ? 'Cash' : isTap ? 'Tap & Go' : 'Card'}
+                    {paymentMethodBadgeLabel}
                   </Text>
                 </View>
               </View>
@@ -838,24 +900,24 @@ function TaxiReceiptScreen() {
                 <View>
                   <Text style={styles.metaLabel}>Payment Method</Text>
                   <Text style={styles.metaValue}>
-                    {isCash ? 'Cash Payment' : `${cardBrand} •••• ${cardLast4}`}
+                    {paymentMethodLabel}
                   </Text>
                 </View>
                 {isCash ? (
                   <View style={styles.cashPill}>
                     <Text style={styles.cashPillText}>CASH</Text>
                   </View>
-                ) : isTap && cardBrand === 'Contactless' ? (
+                ) : isTap && cardBrandFinal === 'Contactless' ? (
                   <View style={styles.tapPill}>
                     <Text style={styles.tapPillText}>TAP & GO</Text>
                   </View>
-                ) : cardBrand.toUpperCase() === 'MASTERCARD' ? (
+                ) : cardBrandFinal.toUpperCase() === 'MASTERCARD' ? (
                   <View style={styles.mastercardPill}>
                     <Text style={styles.mastercardPillText}>MASTERCARD</Text>
                   </View>
                 ) : (
                   <View style={styles.visaPill}>
-                    <Text style={styles.visaPillText}>{cardBrand.toUpperCase() || 'VISA'}</Text>
+                    <Text style={styles.visaPillText}>{cardBrandFinal.toUpperCase() || 'VISA'}</Text>
                   </View>
                 )}
               </View>

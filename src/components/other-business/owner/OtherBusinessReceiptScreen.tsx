@@ -23,7 +23,7 @@ import { captureRef } from 'react-native-view-shot';
 import { useAuth } from '../../../context/AuthContext';
 import { useConfirmModal } from '../../../context/ConfirmModalContext';
 import HeaderBar from '../../common/HeaderBar';
-import { getAssetDataUri } from '../../../utils/assetUtils';
+import { getAssetDataUri, normalizeImageUrl } from '../../../utils/assetUtils';
 import { formatSydneyToUserDateTime } from '../../../utils/dateUtils';
 import {
   dashboardService,
@@ -31,6 +31,7 @@ import {
   getCachedDashboardHeader,
 } from '../../../services/dashboardService';
 import { tokenStorage } from '../../../services/tokenStorage';
+import { receiptService, ReceiptData } from '../../../services/receiptService';
 
 function getExportFilename(prefix: string, bizName: string, ext: string): string {
   const sanitize = (name: string) => name.replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -65,14 +66,29 @@ export default function OtherBusinessReceiptScreen() {
     : (params.cardBrand || (isTap ? 'Contactless' : 'Visa')).trim();
   const cardLast4 = isCash ? '' : (params.cardLast4 || '••••');
   const paymentId = params.paymentId || (isCash ? 'CASH-PAYMENT' : '--');
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(() =>
+    receiptService.getCachedReceipt(params.paymentId)
+  );
+
+  useEffect(() => {
+    if (params.paymentId && params.paymentId !== '--' && params.paymentId !== 'CASH-PAYMENT' && !receiptData) {
+      let isMounted = true;
+      receiptService
+        .getReceipt(params.paymentId)
+        .then((data) => {
+          if (isMounted) setReceiptData(data);
+        })
+        .catch(() => { });
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [params.paymentId, receiptData]);
+
   const dateStr =
     (params.dateStr && params.dateStr.trim() !== '' && params.dateStr !== '--'
       ? params.dateStr
       : null) || formatSydneyToUserDateTime(new Date());
-
-  const businessName = user?.businessName || user?.name || '--';
-  const address = user?.businessAddress || '--';
-  const empId = user?.empId || '--';
 
   const cachedHeader = getCachedDashboardHeader();
   const cachedUser = tokenStorage.getCachedUser();
@@ -115,7 +131,27 @@ export default function OtherBusinessReceiptScreen() {
     return () => unsub();
   }, []);
 
+  const businessName =
+    receiptData?.business_name || user?.businessName || user?.name || '--';
+  const logoUrl = normalizeImageUrl(
+    receiptData?.business_logo || user?.logoUrl || cachedHeader?.logo_url
+  );
+  const address =
+    receiptData?.address || user?.businessAddress || '--';
+  const empId =
+    receiptData?.employee_id || user?.empId || '--';
+
+  const [failedLogoUrl, setFailedLogoUrl] = useState<string | null>(null);
+
+  const isLogoValid = Boolean(logoUrl) && failedLogoUrl !== logoUrl;
+
+  const effectiveNumericAmount =
+    receiptData?.amount !== undefined && receiptData?.amount !== null
+      ? receiptData.amount
+      : numericAmount;
+
   const abn =
+    receiptData?.abn ||
     (params.abn && params.abn.trim() !== '' && params.abn !== '--' ? params.abn : null) ||
     extraHeader.abn ||
     user?.abn ||
@@ -124,6 +160,7 @@ export default function OtherBusinessReceiptScreen() {
     '--';
 
   const phone =
+    receiptData?.phone_no ||
     (params.phone && params.phone.trim() !== '' && params.phone !== '--' ? params.phone : null) ||
     extraHeader.phone ||
     user?.phone ||
@@ -131,12 +168,21 @@ export default function OtherBusinessReceiptScreen() {
     cachedUser?.phone ||
     '--';
 
+  const cardBrandFinal =
+    receiptData?.card_brand || cardBrand;
+
+  const paymentMethodLabel =
+    receiptData?.payment_method || (isCash ? 'Cash Payment' : `${cardBrandFinal} •••• ${cardLast4}`);
+
+  const paymentMethodBadgeLabel =
+    receiptData?.payment_type || receiptData?.payment_method_badge || (isCash ? 'Cash' : isTap ? 'Tap & Go' : 'Card');
+
+  const effectiveDateStr =
+    receiptData?.date_time ? formatSydneyToUserDateTime(receiptData.date_time) : dateStr;
+
   // Amount formatting: integer and decimal parts
-  const formattedWithComma =
-    numericAmount >= 10000
-      ? Math.floor(numericAmount).toLocaleString('en-US')
-      : Math.floor(numericAmount).toString();
-  const decimalPart = (numericAmount.toFixed(2)).split('.')[1] || '00';
+  const formattedWithComma = Math.floor(effectiveNumericAmount).toLocaleString('en-US');
+  const decimalPart = effectiveNumericAmount.toFixed(2).split('.')[1] || '00';
 
   const [isSharing, setIsSharing] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
@@ -144,7 +190,7 @@ export default function OtherBusinessReceiptScreen() {
 
   // Generate HTML for full-page PDF document
   const generateReceiptHtml = async (isPhotoCard = false) => {
-    const effectiveLogo = user?.logoUrl || cachedHeader?.logo_url;
+    const effectiveLogo = logoUrl;
     const sePayLogoUri = await getAssetDataUri(
       require('../../../../assets/SE-pay-logo-gif.gif'),
       'image/gif'
@@ -411,7 +457,7 @@ export default function OtherBusinessReceiptScreen() {
       <div class="meta-row">
         <div>
           <div class="meta-label">Date & Time</div>
-          <div class="meta-value">${dateStr}</div>
+          <div class="meta-value">${effectiveDateStr}</div>
         </div>
         <div class="${isCash ? 'pill-cash-tag' : 'pill-card'}">
           ${isCash ? '💵 Cash' : isTap ? '✦ Tap & Go' : '💳 Card'}
@@ -422,11 +468,11 @@ export default function OtherBusinessReceiptScreen() {
         <div>
           <div class="meta-label">Payment Method</div>
           <div class="meta-value">
-            ${isCash ? 'Cash Payment' : `${cardBrand} •••• ${cardLast4}`}
+            ${paymentMethodLabel}
           </div>
         </div>
-        <div class="${isCash ? 'pill-cash' : cardBrand.toUpperCase() === 'MASTERCARD' ? 'pill-mastercard' : 'pill-visa'}">
-          ${isCash ? 'CASH' : (cardBrand.toUpperCase() || 'VISA')}
+        <div class="${isCash ? 'pill-cash' : cardBrandFinal.toUpperCase() === 'MASTERCARD' ? 'pill-mastercard' : 'pill-visa'}">
+          ${isCash ? 'CASH' : (cardBrandFinal.toUpperCase() || 'VISA')}
         </div>
       </div>
 
@@ -696,11 +742,12 @@ export default function OtherBusinessReceiptScreen() {
             {/* Top Avatar Logo Box */}
             <View style={styles.logoBadgeContainer}>
               <View style={styles.logoBox}>
-                {Boolean(user?.logoUrl || cachedHeader?.logo_url) ? (
+                {isLogoValid ? (
                   <Image
-                    source={{ uri: (user?.logoUrl || cachedHeader?.logo_url)! }}
+                    source={{ uri: logoUrl! }}
                     style={styles.logoImage}
                     resizeMode="contain"
+                    onError={() => setFailedLogoUrl(logoUrl)}
                   />
                 ) : (
                   <Feather name="briefcase" size={24} color="#D97706" />
@@ -743,7 +790,7 @@ export default function OtherBusinessReceiptScreen() {
               <View style={styles.metaRow}>
                 <View>
                   <Text style={styles.metaLabel}>Date & Time</Text>
-                  <Text style={styles.metaValue}>{dateStr}</Text>
+                  <Text style={styles.metaValue}>{effectiveDateStr}</Text>
                 </View>
                 <View style={[styles.methodCapsule, isCash && styles.cashMethodCapsule]}>
                   <Ionicons
@@ -753,7 +800,7 @@ export default function OtherBusinessReceiptScreen() {
                     style={{ marginRight: 4 }}
                   />
                   <Text style={[styles.methodCapsuleText, isCash && styles.cashMethodCapsuleText]}>
-                    {isCash ? 'Cash' : isTap ? 'Tap & Go' : 'Card'}
+                    {paymentMethodBadgeLabel}
                   </Text>
                 </View>
               </View>
@@ -763,24 +810,24 @@ export default function OtherBusinessReceiptScreen() {
                 <View>
                   <Text style={styles.metaLabel}>Payment Method</Text>
                   <Text style={styles.metaValue}>
-                    {isCash ? 'Cash Payment' : `${cardBrand} •••• ${cardLast4}`}
+                    {paymentMethodLabel}
                   </Text>
                 </View>
                 {isCash ? (
                   <View style={styles.cashPill}>
                     <Text style={styles.cashPillText}>CASH</Text>
                   </View>
-                ) : isTap && cardBrand === 'Contactless' ? (
+                ) : isTap && cardBrandFinal === 'Contactless' ? (
                   <View style={styles.tapPill}>
                     <Text style={styles.tapPillText}>TAP & GO</Text>
                   </View>
-                ) : cardBrand.toUpperCase() === 'MASTERCARD' ? (
+                ) : cardBrandFinal.toUpperCase() === 'MASTERCARD' ? (
                   <View style={styles.mastercardPill}>
                     <Text style={styles.mastercardPillText}>MASTERCARD</Text>
                   </View>
                 ) : (
                   <View style={styles.visaPill}>
-                    <Text style={styles.visaPillText}>{cardBrand.toUpperCase() || 'VISA'}</Text>
+                    <Text style={styles.visaPillText}>{cardBrandFinal.toUpperCase() || 'VISA'}</Text>
                   </View>
                 )}
               </View>

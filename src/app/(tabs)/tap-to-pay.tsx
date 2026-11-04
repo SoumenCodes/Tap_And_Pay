@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -27,6 +27,7 @@ import { paymentSession } from '../../services/paymentSession';
 import { dashboardService, getActiveShiftSessionId } from '../../services/dashboardService';
 import { shiftService, onShiftChange, ActiveShiftData } from '../../services/shiftService';
 import { cashPaymentService } from '../../services/cashPaymentService';
+import { locationService, SuburbLocation } from '../../services/locationService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -38,25 +39,6 @@ const KEYPAD_ROWS = [
   ['4', '5', '6'],
   ['7', '8', '9'],
   ['.', '0', 'backspace'],
-];
-
-interface LocationItem {
-  id: string;
-  name: string;
-  desc: string;
-  icon: keyof typeof Ionicons.glyphMap;
-}
-
-const POPULAR_LOCATIONS: LocationItem[] = [
-  { id: '1', name: 'Hospital', desc: 'The Royal Melbourne Hospital, Parkville', icon: 'medical' },
-  { id: '2', name: 'Home', desc: 'Residential Address', icon: 'home' },
-  { id: '3', name: 'Melbourne Airport (MEL)', desc: 'Terminal 1-4, Tullamarine', icon: 'airplane' },
-  { id: '4', name: 'Flinders Street Station', desc: 'Corner Flinders & Swanston St, CBD', icon: 'train' },
-  { id: '5', name: 'Crown Casino & Hotel', desc: '8 Whiteman St, Southbank VIC', icon: 'star' },
-  { id: '6', name: 'Southern Cross Station', desc: 'Spencer Street, Docklands VIC', icon: 'subway' },
-  { id: '7', name: 'St Kilda Beach', desc: 'Jacka Blvd, St Kilda VIC', icon: 'sunny' },
-  { id: '8', name: 'Chadstone Shopping Centre', desc: '1341 Dandenong Rd, Malvern East', icon: 'cart' },
-  { id: '9', name: 'Melbourne Cricket Ground (MCG)', desc: 'Brunton Ave, Richmond VIC', icon: 'football' },
 ];
 
 export default function TapToPayEnterAmountScreen() {
@@ -77,14 +59,18 @@ export default function TapToPayEnterAmountScreen() {
   // Amount string state (default '0')
   const [amountStr, setAmountStr] = useState<string>('0');
 
-  // Interactive Route state
+  // Interactive Route state (for Taxi business/owner/driver)
   const [pickupLocation, setPickupLocation] = useState<string>('');
+  const [pickupId, setPickupId] = useState<number | null>(null);
   const [dropoffLocation, setDropoffLocation] = useState<string>('');
+  const [dropoffId, setDropoffId] = useState<number | null>(null);
 
-  // Searchable Dropdown Modal state
+  // Searchable Suburb Dropdown Modal state
   const [isLocationModalVisible, setIsLocationModalVisible] = useState<boolean>(false);
   const [activePickerType, setActivePickerType] = useState<'pickup' | 'dropoff'>('pickup');
   const [searchLocationQuery, setSearchLocationQuery] = useState<string>('');
+  const [suburbResults, setSuburbResults] = useState<SuburbLocation[]>([]);
+  const [isLoadingLocations, setIsLoadingLocations] = useState<boolean>(false);
 
   // Reset payment state helper
   const resetPaymentState = useCallback(() => {
@@ -92,10 +78,45 @@ export default function TapToPayEnterAmountScreen() {
     setScreenStep('amount');
     setSelectedMethod('tap');
     setPickupLocation('');
+    setPickupId(null);
     setDropoffLocation('');
+    setDropoffId(null);
     setSearchLocationQuery('');
+    setSuburbResults([]);
     setIsLocationModalVisible(false);
   }, []);
+
+  // Fetch suburbs dynamically from /api/location?search=<query>
+  useEffect(() => {
+    if (!isLocationModalVisible) return;
+    let isMounted = true;
+    const trimmed = searchLocationQuery.trim();
+
+    const timer = setTimeout(async () => {
+      try {
+        if (isMounted) {
+          setIsLoadingLocations(true);
+        }
+        const results = await locationService.searchLocations(trimmed);
+        if (isMounted) {
+          setSuburbResults(results);
+        }
+      } catch {
+        if (isMounted) {
+          setSuburbResults([]);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingLocations(false);
+        }
+      }
+    }, trimmed.length === 0 ? 0 : 250);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [searchLocationQuery, isLocationModalVisible]);
 
   // Subscribe to external payment reset events (e.g. from payment completion)
   useEffect(() => {
@@ -407,6 +428,8 @@ export default function TapToPayEnterAmountScreen() {
           amount: totalAmountFormatted,
           pickup: pickupLocation,
           dropoff: dropoffLocation,
+          pickup_id: pickupId ? String(pickupId) : '',
+          dropoff_id: dropoffId ? String(dropoffId) : '',
         },
       });
     } else if (selectedMethod === 'tap') {
@@ -416,6 +439,8 @@ export default function TapToPayEnterAmountScreen() {
           amount: totalAmountFormatted,
           pickup: pickupLocation,
           dropoff: dropoffLocation,
+          pickup_id: pickupId ? String(pickupId) : '',
+          dropoff_id: dropoffId ? String(dropoffId) : '',
         },
       });
     } else {
@@ -426,6 +451,10 @@ export default function TapToPayEnterAmountScreen() {
         const cashTxnData = await cashPaymentService.recordCashPayment({
           amount: amt,
           shift_session_id: sid,
+          pickup_id: pickupId,
+          dropoff_id: dropoffId,
+          pickup: pickupLocation,
+          dropoff: dropoffLocation,
         });
 
         const realTxnId = cashTxnData.transaction_id || `TXN-${Date.now()}`;
@@ -455,6 +484,8 @@ export default function TapToPayEnterAmountScreen() {
             method: 'cash',
             pickup: pickupLocation,
             dropoff: dropoffLocation,
+            pickup_id: pickupId ? String(pickupId) : '',
+            dropoff_id: dropoffId ? String(dropoffId) : '',
             paymentId: realTxnId,
             cardBrand: 'Cash',
             cardLast4: '----',
@@ -495,28 +526,22 @@ export default function TapToPayEnterAmountScreen() {
     setIsLocationModalVisible(true);
   };
 
-  const handleSelectLocation = (locationName: string) => {
+  const handleSelectLocation = (suburbName: string, id?: number) => {
     if (activePickerType === 'pickup') {
-      setPickupLocation(locationName);
+      setPickupLocation(suburbName);
+      setPickupId(id ?? null);
     } else {
-      setDropoffLocation(locationName);
+      setDropoffLocation(suburbName);
+      setDropoffId(id ?? null);
     }
     setIsLocationModalVisible(false);
   };
 
   const handleClearDropoff = () => {
     setDropoffLocation('');
+    setDropoffId(null);
     handleOpenLocationPicker('dropoff');
   };
-
-  // Filter locations
-  const filteredLocations = useMemo(() => {
-    if (!searchLocationQuery.trim()) return POPULAR_LOCATIONS;
-    const q = searchLocationQuery.toLowerCase();
-    return POPULAR_LOCATIONS.filter(
-      (loc) => loc.name.toLowerCase().includes(q) || loc.desc.toLowerCase().includes(q)
-    );
-  }, [searchLocationQuery]);
 
   // Header content by active method
   const getHeaderInfo = () => {
@@ -1041,15 +1066,17 @@ export default function TapToPayEnterAmountScreen() {
                 style={styles.searchTextInput}
                 value={searchLocationQuery}
                 onChangeText={setSearchLocationQuery}
-                placeholder="Search hospital, airport, address..."
+                placeholder="Search suburb (e.g. Malabar, Airport)..."
                 placeholderTextColor="#94A3B8"
                 autoFocus
               />
-              {searchLocationQuery.length > 0 && (
+              {isLoadingLocations ? (
+                <ActivityIndicator size="small" color="#D97706" style={{ marginLeft: 6 }} />
+              ) : searchLocationQuery.length > 0 ? (
                 <TouchableOpacity onPress={() => setSearchLocationQuery('')}>
                   <Ionicons name="close-circle" size={18} color="#94A3B8" />
                 </TouchableOpacity>
-              )}
+              ) : null}
             </View>
 
             {/* Custom Location Option if typing */}
@@ -1066,23 +1093,36 @@ export default function TapToPayEnterAmountScreen() {
               </TouchableOpacity>
             )}
 
-            {/* Location Suggestions List */}
+            {/* Dynamic Suburbs Suggestions List */}
             <FlatList
-              data={filteredLocations}
-              keyExtractor={(item) => item.id}
+              data={suburbResults}
+              keyExtractor={(item) => String(item.id)}
               showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              ListEmptyComponent={
+                !isLoadingLocations ? (
+                  <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+                    <Ionicons name="location-outline" size={30} color="#94A3B8" />
+                    <Text style={{ marginTop: 8, fontSize: 13, color: '#64748B', fontWeight: '500' }}>
+                      {searchLocationQuery.trim()
+                        ? `No suburbs found for "${searchLocationQuery.trim()}"`
+                        : 'Type to search suburbs'}
+                    </Text>
+                  </View>
+                ) : null
+              }
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={styles.locationItem}
                   activeOpacity={0.7}
-                  onPress={() => handleSelectLocation(item.name)}
+                  onPress={() => handleSelectLocation(item.suburb, item.id)}
                 >
                   <View style={styles.locationItemIconBox}>
-                    <Ionicons name={item.icon} size={18} color="#0F172A" />
+                    <Ionicons name="location-sharp" size={18} color="#D97706" />
                   </View>
                   <View style={styles.locationItemTextWrap}>
-                    <Text style={styles.locationItemName}>{item.name}</Text>
-                    <Text style={styles.locationItemDesc}>{item.desc}</Text>
+                    <Text style={styles.locationItemName}>{item.suburb}</Text>
+                    <Text style={styles.locationItemDesc}>Australia</Text>
                   </View>
                   <Feather name="chevron-right" size={16} color="#CBD5E1" />
                 </TouchableOpacity>

@@ -27,7 +27,13 @@ interface TerminalContextValue {
     amount: number,
     paymentMethod: PaymentMethodType,
     feeBreakdown?: FeeBreakdown,
-    cardInput?: { number: string; expMonth: string; expYear: string; cvc: string }
+    cardInput?: { number: string; expMonth: string; expYear: string; cvc: string },
+    routeDetails?: {
+      pickup_id?: number | string | null;
+      dropoff_id?: number | string | null;
+      pickup?: string | null;
+      dropoff?: string | null;
+    }
   ) => Promise<{ success: boolean; paymentIntent?: any; error?: string }>;
   clearError: () => void;
 }
@@ -204,7 +210,13 @@ const SimulatedTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       amount: number,
       paymentMethod: PaymentMethodType,
       feeBreakdown?: FeeBreakdown,
-      cardInput?: { number: string; expMonth: string; expYear: string; cvc: string }
+      cardInput?: { number: string; expMonth: string; expYear: string; cvc: string },
+      routeDetails?: {
+        pickup_id?: number | string | null;
+        dropoff_id?: number | string | null;
+        pickup?: string | null;
+        dropoff?: string | null;
+      }
     ): Promise<{ success: boolean; paymentIntent?: any; error?: string }> => {
       try {
         setIsProcessing(true);
@@ -213,6 +225,7 @@ const SimulatedTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         appLogger.info('SIMULATED_TERMINAL', `Starting simulated payment for $${amount}`, {
           paymentMethod,
           isLiveMode: !config.simulatedReader,
+          routeDetails,
         });
 
         if (paymentMethod === 'card') {
@@ -238,7 +251,8 @@ const SimulatedTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             'aud',
             'card',
             cardInput,
-            paymentMethodId
+            paymentMethodId,
+            routeDetails
           );
           console.log('💳 [STRIPE CARD API RESPONSE]:', JSON.stringify(intentRes, null, 2));
 
@@ -261,7 +275,7 @@ const SimulatedTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         await new Promise((r) => setTimeout(r, 600));
 
         setStatusMessage('Creating PaymentIntent on backend...');
-        const intentRes = await createPaymentIntentOnBackend(amount, 'aud', 'tap');
+        const intentRes = await createPaymentIntentOnBackend(amount, 'aud', 'tap', undefined, undefined, routeDetails);
         appLogger.info('SIMULATED_TERMINAL', 'Backend createPaymentIntent response:', intentRes);
         console.log('📋 [STRIPE TAP API RESPONSE]:', JSON.stringify(intentRes, null, 2));
 
@@ -638,7 +652,13 @@ const NativeTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ child
       amount: number,
       paymentMethod: PaymentMethodType,
       feeBreakdown?: FeeBreakdown,
-      cardInput?: { number: string; expMonth: string; expYear: string; cvc: string }
+      cardInput?: { number: string; expMonth: string; expYear: string; cvc: string },
+      routeDetails?: {
+        pickup_id?: number | string | null;
+        dropoff_id?: number | string | null;
+        pickup?: string | null;
+        dropoff?: string | null;
+      }
     ): Promise<{ success: boolean; paymentIntent?: any; error?: string }> => {
       try {
         setIsProcessing(true);
@@ -680,7 +700,8 @@ const NativeTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ child
             'aud',
             'card',
             cardInput,
-            paymentMethodId
+            paymentMethodId,
+            routeDetails
           );
           appLogger.info('TERMINAL', 'Card PaymentIntent created:', intentRes);
           console.log('💳 [STRIPE CARD API RESPONSE]:', JSON.stringify(intentRes, null, 2));
@@ -722,7 +743,7 @@ const NativeTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         setStatusMessage('Creating PaymentIntent on backend...');
         appLogger.info('TERMINAL', `Calling createPaymentIntentOnBackend(amount=${amount}, currency=aud, method=tap)...`);
-        const intentRes = await createPaymentIntentOnBackend(amount, 'aud', 'tap');
+        const intentRes = await createPaymentIntentOnBackend(amount, 'aud', 'tap', undefined, undefined, routeDetails);
         appLogger.info('TERMINAL', 'Backend createPaymentIntent response:', intentRes);
         const { clientSecret } = intentRes;
         if (!clientSecret) {

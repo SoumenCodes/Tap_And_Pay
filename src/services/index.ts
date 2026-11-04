@@ -8,3 +8,5 @@ export * from './driverService';
 export * from './employeeService';
 export * from './dashboardService';
 export * from './shiftService';
+export * from './locationService';
+export * from './cashPaymentService';

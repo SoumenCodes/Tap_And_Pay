@@ -218,6 +218,35 @@ function TaxiReceiptScreen() {
   const formattedWithComma = Math.floor(effectiveNumericAmount).toLocaleString('en-US');
   const decimalPart = (effectiveNumericAmount % 1).toFixed(2).split('.')[1] || '00';
 
+  // Payment Breakdown (POST /api/payment/fees or GET /api/receipt/:id)
+  const breakdown =
+    receiptData?.payment_break_down ||
+    (receiptData as any)?.payment_breakdown;
+
+  const hasBreakdown = Boolean(
+    breakdown &&
+    (breakdown.base_amount !== undefined ||
+      breakdown.service_fee !== undefined ||
+      breakdown.payable_amount !== undefined)
+  );
+
+  const breakdownBaseAmount =
+    breakdown?.base_amount !== undefined && breakdown?.base_amount !== null
+      ? Number(breakdown.base_amount)
+      : breakdown?.payable_amount !== undefined && breakdown?.service_fee !== undefined
+        ? Number(breakdown.payable_amount) - Number(breakdown.service_fee)
+        : null;
+
+  const breakdownServiceFee =
+    breakdown?.service_fee !== undefined && breakdown?.service_fee !== null
+      ? Number(breakdown.service_fee)
+      : 0;
+
+  const breakdownPayableAmount =
+    breakdown?.payable_amount !== undefined && breakdown?.payable_amount !== null
+      ? Number(breakdown.payable_amount)
+      : effectiveNumericAmount;
+
   const [isSharing, setIsSharing] = useState(false);
   const [isShareModalVisible, setIsShareModalVisible] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
@@ -285,12 +314,12 @@ function TaxiReceiptScreen() {
       box-sizing: border-box;
     }
     .receipt-card-70 {
-      height: 68%;
+      flex: 1;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       overflow: hidden;
-      margin: 0 auto;
+      margin: 0 auto 10px;
     }
     .logo-badge {
       width: 46px;
@@ -418,6 +447,58 @@ function TaxiReceiptScreen() {
       font-size: 16px;
       font-weight: bold;
       padding: 0 8px;
+    }
+    .breakdown-box {
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      border-radius: 10px;
+      padding: 8px 12px;
+      margin: 8px 0;
+      text-align: left;
+    }
+    .breakdown-hdr {
+      font-size: 8.5px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      color: #94A3B8;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+      padding-bottom: 3px;
+      border-bottom: 1px solid #F1F5F9;
+    }
+    .breakdown-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+      font-size: 11px;
+    }
+    .breakdown-label {
+      color: #64748B;
+      font-weight: 500;
+    }
+    .breakdown-val {
+      font-weight: 700;
+      color: #0F172A;
+    }
+    .breakdown-divider {
+      height: 1px;
+      background: #E2E8F0;
+      margin: 5px 0;
+    }
+    .breakdown-row.total {
+      margin-bottom: 0;
+      padding-top: 2px;
+    }
+    .breakdown-total-lbl {
+      font-size: 11px;
+      font-weight: 800;
+      color: #0F172A;
+    }
+    .breakdown-total-val {
+      font-size: 12.5px;
+      font-weight: 900;
+      color: #D97706;
     }
     .meta-list {
       text-align: left;
@@ -612,6 +693,27 @@ function TaxiReceiptScreen() {
 
       <div class="divider"></div>
 
+      ${hasBreakdown && breakdownBaseAmount !== null ? `
+      <div class="breakdown-box">
+        <div class="breakdown-hdr">PAYMENT BREAKDOWN</div>
+        <div class="breakdown-row">
+          <span class="breakdown-label">Base Amount</span>
+          <span class="breakdown-val">$${Number(breakdownBaseAmount).toFixed(2)}</span>
+        </div>
+        <div class="breakdown-row">
+          <span class="breakdown-label">Service Fee</span>
+          <span class="breakdown-val">$${Number(breakdownServiceFee).toFixed(2)}</span>
+        </div>
+        <div class="breakdown-divider"></div>
+        <div class="breakdown-row total">
+          <span class="breakdown-total-lbl">Total (INC GST)</span>
+          <span class="breakdown-total-val">$${Number(breakdownPayableAmount).toFixed(2)}</span>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      ` : ''}
+
       <div class="meta-list">
         <div class="meta-row">
           <div>
@@ -698,6 +800,27 @@ function TaxiReceiptScreen() {
     </div>
 
     <div class="divider"></div>
+
+    ${hasBreakdown && breakdownBaseAmount !== null ? `
+    <div class="breakdown-box">
+      <div class="breakdown-hdr">PAYMENT BREAKDOWN</div>
+      <div class="breakdown-row">
+        <span class="breakdown-label">Base Amount</span>
+        <span class="breakdown-val">$${Number(breakdownBaseAmount).toFixed(2)}</span>
+      </div>
+      <div class="breakdown-row">
+        <span class="breakdown-label">Service Fee</span>
+        <span class="breakdown-val">$${Number(breakdownServiceFee).toFixed(2)}</span>
+      </div>
+      <div class="breakdown-divider"></div>
+      <div class="breakdown-row total">
+        <span class="breakdown-total-lbl">Total (INC GST)</span>
+        <span class="breakdown-total-val">$${Number(breakdownPayableAmount).toFixed(2)}</span>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+    ` : ''}
 
     <div class="meta-list">
       <div class="meta-row">
@@ -1160,6 +1283,45 @@ function TaxiReceiptScreen() {
             {/* Divider */}
             <View style={styles.cardDivider} />
 
+            {/* ── Payment Breakdown Section ── */}
+            {hasBreakdown && breakdownBaseAmount !== null && (
+              <>
+                <View style={styles.breakdownCard}>
+                  <View style={styles.breakdownHeaderRow}>
+                    <Text style={styles.breakdownHeaderTitle}>PAYMENT BREAKDOWN</Text>
+                  </View>
+
+                  <View style={styles.breakdownRow}>
+                    <Text style={styles.breakdownLabel}>Base Amount</Text>
+                    <Text style={styles.breakdownValue}>
+                      ${Number(breakdownBaseAmount).toFixed(2)}
+                    </Text>
+                  </View>
+
+                  <View style={styles.breakdownRow}>
+                    <Text style={styles.breakdownLabel}>Service Fee</Text>
+                    <Text style={styles.breakdownValue}>
+                      ${Number(breakdownServiceFee).toFixed(2)}
+                    </Text>
+                  </View>
+
+                  <View style={styles.breakdownInnerDivider} />
+
+                  <View style={styles.breakdownTotalRow}>
+                    <Text style={styles.breakdownTotalLabel}>
+                      Total <Text style={styles.breakdownIncGst}>(INC GST)</Text>
+                    </Text>
+                    <Text style={styles.breakdownTotalValue}>
+                      ${Number(breakdownPayableAmount).toFixed(2)}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Divider */}
+                <View style={styles.cardDivider} />
+              </>
+            )}
+
             {/* ── Meta Information Rows ── */}
             <View style={styles.metaList}>
               {/* Row 1: Date & Time */}
@@ -1537,6 +1699,69 @@ const styles = StyleSheet.create({
     backgroundColor: '#F1F5F9',
     marginVertical: 10,
     width: '100%',
+  },
+  breakdownCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginVertical: 4,
+  },
+  breakdownHeaderRow: {
+    marginBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    paddingBottom: 4,
+  },
+  breakdownHeaderTitle: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  breakdownLabel: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  breakdownValue: {
+    fontSize: 12.5,
+    color: '#0F172A',
+    fontWeight: '700',
+  },
+  breakdownInnerDivider: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginVertical: 6,
+  },
+  breakdownTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  breakdownTotalLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  breakdownIncGst: {
+    fontSize: 9.5,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  breakdownTotalValue: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#D97706',
   },
   routeSection: {
     flexDirection: 'row',

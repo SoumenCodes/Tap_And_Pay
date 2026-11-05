@@ -2,6 +2,12 @@ import { apiClient } from './apiClient';
 import { appLogger } from './appLogger';
 import { normalizeImageUrl } from '../utils/assetUtils';
 
+export interface PaymentBreakDown {
+  payable_amount?: number;
+  base_amount?: number;
+  service_fee?: number;
+}
+
 export interface ReceiptData {
   business_name?: string;
   business_logo?: string | null;
@@ -30,6 +36,7 @@ export interface ReceiptData {
   pickup?: string | null;
   dropoff?: string | null;
   approval_code?: string | null;
+  payment_break_down?: PaymentBreakDown | null;
 }
 
 export interface ReceiptApiResponse {

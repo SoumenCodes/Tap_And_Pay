@@ -45,8 +45,8 @@ export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreen
       if (searchQuery.trim().length > 0) {
         const query = searchQuery.toLowerCase().trim();
         const matchId = txn.id.toLowerCase().includes(query);
-        const matchPickup = txn.pickup.toLowerCase().includes(query);
-        const matchDropoff = txn.dropoff.toLowerCase().includes(query);
+        const matchPickup = (txn.pickup_location || txn.pickup || '').toLowerCase().includes(query);
+        const matchDropoff = (txn.drop_location || txn.dropoff || '').toLowerCase().includes(query);
         const matchAmount = txn.amount.toString().includes(query);
         if (!matchId && !matchPickup && !matchDropoff && !matchAmount) return false;
       }
@@ -567,8 +567,8 @@ export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreen
                     </View>
 
                     <View style={styles.routeTextsCol}>
-                      <Text style={styles.addressText}>{txn.pickup}</Text>
-                      <Text style={[styles.addressText, { marginTop: 10 }]}>{txn.dropoff}</Text>
+                      <Text style={styles.addressText}>{txn.pickup_location || txn.pickup}</Text>
+                      <Text style={[styles.addressText, { marginTop: 10 }]}>{txn.drop_location || txn.dropoff}</Text>
                     </View>
                   </View>
 

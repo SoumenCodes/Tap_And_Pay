@@ -6,6 +6,8 @@ export interface ShiftTransaction {
   amount: number; // e.g. 106.00
   pickup: string; // e.g. 'St. Jude Medical Centre'
   dropoff: string; // e.g. '42 Richmond Road'
+  pickup_location?: string;
+  drop_location?: string;
   verification: string; // e.g. 'Settled via Terminal #537384', 'NFC Apple Pay Verified', 'NFC Google Wallet Verified'
   verificationType: 'terminal' | 'apple_pay' | 'google_pay';
 }

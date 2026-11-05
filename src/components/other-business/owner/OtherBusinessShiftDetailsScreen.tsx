@@ -153,7 +153,9 @@ export default function OtherBusinessShiftDetailsScreen({
       const matchMethod = (txn.payment_method || '').toLowerCase().includes(query);
       const matchAmount = (txn.amount_formatted || txn.amount?.toString() || '').toLowerCase().includes(query);
       const matchDate = (txn.date || '').toLowerCase().includes(query);
-      return matchId || matchMethod || matchAmount || matchDate;
+      const matchPickup = (txn.pickup_location || '').toLowerCase().includes(query);
+      const matchDrop = (txn.drop_location || '').toLowerCase().includes(query);
+      return matchId || matchMethod || matchAmount || matchDate || matchPickup || matchDrop;
     });
   }, [shiftDetails?.transactions, searchQuery]);
 
@@ -236,6 +238,7 @@ export default function OtherBusinessShiftDetailsScreen({
             <div class="row"><span class="label">Date & Time:</span><span class="value">${localDateTime}</span></div>
             <div class="row"><span class="label">Payment Method:</span><span class="value">${txn.payment_method}</span></div>
             <div class="row"><span class="label">Terminal ID:</span><span class="value">${txn.terminal_id || 'SE-PAY-01'}</span></div>
+            ${(txn.pickup_location || txn.drop_location) ? `<div class="row"><span class="label">Route:</span><span class="value">${txn.pickup_location || '--'} &rarr; ${txn.drop_location || '--'}</span></div>` : ''}
           </div>
 
           <div class="footer">
@@ -383,7 +386,8 @@ export default function OtherBusinessShiftDetailsScreen({
       }
 
       const localDateTime = formatSydneyToUserDateTime(txn.date) || txn.date;
-      const shareMsg = `Receipt: ${businessName}\nTransaction: ${txn.transaction_id}\nAmount: ${txn.amount_formatted}\nMethod: ${txn.payment_method}\nDate: ${localDateTime}`;
+      const routeInfo = txn.pickup_location || txn.drop_location ? `\nRoute: ${txn.pickup_location || '--'} to ${txn.drop_location || '--'}` : '';
+      const shareMsg = `Receipt: ${businessName}\nTransaction: ${txn.transaction_id}\nAmount: ${txn.amount_formatted}\nMethod: ${txn.payment_method}\nDate: ${localDateTime}${routeInfo}`;
       await Share.share(
         Platform.OS === 'ios'
           ? {

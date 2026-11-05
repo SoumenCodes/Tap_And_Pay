@@ -13,6 +13,7 @@ export interface DashboardHeader {
   full_name?: string;
   first_name?: string;
   last_name?: string;
+  taxi_no?: string | null;
   identifier_type?: string;
   identifier_value?: string;
   identifier_label?: string;
@@ -155,6 +156,7 @@ export interface DashboardData {
   role_id: number;
   is_taxi_service: boolean;
   is_on_shift: boolean;
+  taxi_no?: string | null;
   start_time?: string | null;
   start_at?: string | null;
   active_shift?: ActiveShiftData | null;
@@ -264,6 +266,12 @@ export const dashboardService = {
                   phone: h.phone || user.phone,
                   businessName: h.business_name || user.businessName,
                   empId: h.identifier_value || user.empId,
+                  taxiNumber:
+                    h.taxi_no !== undefined
+                      ? (h.taxi_no || user.taxiNumber)
+                      : h.identifier_type === 'taxi_no' && h.identifier_value
+                      ? h.identifier_value
+                      : user.taxiNumber,
                   logoUrl: h.logo_url !== undefined ? h.logo_url : user.logoUrl,
                   bannerImageUrl:
                     h.banner_image_url !== undefined ? h.banner_image_url : user.bannerImageUrl,

@@ -116,7 +116,20 @@ export default function TaxiBusinessDashboard({
   const header = dashboardData?.header;
   const displayBusinessName = header?.business_name || businessName || user?.businessName || '--';
   const displayUserName = header?.full_name || header?.first_name || userName || user?.name || '--';
-  const displayIdentifier = header?.identifier_value || taxiNumber || user?.taxiNumber || user?.empId || '--';
+
+  // Taxi number: if taxi_no is not null then set displayTaxiNumber
+  const rawTaxiNo =
+    header?.taxi_no !== undefined
+      ? header.taxi_no
+      : dashboardData?.taxi_no !== undefined
+      ? dashboardData.taxi_no
+      : header?.identifier_type === 'taxi_no'
+      ? header?.identifier_value
+      : null;
+  const displayTaxiNumber =
+    rawTaxiNo !== null && rawTaxiNo !== undefined && String(rawTaxiNo).trim() !== '' && String(rawTaxiNo).trim() !== '--'
+      ? String(rawTaxiNo).trim()
+      : '';
 
   const initials = (() => {
     const raw = displayBusinessName || displayUserName;
@@ -139,9 +152,9 @@ export default function TaxiBusinessDashboard({
 
   const displayStartTime = isOnShift
     ? (rawStartAt ? formatSydneyToUserTime(rawStartAt) : null) ||
-      (rawStartTime ? formatSydneyToUserTime(rawStartTime) : null) ||
-      sessionStartTime ||
-      '--'
+    (rawStartTime ? formatSydneyToUserTime(rawStartTime) : null) ||
+    sessionStartTime ||
+    '--'
     : '--';
 
   const activeShiftCode =
@@ -290,6 +303,15 @@ export default function TaxiBusinessDashboard({
         },
       });
     } else {
+      if (!displayTaxiNumber) {
+        showAlert({
+          title: 'Taxi Registration Required',
+          message: 'Please register yourself as a driver to obtain an assigned taxi number before starting a shift.',
+          type: 'warning',
+          icon: 'alert-circle-outline',
+        });
+        return;
+      }
       setIsShiftActionLoading(true);
       try {
         const res = await shiftService.startShift();
@@ -420,7 +442,7 @@ export default function TaxiBusinessDashboard({
 
               <View style={styles.welcomeMetaRow}>
                 <Text style={styles.taxiMetaLabel}>
-                  Taxi No.: <Text style={styles.taxiNoHighlight}>{displayIdentifier}</Text>
+                  Taxi No.: <Text style={styles.taxiNoHighlight}>{displayTaxiNumber || '--'}</Text>
                 </Text>
                 {isOnShift && (
                   <>
@@ -564,29 +586,64 @@ export default function TaxiBusinessDashboard({
             </View>
           </View>
 
-          {/* 5. End / Start Shift Action Button */}
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={handleToggleShift}
-            disabled={isShiftActionLoading}
-            style={[styles.shiftButton, isShiftActionLoading && { opacity: 0.7 }]}
-          >
-            {isShiftActionLoading ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <>
-                <MaterialCommunityIcons
-                  name={isOnShift ? 'logout' : 'login'}
-                  size={20}
-                  color="#FFFFFF"
-                  style={{ marginRight: 8 }}
-                />
-                <Text style={styles.shiftButtonText}>
-                  {isOnShift ? 'End Shift' : 'Start Shift'}
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
+          {/* 5. End / Start Shift Action Button / Register Driver */}
+          {isOnShift ? (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={handleToggleShift}
+              disabled={isShiftActionLoading}
+              style={[styles.shiftButton, isShiftActionLoading && { opacity: 0.7 }]}
+            >
+              {isShiftActionLoading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <MaterialCommunityIcons
+                    name="logout"
+                    size={20}
+                    color="#FFFFFF"
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text style={styles.shiftButtonText}>End Shift</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          ) : displayTaxiNumber ? (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={handleToggleShift}
+              disabled={isShiftActionLoading}
+              style={[styles.shiftButton, isShiftActionLoading && { opacity: 0.7 }]}
+            >
+              {isShiftActionLoading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <MaterialCommunityIcons
+                    name="login"
+                    size={20}
+                    color="#FFFFFF"
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text style={styles.shiftButtonText}>Start Shift</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => router.push('/add-driver')}
+              style={[styles.shiftButton, styles.registerDriverButton]}
+            >
+              <MaterialCommunityIcons
+                name="account-plus-outline"
+                size={20}
+                color="#FFFFFF"
+                style={{ marginRight: 8 }}
+              />
+              <Text style={styles.shiftButtonText}>Register Your self as driver</Text>
+            </TouchableOpacity>
+          )}
 
           {/* 6. Active Drivers Section */}
           <View style={styles.driversSection}>
@@ -1125,6 +1182,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 5,
     elevation: 3,
+  },
+  registerDriverButton: {
+    backgroundColor: '#D97706',
+    shadowColor: '#D97706',
   },
   shiftButtonText: {
     color: '#FFFFFF',

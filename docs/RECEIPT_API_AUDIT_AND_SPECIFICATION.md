@@ -220,3 +220,27 @@ To ensure the mobile app remains fully functional while backend fixes are deploy
   }
 }
 ```
+
+---
+
+## 6. UI & Presentation Harmonization (5 November 2026)
+
+### 6.1 Taxi "TAX INVOICE" Legal Heading
+- Under Australian taxation and point-to-point passenger transport regulations, passenger fare receipts are formal tax invoices.
+- **TAX INVOICE** heading is prominently positioned directly below the Business Name across:
+  1. On-Screen Receipt Details Card (`TaxiReceiptScreen`)
+  2. Lossless PNG and Animated GIF (4s+4s) exports
+  3. Single-Page 70/30 Split PDF (`.receipt-card-70`)
+  4. Full-Page Formal PDF document (`.receipt-card`)
+
+### 6.2 Unified Visual System Across All User Types
+- **Card Styling:** `#FFFDF7` cream card, `24px` border radius, `#FEF08A` golden border, `#F59E0B` soft elevation.
+- **Logo Badge:** `52x52` container with `14px` radius, `#FEF9C3` background, `#FDE047` border.
+- **Amount Display:** High-impact bold typography (`$26`, Whole `38`, Cents `22`) paired with unified green `#DCFCE7` pill badge (`PAID`).
+- **Dividers & Meta:** Synchronized `14px` vertical dividers, `12px` row gaps, and matching pill capsules.
+- **Footer:** Unified `THANK YOU FOR CHOOSING {BIZ}` + `POWERED BY` + SE PAY logo (`120x28`).
+- **Share Modal:** Harmonized 3-option menu:
+  1. Share as Image (PNG) - 100% HD lossless card
+  2. Share Animated Card - 4s digital receipt + 4s sponsored ad banner GIF
+  3. Share as PDF Document - Single-page 70/30 split or full-page PDF
+

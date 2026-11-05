@@ -248,7 +248,7 @@ function TaxiReceiptScreen() {
     }
     @page {
       size: A4 portrait;
-      margin: 12mm 16mm;
+      margin: 8mm 12mm;
     }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -258,32 +258,52 @@ function TaxiReceiptScreen() {
       color: #0F172A;
       display: flex;
       justify-content: center;
-      align-items: flex-start;
+      align-items: center;
       width: 100%;
     }
-    .receipt-card {
+    .page-container {
       width: 100%;
-      max-width: 640px;
+      max-width: 480px;
+      margin: 0 auto;
+      height: 100vh;
+      max-height: 278mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      page-break-inside: avoid;
+      box-sizing: border-box;
+    }
+    .receipt-card, .receipt-card-70 {
+      width: 100%;
+      max-width: 480px;
       margin: 0 auto;
       background: #FFFDF7;
-      border: 2px solid #FEF08A;
-      border-radius: 28px;
-      padding: 36px 36px 40px;
+      border: 1.5px solid #FEF08A;
+      border-radius: 20px;
+      padding: 16px 20px 14px;
       text-align: center;
       box-sizing: border-box;
     }
+    .receipt-card-70 {
+      height: 68%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+      margin: 0 auto;
+    }
     .logo-badge {
-      width: 76px;
-      height: 76px;
+      width: 46px;
+      height: 46px;
       background: #FEF9C3;
-      border: 1.5px solid #FDE047;
-      border-radius: 20px;
-      margin: 0 auto 16px;
+      border: 1.2px solid #FDE047;
+      border-radius: 12px;
+      margin: 0 auto 6px;
       display: flex;
       align-items: center;
       justify-content: center;
       overflow: hidden;
-      padding: 8px;
+      padding: 4px;
     }
     .logo-badge img {
       width: 100%;
@@ -291,72 +311,81 @@ function TaxiReceiptScreen() {
       object-fit: contain;
     }
     .biz-name {
-      font-size: 26px;
+      font-size: 16.5px;
       font-weight: 800;
       color: #0F172A;
-      margin-bottom: 6px;
-      letter-spacing: -0.3px;
+      margin-bottom: 2px;
+      letter-spacing: -0.2px;
+    }
+    .tax-invoice-heading {
+      font-size: 16px;
+      font-weight: 900;
+      color: #0F172A;
+      letter-spacing: 2px;
+      margin: 2px 0 4px;
+      text-transform: uppercase;
     }
     .biz-meta {
-      font-size: 14px;
+      font-size: 10.5px;
       color: #64748B;
       font-weight: 600;
-      margin-bottom: 5px;
+      margin-bottom: 1px;
       line-height: 1.4;
     }
     .total-paid-label {
-      font-size: 13px;
+      font-size: 10px;
       color: #64748B;
       font-weight: 700;
-      letter-spacing: 1px;
-      margin-top: 24px;
-      margin-bottom: 6px;
+      letter-spacing: 0.8px;
+      margin-top: 10px;
+      margin-bottom: 2px;
     }
     .amount {
-      font-size: 58px;
+      font-size: 34px;
       font-weight: 900;
       color: #0F172A;
       letter-spacing: -0.5px;
-      margin: 0 0 12px;
+      margin: 0 0 4px;
       display: flex;
       align-items: baseline;
       justify-content: center;
     }
     .dollar {
       color: #D97706;
-      font-size: 38px;
+      font-size: 22px;
       font-weight: 800;
-      margin-right: 4px;
+      margin-right: 2px;
     }
     .decimal {
-      font-size: 34px;
+      font-size: 20px;
       color: #475569;
       font-weight: 700;
     }
     .paid-badge {
       display: inline-flex;
       align-items: center;
-      background: #ECFDF5;
-      color: #059669;
-      padding: 6px 18px;
-      border-radius: 18px;
-      font-size: 14px;
+      background: #DCFCE7;
+      border: 1px solid #A7F3D0;
+      color: #166534;
+      padding: 2.5px 12px;
+      border-radius: 10px;
+      font-size: 10.5px;
       font-weight: 800;
-      letter-spacing: 0.8px;
-      gap: 7px;
-      margin-bottom: 24px;
+      letter-spacing: 0.6px;
+      gap: 5px;
+      margin: 4px auto 2px;
     }
     .paid-dot {
-      width: 9px;
-      height: 9px;
+      width: 5px;
+      height: 5px;
       border-radius: 50%;
       background: #10B981;
       display: inline-block;
     }
     .divider {
-      height: 1.5px;
+      height: 1px;
       background-color: #F1F5F9;
-      margin: 24px 0;
+      margin: 10px 0;
       width: 100%;
     }
     .route-row {
@@ -364,7 +393,7 @@ function TaxiReceiptScreen() {
       justify-content: space-between;
       align-items: center;
       text-align: left;
-      padding: 8px 0;
+      padding: 2px 2px;
     }
     .route-col {
       flex: 1;
@@ -373,187 +402,136 @@ function TaxiReceiptScreen() {
       text-align: right;
     }
     .route-label {
-      font-size: 13px;
+      font-size: 9px;
       font-weight: 700;
-      letter-spacing: 1px;
+      letter-spacing: 0.6px;
       color: #94A3B8;
-      margin-bottom: 4px;
+      margin-bottom: 1px;
     }
     .route-val {
-      font-size: 18px;
+      font-size: 13px;
       font-weight: 700;
       color: #0F172A;
     }
     .arrow {
       color: #F59E0B;
-      font-size: 24px;
+      font-size: 16px;
       font-weight: bold;
-      padding: 0 18px;
+      padding: 0 8px;
     }
     .meta-list {
       text-align: left;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 0 2px;
     }
     .meta-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 18px;
-    }
-    .meta-row:last-child {
-      margin-bottom: 0;
     }
     .meta-label {
-      font-size: 14px;
+      font-size: 10.5px;
       color: #94A3B8;
-      font-weight: 600;
+      font-weight: 500;
     }
     .meta-value {
-      font-size: 16.5px;
+      font-size: 12.5px;
       font-weight: 700;
       color: #0F172A;
-      margin-top: 3px;
+      margin-top: 1px;
     }
     .pill-card {
       background: #EFF6FF;
       border: 1px solid #DBEAFE;
       color: #2563EB;
-      font-size: 13px;
+      font-size: 11px;
       font-weight: 700;
-      padding: 5px 14px;
-      border-radius: 8px;
+      padding: 2px 8px;
+      border-radius: 6px;
     }
     .pill-cash-tag {
       background: #ECFDF5;
       border: 1px solid #A7F3D0;
       color: #059669;
-      font-size: 13px;
+      font-size: 11px;
       font-weight: 700;
-      padding: 5px 14px;
-      border-radius: 8px;
+      padding: 2px 8px;
+      border-radius: 6px;
     }
     .pill-visa {
       background: #EFF6FF;
       border: 1px solid #BFDBFE;
       color: #1D4ED8;
-      font-size: 14px;
+      font-size: 11px;
       font-style: italic;
       font-weight: 800;
-      padding: 4px 12px;
-      border-radius: 6px;
+      padding: 2px 8px;
+      border-radius: 4px;
     }
     .pill-mastercard {
       background: #FFF1F2;
       border: 1px solid #FECDD3;
       color: #E11D48;
-      font-size: 13px;
+      font-size: 11px;
       font-weight: 800;
-      padding: 4px 12px;
-      border-radius: 6px;
+      padding: 2px 8px;
+      border-radius: 4px;
     }
     .pill-cash {
       background: #ECFDF5;
       border: 1px solid #A7F3D0;
       color: #059669;
-      font-size: 14px;
+      font-size: 11px;
       font-weight: 800;
-      padding: 4px 12px;
-      border-radius: 6px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      letter-spacing: 0.5px;
+    }
+    .pill-tap {
+      background: #FFFBEB;
+      border: 1px solid #FEF08A;
+      color: #B45309;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 4px;
       letter-spacing: 0.5px;
     }
     .footer {
-      margin-top: 36px;
-      padding-top: 24px;
-      border-top: 1.5px solid #F1F5F9;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid #F1F5F9;
       text-align: center;
     }
     .thank-you {
-      font-size: 13.5px;
+      font-size: 10.5px;
       font-weight: 800;
-      letter-spacing: 0.8px;
-      margin: 0 0 6px;
+      letter-spacing: 0.5px;
+      margin: 0 0 2px;
       color: #0F172A;
     }
     .powered-by {
-      font-size: 11px;
+      font-size: 8.5px;
       color: #94A3B8;
       font-weight: 700;
       letter-spacing: 1.2px;
-      margin: 0 0 10px;
+      margin: 0 0 4px;
     }
     .se-pay-gif-logo {
       display: block;
       margin: 0 auto;
-      width: 140px;
+      width: 105px;
       height: auto;
       object-fit: contain;
-    }
-    .page-container {
-      width: 100%;
-      max-width: 640px;
-      margin: 0 auto;
-      height: 100vh;
-      max-height: 276mm;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      page-break-inside: avoid;
-      box-sizing: border-box;
-    }
-    .receipt-card-70 {
-      height: 68%;
-      background: #FFFDF7;
-      border: 2px solid #FEF08A;
-      border-radius: 20px;
-      padding: 18px 24px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      box-sizing: border-box;
-      text-align: center;
-      overflow: hidden;
-    }
-    .header-compact {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      text-align: left;
-      border-bottom: 1.5px solid #F1F5F9;
-      padding-bottom: 8px;
-    }
-    .logo-badge-compact {
-      width: 48px;
-      height: 48px;
-      background: #FEF9C3;
-      border: 1.5px solid #FDE047;
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-      padding: 4px;
-      flex-shrink: 0;
-    }
-    .logo-badge-compact img {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-    }
-    .route-box-compact {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #F8FAFC;
-      border-radius: 10px;
-      padding: 6px 14px;
-      margin: 6px 0;
-      text-align: left;
     }
     .ad-banner-30 {
       height: 29%;
       background: #FFFFFF;
       border: 1.5px solid #E2E8F0;
       border-radius: 18px;
-      padding: 10px 14px 12px;
+      padding: 8px 12px 10px;
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
@@ -564,17 +542,17 @@ function TaxiReceiptScreen() {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
     }
     .ad-tag {
-      font-size: 9px;
+      font-size: 8.5px;
       font-weight: 800;
       color: #94A3B8;
       letter-spacing: 0.8px;
       text-transform: uppercase;
     }
     .ad-provider {
-      font-size: 9px;
+      font-size: 8.5px;
       font-weight: 700;
       color: #D97706;
       letter-spacing: 0.5px;
@@ -582,7 +560,7 @@ function TaxiReceiptScreen() {
     .ad-img-box {
       flex: 1;
       width: 100%;
-      height: calc(100% - 18px);
+      height: calc(100% - 16px);
       border-radius: 12px;
       overflow: hidden;
       background: #0F172A;
@@ -599,78 +577,76 @@ function TaxiReceiptScreen() {
   ${hasAdBanner && bannerImageUrl ? `
   <div class="page-container">
     <div class="receipt-card-70">
-      <div class="header-compact">
-        <div class="logo-badge-compact">
-          ${logoUrl
+      <div class="logo-badge">
+        ${logoUrl
           ? `<img src="${logoUrl}" alt="Logo" />`
           : taxiLogoUri
             ? `<img src="${taxiLogoUri}" alt="Taxi" />`
-            : `<div style="font-size: 22px; text-align: center;">🚕</div>`
+            : `<div style="font-size: 26px; line-height: 46px; text-align: center;">🚕</div>`
         }
-        </div>
-        <div style="flex: 1;">
-          <div class="biz-name" style="font-size: 20px; margin-bottom: 2px;">${businessName}</div>
-          <div class="biz-meta" style="font-size: 11.5px; margin-bottom: 2px;">ABN: ${abn} • PH: ${phone}</div>
-          <div class="biz-meta" style="font-size: 11.5px; margin-bottom: 0;">TAXI NO.: ${taxiNumber}${dcNumber ? ` &nbsp;&nbsp; DC: ${dcNumber}` : ''}</div>
-        </div>
+      </div>
+      <div class="biz-name">${businessName}</div>
+      <div class="tax-invoice-heading">TAX INVOICE</div>
+      <div class="biz-meta">ABN: ${abn} • PH: ${phone}</div>
+      <div class="biz-meta">TAXI NO.: ${taxiNumber}${dcNumber ? ` &nbsp;&nbsp; DC: ${dcNumber}` : ''}</div>
+
+      <div class="total-paid-label">TOTAL PAID (INC GST)</div>
+      <div class="amount"><span class="dollar">$</span>${formattedWithComma}<span class="decimal">.${decimalPart}</span></div>
+      <div>
+        <span class="paid-badge"><span class="paid-dot"></span>PAID</span>
       </div>
 
-      <div style="margin: 8px 0 6px;">
-        <div class="total-paid-label" style="margin-top: 4px; margin-bottom: 2px; font-size: 11px;">TOTAL PAID (INC GST)</div>
-        <div class="amount" style="font-size: 42px; margin: 0 0 4px;">
-          <span class="dollar" style="font-size: 28px;">$</span>${formattedWithComma}<span class="decimal" style="font-size: 24px;">.${decimalPart}</span>
-        </div>
-        <div>
-          <span class="paid-badge" style="padding: 4px 14px; font-size: 12px; margin-bottom: 6px;"><span class="paid-dot"></span>PAID</span>
-        </div>
-      </div>
+      <div class="divider"></div>
 
-      <div class="route-box-compact">
+      <div class="route-row">
         <div class="route-col">
-          <div class="route-label" style="font-size: 10px;">PICKUP</div>
-          <div class="route-val" style="font-size: 14px;">${pickup}</div>
+          <div class="route-label">PICKUP</div>
+          <div class="route-val">${pickup}</div>
         </div>
-        <div class="arrow" style="font-size: 18px; padding: 0 10px;">→</div>
+        <div class="arrow">→</div>
         <div class="route-col right">
-          <div class="route-label" style="font-size: 10px;">DROP OFF</div>
-          <div class="route-val" style="font-size: 14px;">${dropoff}</div>
+          <div class="route-label">DROP OFF</div>
+          <div class="route-val">${dropoff}</div>
         </div>
       </div>
 
-      <div class="meta-list" style="margin-top: 6px;">
-        <div class="meta-row" style="margin-bottom: 8px;">
+      <div class="divider"></div>
+
+      <div class="meta-list">
+        <div class="meta-row">
           <div>
-            <div class="meta-label" style="font-size: 11.5px;">Date & Time</div>
-            <div class="meta-value" style="font-size: 13.5px;">${formattedDate}</div>
+            <div class="meta-label">Date & Time</div>
+            <div class="meta-value">${formattedDate}</div>
           </div>
-          <div class="${isCash ? 'pill-cash-tag' : 'pill-card'}" style="font-size: 11.5px; padding: 3px 10px;">
+          <div class="${isCash ? 'pill-cash-tag' : 'pill-card'}">
             ${isCash ? '💵 Cash' : isTap ? '⚡ Tap & Go' : '💳 Card'}
           </div>
         </div>
 
-        <div class="meta-row" style="margin-bottom: 8px;">
+        <div class="meta-row">
           <div>
-            <div class="meta-label" style="font-size: 11.5px;">Payment Method</div>
-            <div class="meta-value" style="font-size: 13.5px;">${paymentMethodLabel}</div>
+            <div class="meta-label">Payment Method</div>
+            <div class="meta-value">${paymentMethodLabel}</div>
           </div>
-          <div class="${isCash ? 'pill-cash' : cardBrandFinal.toUpperCase() === 'MASTERCARD' ? 'pill-mastercard' : 'pill-visa'}" style="font-size: 11.5px; padding: 3px 10px;">
+          <div class="${isCash ? 'pill-cash' : cardBrandFinal.toUpperCase() === 'MASTERCARD' ? 'pill-mastercard' : 'pill-visa'}">
             ${isCash ? 'CASH' : (cardBrandFinal.toUpperCase() || 'VISA')}
           </div>
         </div>
 
-        <div class="meta-row" style="margin-bottom: 0;">
+        <div class="meta-row">
           <div>
-            <div class="meta-label" style="font-size: 11.5px;">${isCash ? 'Receipt ID' : 'Payment ID'}</div>
-            <div class="meta-value" style="font-size: 13.5px;">${paymentId}</div>
+            <div class="meta-label">${isCash ? 'Receipt ID' : 'Payment ID'}</div>
+            <div class="meta-value">${paymentId}</div>
           </div>
         </div>
       </div>
 
-      <div class="footer-compact" style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #F1F5F9; display: flex; justify-content: space-between; align-items: center;">
-        <div style="font-size: 10.5px; font-weight: 700; color: #0F172A;">THANK YOU FOR CHOOSING TAXI ${taxiNumber}</div>
+      <div class="footer">
+        <div class="thank-you">THANK YOU FOR CHOOSING TAXI ${taxiNumber}</div>
+        <div class="powered-by">POWERED BY</div>
         ${sePayLogoUri
-          ? `<img class="se-pay-gif-logo" src="${sePayLogoUri}" alt="SE PAY" style="width: 90px; margin: 0;" />`
-          : `<div style="font-weight: 800; font-size: 11px; color: #0F172A;">SE PAY</div>`
+          ? `<img class="se-pay-gif-logo" src="${sePayLogoUri}" alt="SE PAY" />`
+          : `<div style="font-weight: 800; font-size: 13px; color: #0F172A; letter-spacing: 1px; margin-top: 4px;">SE PAY</div>`
         }
       </div>
     </div>
@@ -697,6 +673,7 @@ function TaxiReceiptScreen() {
       }
     </div>
     <div class="biz-name">${businessName}</div>
+    <div class="tax-invoice-heading">TAX INVOICE</div>
     <div class="biz-meta">ABN: ${abn} • PH: ${phone}</div>
     <div class="biz-meta">TAXI NO.: ${taxiNumber}${dcNumber ? ` &nbsp;&nbsp; DC: ${dcNumber}` : ''}</div>
 
@@ -1136,6 +1113,7 @@ function TaxiReceiptScreen() {
 
             {/* Business Info Header */}
             <Text style={styles.bizName}>{businessName}</Text>
+            <Text style={styles.taxInvoiceHeading}>TAX INVOICE</Text>
             <Text style={styles.bizMeta}>
               ABN: {abn} • PH: {phone}
             </Text>
@@ -1366,7 +1344,7 @@ function TaxiReceiptScreen() {
                     </View>
                     <View style={styles.modalOptionTextWrap}>
                       <View style={styles.modalOptionTitleRow}>
-                        <Text style={styles.modalOptionTitle}>Share as Image Card</Text>
+                        <Text style={styles.modalOptionTitle}>Share Animated Card</Text>
                         {/* <View style={styles.gifAnimBadge}>
                           <Text style={styles.gifAnimBadgeText}>GIF (4s+4s)</Text>
                         </View> */}
@@ -1442,58 +1420,69 @@ const styles = StyleSheet.create({
     borderColor: '#FEF08A',
     borderRadius: 20,
     paddingHorizontal: 18,
-    paddingTop: 16,
+    paddingTop: 14,
     paddingBottom: 16,
     shadowColor: '#F59E0B',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
     elevation: 3,
-    marginBottom: 14,
+    marginBottom: 12,
   },
   badgeWrap: {
     alignItems: 'center',
     marginBottom: 8,
   },
   logoBox: {
-    width: 48,
-    height: 48,
+    width: 46,
+    height: 46,
     borderRadius: 12,
     backgroundColor: '#FEF9C3',
     borderWidth: 1,
     borderColor: '#FDE047',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 3,
+    padding: 4,
   },
   logoImage: {
-    width: 38,
-    height: 38,
+    width: '100%',
+    height: '100%',
   },
   bizName: {
-    fontSize: 15,
+    fontSize: 16.5,
     fontWeight: '800',
     color: '#0F172A',
     textAlign: 'center',
     marginBottom: 2,
+    letterSpacing: -0.2,
+  },
+  taxInvoiceHeading: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#0F172A',
+    letterSpacing: 2,
+    textAlign: 'center',
+    marginTop: 2,
+    marginBottom: 4,
+    textTransform: 'uppercase',
   },
   bizMeta: {
-    fontSize: 10,
+    fontSize: 10.5,
     color: '#64748B',
     fontWeight: '600',
     textAlign: 'center',
-    lineHeight: 14,
+    lineHeight: 15,
     marginTop: 1,
   },
   amountSection: {
     alignItems: 'center',
     marginTop: 12,
-    marginBottom: 4,
+    marginBottom: 8,
   },
   totalPaidLabel: {
-    fontSize: 9.5,
+    fontSize: 10,
     fontWeight: '700',
-    letterSpacing: 0.8,
+    letterSpacing: 0.6,
     color: '#64748B',
     marginBottom: 2,
   },
@@ -1501,50 +1490,52 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'center',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   dollarSign: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '800',
     color: '#D97706',
     marginRight: 2,
   },
   amountInt: {
-    fontSize: 28,
-    fontWeight: '800',
+    fontSize: 34,
+    fontWeight: '900',
     color: '#0F172A',
     letterSpacing: -0.5,
   },
   amountDec: {
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 20,
+    fontWeight: '700',
     color: '#475569',
   },
   paidBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ECFDF5',
-    paddingHorizontal: 10,
-    paddingVertical: 2.5,
+    backgroundColor: '#DCFCE7',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    paddingHorizontal: 12,
+    paddingVertical: 3,
     borderRadius: 10,
     gap: 5,
   },
   greenDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: '#10B981',
   },
   paidText: {
-    color: '#059669',
-    fontSize: 9.5,
+    color: '#166534',
+    fontSize: 10.5,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
   },
   cardDivider: {
     height: 1,
     backgroundColor: '#F1F5F9',
-    marginVertical: 12,
+    marginVertical: 10,
     width: '100%',
   },
   routeSection: {
@@ -1566,20 +1557,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   routeLabel: {
-    fontSize: 9,
+    fontSize: 9.5,
     color: '#94A3B8',
     fontWeight: '700',
     letterSpacing: 0.6,
   },
   routeValue: {
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '700',
     color: '#0F172A',
     marginTop: 2,
   },
   metaList: {
-    gap: 10,
-    paddingHorizontal: 4,
+    gap: 8,
+    paddingHorizontal: 2,
   },
   metaRow: {
     flexDirection: 'row',
@@ -1587,15 +1578,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   metaLabel: {
-    fontSize: 9.5,
+    fontSize: 10.5,
     color: '#94A3B8',
-    fontWeight: '600',
+    fontWeight: '500',
     marginBottom: 1,
   },
   metaValue: {
-    fontSize: 12,
+    fontSize: 12.5,
     color: '#0F172A',
     fontWeight: '700',
+    marginTop: 1,
   },
   methodCapsule: {
     flexDirection: 'row',
@@ -1677,28 +1669,29 @@ const styles = StyleSheet.create({
   },
   receiptFooter: {
     alignItems: 'center',
-    marginTop: 14,
-    paddingTop: 12,
+    marginTop: 12,
+    paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
   },
   thankYouText: {
-    fontSize: 10,
+    fontSize: 10.5,
     fontWeight: '800',
     color: '#0F172A',
     letterSpacing: 0.5,
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   poweredByText: {
     fontSize: 8.5,
     color: '#94A3B8',
-    letterSpacing: 0.8,
+    letterSpacing: 1.2,
     fontWeight: '700',
     marginBottom: 4,
   },
   sePayLogo: {
-    maxHeight: 80,
+    width: 105,
+    height: 24,
   },
   actions: {
     flexDirection: 'row',

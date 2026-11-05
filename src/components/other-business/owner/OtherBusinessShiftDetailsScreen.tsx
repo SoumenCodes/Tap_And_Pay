@@ -781,6 +781,25 @@ export default function OtherBusinessShiftDetailsScreen({
                         </View>
                       </View>
 
+                      {/* Route Row: pickup → drop (shown only when available, e.g. taxi trips) */}
+                      {(txn.pickup_location || txn.drop_location) && (
+                        <View style={styles.routeBox}>
+                          <View style={styles.routePinsCol}>
+                            <View style={styles.bluePin} />
+                            <View style={styles.verticalRouteLine} />
+                            <View style={styles.orangePin} />
+                          </View>
+                          <View style={styles.routeTextsCol}>
+                            <Text style={styles.routeAddressText} numberOfLines={1}>
+                              {txn.pickup_location || '--'}
+                            </Text>
+                            <Text style={[styles.routeAddressText, { marginTop: 7 }]} numberOfLines={1}>
+                              {txn.drop_location || '--'}
+                            </Text>
+                          </View>
+                        </View>
+                      )}
+
                       {/* Bottom Row: Settlement Verification + Action Buttons */}
                       <View style={styles.txnBottomRow}>
                         <View style={styles.verificationGroup}>
@@ -1279,6 +1298,48 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#F8FAFC',
     paddingTop: 7,
+  },
+  routeBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+    paddingVertical: 7,
+    paddingHorizontal: 9,
+    marginBottom: 8,
+    gap: 8,
+  },
+  routePinsCol: {
+    alignItems: 'center',
+    paddingTop: 3,
+  },
+  bluePin: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#2563EB',
+  },
+  verticalRouteLine: {
+    width: 1.5,
+    height: 16,
+    backgroundColor: '#CBD5E1',
+    marginVertical: 2,
+  },
+  orangePin: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#F59E0B',
+  },
+  routeTextsCol: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  routeAddressText: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#334155',
+    lineHeight: 15,
   },
   verificationGroup: {
     flexDirection: 'row',

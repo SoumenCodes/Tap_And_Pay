@@ -1,5 +1,6 @@
 import { apiClient } from './apiClient';
 import { config } from '../constants/config';
+import type { ReceiptData } from './receiptService';
 
 export interface ActiveShiftData {
   id: number;
@@ -200,6 +201,8 @@ export interface ShiftDetailsUser {
   initials?: string;
   code?: string;
   emp_id?: string;
+  taxi_no?: string | null;
+  dc_number?: string | null;
 }
 
 export interface ShiftDetailsInfo {
@@ -257,6 +260,7 @@ export interface ShiftDetailsTransactionItem {
   terminal_id?: string | null;
   pickup_location?: string | null;
   drop_location?: string | null;
+  receipt?: ReceiptData | null;
 }
 
 export interface ShiftDetailsData {
@@ -264,6 +268,15 @@ export interface ShiftDetailsData {
   display_shift_id: string;
   is_taxi_service: boolean;
   user_type_key: string;
+  business_name?: string | null;
+  header?: {
+    business_name?: string | null;
+    logo_url?: string | null;
+    abn?: string | null;
+    phone?: string | null;
+    taxi_no?: string | null;
+    dc_number?: string | null;
+  } | null;
   user: ShiftDetailsUser;
   shift_info: ShiftDetailsInfo;
   metrics: ShiftDetailsMetrics;

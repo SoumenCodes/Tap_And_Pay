@@ -13,6 +13,7 @@ export interface ReceiptData {
   business_logo?: string | null;
   abn?: string | null;
   phone_no?: string | null;
+  phone?: string | null;
   address?: string | null;
   employee_id?: string | null;
   amount?: number;

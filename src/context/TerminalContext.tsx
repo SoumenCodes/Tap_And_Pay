@@ -187,6 +187,7 @@ const SimulatedTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [statusMessage, setStatusMessage] = useState<string>('Ready');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [connectedReader, setConnectedReader] = useState<Reader.Type | null>(null);
+  const isPaymentInFlightRef = useRef(false);
 
   const initAndConnectSimulatedReader = useCallback(async (): Promise<boolean> => {
     setIsConnecting(true);
@@ -223,6 +224,11 @@ const SimulatedTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }
     ): Promise<{ success: boolean; paymentIntent?: any; error?: string }> => {
       try {
+        if (isPaymentInFlightRef.current) {
+          appLogger.warn('TERMINAL', 'runSimulatedPayment duplicate blocked (already in flight).');
+          return { success: false, error: 'A payment transaction is currently in progress.' };
+        }
+        isPaymentInFlightRef.current = true;
         setIsProcessing(true);
         setErrorMessage(null);
 
@@ -333,8 +339,10 @@ const SimulatedTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         appLogger.error('SIMULATED_TERMINAL', `Payment failed: ${msg}`, err);
         setErrorMessage(msg);
         setStatusMessage('Payment Failed');
-        setIsProcessing(false);
         return { success: false, error: msg };
+      } finally {
+        isPaymentInFlightRef.current = false;
+        setIsProcessing(false);
       }
     },
     []
@@ -375,6 +383,7 @@ const NativeTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const discoveredReadersRef = useRef<Reader.Type[]>([]);
   const lastReaderErrorRef = useRef<string>('');
+  const isPaymentInFlightRef = useRef(false);
 
   const {
     initialize,
@@ -667,6 +676,11 @@ const NativeTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     ): Promise<{ success: boolean; paymentIntent?: any; error?: string }> => {
       try {
+        if (isPaymentInFlightRef.current) {
+          appLogger.warn('TERMINAL', 'runSimulatedPayment duplicate blocked (already in flight).');
+          return { success: false, error: 'A payment transaction is currently in progress.' };
+        }
+        isPaymentInFlightRef.current = true;
         setIsProcessing(true);
         setErrorMessage(null);
 
@@ -819,8 +833,10 @@ const NativeTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ child
         console.error('Payment processing failed:', err);
         setErrorMessage(msg);
         setStatusMessage('Payment Failed');
-        setIsProcessing(false);
         return { success: false, error: msg };
+      } finally {
+        isPaymentInFlightRef.current = false;
+        setIsProcessing(false);
       }
     },
     [

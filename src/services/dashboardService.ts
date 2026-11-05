@@ -151,6 +151,11 @@ export interface RecentTransactionsSection {
 
 export type RecentTripsSection = RecentTransactionsSection;
 
+export interface AllowedPaymentMethod {
+  id: number;
+  method_name: string;
+}
+
 export interface DashboardData {
   user_type_key: string;
   role_id: number;
@@ -163,6 +168,7 @@ export interface DashboardData {
   active_shift_text?: string;
   shift_status_badge?: string;
   header: DashboardHeader;
+  allowed_payment_method?: AllowedPaymentMethod[];
   sale_button?: DashboardSaleButton;
   revenue: DashboardRevenue;
   section_type: string;
@@ -210,6 +216,38 @@ export async function getActiveShiftSessionId(): Promise<number | null> {
   return null;
 }
 
+export type AllowedPaymentMethodsCallback = (methods: AllowedPaymentMethod[]) => void;
+let allowedMethodsListeners: AllowedPaymentMethodsCallback[] = [];
+
+export function getAllowedPaymentMethods(): AllowedPaymentMethod[] | null {
+  return cachedDashboardData?.allowed_payment_method || tokenStorage.getAllowedPaymentMethods();
+}
+
+export function onAllowedPaymentMethodsChange(callback: AllowedPaymentMethodsCallback): () => void {
+  allowedMethodsListeners.push(callback);
+  const current = getAllowedPaymentMethods();
+  if (current) {
+    try {
+      callback(current);
+    } catch (err) {
+      console.warn('⚠️ Error in initial allowed payment methods callback:', err);
+    }
+  }
+  return () => {
+    allowedMethodsListeners = allowedMethodsListeners.filter((cb) => cb !== callback);
+  };
+}
+
+function notifyAllowedPaymentMethodsChange(methods: AllowedPaymentMethod[]) {
+  allowedMethodsListeners.forEach((listener) => {
+    try {
+      listener(methods);
+    } catch (err) {
+      console.warn('⚠️ Error in allowed payment methods listener:', err);
+    }
+  });
+}
+
 export function onDashboardHeaderSync(callback: DashboardHeaderSyncCallback): () => void {
   headerSyncListeners.push(callback);
   if (cachedDashboardHeader) {
@@ -248,6 +286,11 @@ export const dashboardService = {
             shiftService.setActiveShift(resData.data.active_shift);
           } else if (resData.data.is_on_shift === false) {
             shiftService.setActiveShift(null);
+          }
+
+          if (resData.data.allowed_payment_method) {
+            tokenStorage.saveAllowedPaymentMethods(resData.data.allowed_payment_method);
+            notifyAllowedPaymentMethodsChange(resData.data.allowed_payment_method);
           }
         }
 

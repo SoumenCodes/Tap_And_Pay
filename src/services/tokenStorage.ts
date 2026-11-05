@@ -8,12 +8,19 @@ const STORAGE_KEYS = {
   ACCESS_TOKEN: 'sepay_access_token',
   REFRESH_TOKEN: 'sepay_refresh_token',
   USER_DATA: 'sepay_user_data',
+  ALLOWED_PAYMENT_METHODS: 'sepay_allowed_payment_methods',
 };
+
+export interface AllowedPaymentMethodItem {
+  id: number;
+  method_name: string;
+}
 
 // In-memory cache for synchronous token retrieval in Axios request interceptors
 let cachedAccessToken: string | null = null;
 let cachedRefreshToken: string | null = null;
 let cachedUser: UserProfile | null = null;
+let cachedAllowedPaymentMethods: AllowedPaymentMethodItem[] | null = null;
 
 export const tokenStorage = {
   /**
@@ -35,6 +42,25 @@ export const tokenStorage = {
    */
   getCachedUser: (): UserProfile | null => {
     return cachedUser;
+  },
+
+  /**
+   * Fast synchronous retrieval for allowed payment methods
+   */
+  getAllowedPaymentMethods: (): AllowedPaymentMethodItem[] | null => {
+    return cachedAllowedPaymentMethods;
+  },
+
+  /**
+   * Save allowed payment methods to storage and memory cache
+   */
+  saveAllowedPaymentMethods: async (methods: AllowedPaymentMethodItem[]): Promise<void> => {
+    cachedAllowedPaymentMethods = methods;
+    try {
+      await SecureStore.setItemAsync(STORAGE_KEYS.ALLOWED_PAYMENT_METHODS, JSON.stringify(methods));
+    } catch (error) {
+      console.warn('⚠️ [SecureStore] Failed to save allowed payment methods:', error);
+    }
   },
 
   /**
@@ -77,10 +103,11 @@ export const tokenStorage = {
     refreshToken: string | null;
   }> => {
     try {
-      const [accessToken, refreshToken, userDataStr] = await Promise.all([
+      const [accessToken, refreshToken, userDataStr, methodsStr] = await Promise.all([
         SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN),
         SecureStore.getItemAsync(STORAGE_KEYS.REFRESH_TOKEN),
         SecureStore.getItemAsync(STORAGE_KEYS.USER_DATA),
+        SecureStore.getItemAsync(STORAGE_KEYS.ALLOWED_PAYMENT_METHODS),
       ]);
 
       cachedAccessToken = accessToken;
@@ -93,6 +120,14 @@ export const tokenStorage = {
           cachedUser = user;
         } catch {
           user = null;
+        }
+      }
+
+      if (methodsStr) {
+        try {
+          cachedAllowedPaymentMethods = JSON.parse(methodsStr);
+        } catch {
+          cachedAllowedPaymentMethods = null;
         }
       }
 
@@ -117,12 +152,14 @@ export const tokenStorage = {
   clearSession: async (): Promise<void> => {
     cachedAccessToken = null;
     cachedRefreshToken = null;
+    cachedAllowedPaymentMethods = null;
 
     try {
       await Promise.all([
         SecureStore.deleteItemAsync(STORAGE_KEYS.ACCESS_TOKEN),
         SecureStore.deleteItemAsync(STORAGE_KEYS.REFRESH_TOKEN),
         SecureStore.deleteItemAsync(STORAGE_KEYS.USER_DATA),
+        SecureStore.deleteItemAsync(STORAGE_KEYS.ALLOWED_PAYMENT_METHODS),
       ]);
     } catch (error) {
       console.warn('⚠️ [SecureStore] Error clearing session:', error);

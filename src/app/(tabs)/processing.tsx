@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTerminal } from '../../context/TerminalContext';
 import { addTransaction } from '../../services/transactionStore';
 import { calculateFee, type PaymentMethodType } from '../../utils/feeCalculator';
@@ -112,26 +112,16 @@ export default function ProcessingScreen() {
     };
   });
 
-  const [executionToken, setExecutionToken] = useState(0);
-  const hasExecutedRef = useRef(false);
-
-  // Every time processing screen gains focus, reset execution state and trigger fresh process
-  useFocusEffect(
-    useCallback(() => {
-      hasExecutedRef.current = false;
-      setIsFailed(false);
-      setErrorReason(null);
-      setExecutionToken((t) => t + 1);
-
-      return () => {
-        hasExecutedRef.current = false;
-      };
-    }, [])
-  );
+  const isExecutingRef = useRef(false);
+  const executedRetryRef = useRef<number>(-1);
 
   useEffect(() => {
-    if (hasExecutedRef.current) return;
-    hasExecutedRef.current = true;
+    // Strictly prevent duplicate payment API calls on mount or during re-renders
+    if (executedRetryRef.current === retryCount || isExecutingRef.current) {
+      return;
+    }
+    executedRetryRef.current = retryCount;
+    isExecutingRef.current = true;
 
     async function process() {
       const {
@@ -221,21 +211,23 @@ export default function ProcessingScreen() {
       } catch (err: any) {
         setIsFailed(true);
         setErrorReason(err?.message || 'An unexpected error occurred while processing payment.');
+      } finally {
+        isExecutingRef.current = false;
       }
     }
 
     process();
-  }, [executionToken, retryCount, errorMessage]);
+  }, [retryCount, errorMessage]);
 
   const handleRetry = () => {
-    hasExecutedRef.current = false;
+    if (isExecutingRef.current) return;
     setIsFailed(false);
     setErrorReason(null);
     setRetryCount((c) => c + 1);
   };
 
   const handleCancel = () => {
-    hasExecutedRef.current = false;
+    if (isExecutingRef.current) return;
     if (router.canGoBack()) {
       router.back();
     } else {

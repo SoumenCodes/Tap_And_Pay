@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -24,15 +24,30 @@ import HeaderBar from '../../components/common/HeaderBar';
 import { colors } from '../../constants/theme';
 import { addTransaction } from '../../services/transactionStore';
 import { paymentSession } from '../../services/paymentSession';
-import { dashboardService, getActiveShiftSessionId } from '../../services/dashboardService';
+import {
+  dashboardService,
+  getActiveShiftSessionId,
+  getAllowedPaymentMethods,
+  onAllowedPaymentMethodsChange,
+  type AllowedPaymentMethod,
+} from '../../services/dashboardService';
 import { shiftService, onShiftChange, ActiveShiftData } from '../../services/shiftService';
 import { cashPaymentService } from '../../services/cashPaymentService';
+import { paymentFeeService, type PaymentFeeData } from '../../services/paymentFeeService';
 import { locationService, SuburbLocation } from '../../services/locationService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 type PaymentMethod = 'tap' | 'card' | 'cash';
 type ScreenStep = 'amount' | 'confirm';
+
+function mapMethodNameToKey(methodName: string): PaymentMethod | null {
+  const normalized = (methodName || '').toLowerCase().trim();
+  if (normalized.includes('tap')) return 'tap';
+  if (normalized.includes('card')) return 'card';
+  if (normalized.includes('cash')) return 'cash';
+  return null;
+}
 
 const KEYPAD_ROWS = [
   ['1', '2', '3'],
@@ -72,6 +87,46 @@ export default function TapToPayEnterAmountScreen() {
   const [suburbResults, setSuburbResults] = useState<SuburbLocation[]>([]);
   const [isLoadingLocations, setIsLoadingLocations] = useState<boolean>(false);
 
+  // Dynamic Payment Fee State (POST /api/payment/fees for Taxi user types)
+  const [dynamicFeeData, setDynamicFeeData] = useState<PaymentFeeData | null>(null);
+  const [isLoadingFees, setIsLoadingFees] = useState<boolean>(false);
+
+  // Dynamic Allowed Payment Methods from Dashboard
+  const [allowedMethodsList, setAllowedMethodsList] = useState<AllowedPaymentMethod[] | null>(() => getAllowedPaymentMethods());
+
+  useEffect(() => {
+    const unsub = onAllowedPaymentMethodsChange((methods) => {
+      setAllowedMethodsList(methods);
+    });
+    return () => unsub();
+  }, []);
+
+  const availableMethods: PaymentMethod[] = useMemo(() => {
+    if (!allowedMethodsList || !Array.isArray(allowedMethodsList) || allowedMethodsList.length === 0) {
+      return ['tap', 'card', 'cash'];
+    }
+    const result: PaymentMethod[] = [];
+    allowedMethodsList.forEach((m) => {
+      const mapped = mapMethodNameToKey(m.method_name);
+      if (mapped && !result.includes(mapped)) {
+        result.push(mapped);
+      }
+    });
+    // Cash is always available for all user types regardless of backend allowed_payment_method
+    if (!result.includes('cash')) {
+      result.push('cash');
+    }
+    return result.length > 0 ? result : ['tap', 'card', 'cash'];
+  }, [allowedMethodsList]);
+
+  // Active method derived safely from availableMethods (eliminates setState in effect)
+  const activeMethod: PaymentMethod = useMemo(() => {
+    if (availableMethods.includes(selectedMethod)) {
+      return selectedMethod;
+    }
+    return availableMethods[0] || 'tap';
+  }, [availableMethods, selectedMethod]);
+
   // Reset payment state helper
   const resetPaymentState = useCallback(() => {
     setAmountStr('0');
@@ -84,6 +139,8 @@ export default function TapToPayEnterAmountScreen() {
     setSearchLocationQuery('');
     setSuburbResults([]);
     setIsLocationModalVisible(false);
+    setDynamicFeeData(null);
+    setIsLoadingFees(false);
   }, []);
 
   // Fetch suburbs dynamically from /api/location?search=<query>
@@ -317,15 +374,39 @@ export default function TapToPayEnterAmountScreen() {
   const displayAmount = formatDisplayAmount();
   const numericAmount = parseFloat(amountStr) || 0;
 
-  // Breakdown values for confirmation screen (strict numeric values, no mock defaults)
-  const baseFare = numericAmount;
-  const serviceCharge = baseFare * 0.04;
-  const totalAmount = baseFare + serviceCharge;
+  // Dynamic breakdown values for confirmation screen (strict numeric values, no mock defaults)
+  const isCash = activeMethod === 'cash';
+
+  const baseFare = dynamicFeeData ? dynamicFeeData.base_amount : numericAmount;
+  const rawServiceCharge = dynamicFeeData
+    ? dynamicFeeData.card_charge_fee_amount
+    : baseFare * 0.04;
+  const rawTotalAmount = dynamicFeeData
+    ? dynamicFeeData.payment_amount
+    : baseFare + rawServiceCharge;
+
+  // For cash payments, service fee is $0.00 and customer pays baseFare
+  const serviceCharge = isCash ? 0 : rawServiceCharge;
+  const totalAmount = isCash ? baseFare : rawTotalAmount;
 
   const baseFareFormatted = baseFare.toFixed(2);
   const serviceChargeFormatted = serviceCharge.toFixed(2);
   const totalAmountFormatted = totalAmount.toFixed(2);
   const [totalIntPart, totalDecPart] = totalAmountFormatted.split('.');
+
+  // Dynamic Service Charge Label (Percentage vs Fixed)
+  const serviceChargeLabel = useMemo(() => {
+    if (isCash) {
+      return '+ Service Charge (0%)';
+    }
+    if (dynamicFeeData) {
+      if (dynamicFeeData.card_charge_fee_type === 'percentage') {
+        return `+ Service Charge (${dynamicFeeData.card_charge_fee}%)`;
+      }
+      return `+ Service Charge ($${dynamicFeeData.card_charge_fee.toFixed(2)})`;
+    }
+    return '+ Service Charge (4%)';
+  }, [isCash, dynamicFeeData]);
 
   // Validation flags: Amount must be > 0; for Taxi roles, Pickup and Drop-off are strictly mandatory
   const isAmountValid = numericAmount > 0;
@@ -376,14 +457,14 @@ export default function TapToPayEnterAmountScreen() {
       // Other business skips the taxi confirm/route/breakup screen and goes directly to payment
       const finalAmountFormatted = numericAmount.toFixed(2);
 
-      if (selectedMethod === 'card') {
+      if (activeMethod === 'card') {
         router.push({
           pathname: '/(tabs)/card-entry',
           params: {
             amount: finalAmountFormatted,
           },
         });
-      } else if (selectedMethod === 'tap') {
+      } else if (activeMethod === 'tap') {
         router.push({
           pathname: '/(tabs)/tap-ready',
           params: {
@@ -449,8 +530,25 @@ export default function TapToPayEnterAmountScreen() {
       return;
     }
 
-    // For Taxi businesses: Show confirm screen with route pickup/dropoff and surcharge breakup
-    setScreenStep('confirm');
+    // For Taxi businesses: Call POST /api/payment/fees and transition to confirm screen with dynamic breakdown
+    setIsLoadingFees(true);
+    try {
+      const feeRes = await paymentFeeService.getPaymentFee(numericAmount);
+      setDynamicFeeData(feeRes);
+      setScreenStep('confirm');
+    } catch (feeErr: any) {
+      const errMsg =
+        feeErr?.response?.data?.message ||
+        feeErr?.message ||
+        'Failed to calculate payment fees. Please check your connection and try again.';
+      showAlert({
+        title: 'Fee Calculation Failed',
+        message: errMsg,
+        type: 'danger',
+      });
+    } finally {
+      setIsLoadingFees(false);
+    }
   };
 
   // Continue from Confirm Screen to Next Stage (Taxi)
@@ -490,7 +588,7 @@ export default function TapToPayEnterAmountScreen() {
     const sid = await ensureActiveShift();
     if (!sid) return;
 
-    if (selectedMethod === 'card') {
+    if (activeMethod === 'card') {
       router.push({
         pathname: '/(tabs)/card-entry',
         params: {
@@ -503,7 +601,7 @@ export default function TapToPayEnterAmountScreen() {
           dropoff_id: dropoffId ? String(dropoffId) : '',
         },
       });
-    } else if (selectedMethod === 'tap') {
+    } else if (activeMethod === 'tap') {
       router.push({
         pathname: '/(tabs)/tap-ready',
         params: {
@@ -622,7 +720,7 @@ export default function TapToPayEnterAmountScreen() {
 
   // Header content by active method
   const getHeaderInfo = () => {
-    switch (selectedMethod) {
+    switch (activeMethod) {
       case 'card':
         return {
           title: 'Card Payment',
@@ -642,6 +740,76 @@ export default function TapToPayEnterAmountScreen() {
   };
 
   const headerInfo = getHeaderInfo();
+
+  // Dynamic payment method capsule rendered from allowed_payment_method
+  const renderMethodCapsule = () => (
+    <View style={styles.methodCapsuleOuter}>
+      {availableMethods.map((method) => {
+        if (method === 'tap') {
+          return (
+            <TouchableOpacity
+              key="tap"
+              activeOpacity={0.8}
+              onPress={() => setSelectedMethod('tap')}
+              style={[
+                styles.methodSegment,
+                activeMethod === 'tap' && styles.methodSegmentActive,
+              ]}
+            >
+              <Svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                <Circle cx="8" cy="12" r="1.8" fill={activeMethod === 'tap' ? '#0F172A' : '#475569'} />
+                <Path d="M12 7 C14.5 9 14.5 15 12 17" stroke={activeMethod === 'tap' ? '#0F172A' : '#475569'} strokeWidth="2.2" strokeLinecap="round" />
+                <Path d="M16 4.5 C19.5 7.5 19.5 16.5 16 19.5" stroke={activeMethod === 'tap' ? '#0F172A' : '#475569'} strokeWidth="2.2" strokeLinecap="round" />
+              </Svg>
+              <Text style={[styles.methodLabel, activeMethod === 'tap' && styles.methodLabelActive]}>
+                Tap & Go
+              </Text>
+            </TouchableOpacity>
+          );
+        }
+
+        if (method === 'card') {
+          return (
+            <TouchableOpacity
+              key="card"
+              activeOpacity={0.8}
+              onPress={() => setSelectedMethod('card')}
+              style={[
+                styles.methodSegment,
+                activeMethod === 'card' && styles.methodSegmentActive,
+              ]}
+            >
+              <Feather name="credit-card" size={14} color={activeMethod === 'card' ? '#0F172A' : '#475569'} />
+              <Text style={[styles.methodLabel, activeMethod === 'card' && styles.methodLabelActive]}>
+                Card
+              </Text>
+            </TouchableOpacity>
+          );
+        }
+
+        if (method === 'cash') {
+          return (
+            <TouchableOpacity
+              key="cash"
+              activeOpacity={0.8}
+              onPress={() => setSelectedMethod('cash')}
+              style={[
+                styles.methodSegment,
+                activeMethod === 'cash' && styles.methodSegmentActive,
+              ]}
+            >
+              <Ionicons name="cash-outline" size={16} color={activeMethod === 'cash' ? '#0F172A' : '#475569'} />
+              <Text style={[styles.methodLabel, activeMethod === 'cash' && styles.methodLabelActive]}>
+                Cash
+              </Text>
+            </TouchableOpacity>
+          );
+        }
+
+        return null;
+      })}
+    </View>
+  );
 
   return (
     <View style={styles.root}>
@@ -669,54 +837,8 @@ export default function TapToPayEnterAmountScreen() {
       {/* ────────────────────────────────────────────────────────── */}
       {screenStep === 'amount' && (
         <View style={styles.contentWrap}>
-          {/* Method Toggle Capsule */}
-          <View style={styles.methodCapsuleOuter}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => setSelectedMethod('tap')}
-              style={[
-                styles.methodSegment,
-                selectedMethod === 'tap' && styles.methodSegmentActive,
-              ]}
-            >
-              <Svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-                <Circle cx="8" cy="12" r="1.8" fill={selectedMethod === 'tap' ? '#0F172A' : '#475569'} />
-                <Path d="M12 7 C14.5 9 14.5 15 12 17" stroke={selectedMethod === 'tap' ? '#0F172A' : '#475569'} strokeWidth="2.2" strokeLinecap="round" />
-                <Path d="M16 4.5 C19.5 7.5 19.5 16.5 16 19.5" stroke={selectedMethod === 'tap' ? '#0F172A' : '#475569'} strokeWidth="2.2" strokeLinecap="round" />
-              </Svg>
-              <Text style={[styles.methodLabel, selectedMethod === 'tap' && styles.methodLabelActive]}>
-                Tap & Go
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => setSelectedMethod('card')}
-              style={[
-                styles.methodSegment,
-                selectedMethod === 'card' && styles.methodSegmentActive,
-              ]}
-            >
-              <Feather name="credit-card" size={14} color={selectedMethod === 'card' ? '#0F172A' : '#475569'} />
-              <Text style={[styles.methodLabel, selectedMethod === 'card' && styles.methodLabelActive]}>
-                Card
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => setSelectedMethod('cash')}
-              style={[
-                styles.methodSegment,
-                selectedMethod === 'cash' && styles.methodSegmentActive,
-              ]}
-            >
-              <Ionicons name="cash-outline" size={16} color={selectedMethod === 'cash' ? '#0F172A' : '#475569'} />
-              <Text style={[styles.methodLabel, selectedMethod === 'cash' && styles.methodLabelActive]}>
-                Cash
-              </Text>
-            </TouchableOpacity>
-          </View>
+          {/* Dynamic Method Toggle Capsule */}
+          {renderMethodCapsule()}
 
           {/* Active Shift Required Warning (strictly enforced for both Owner & Employee) */}
           {!isOnShift && (
@@ -864,11 +986,11 @@ export default function TapToPayEnterAmountScreen() {
               onPress={handleContinueToConfirm}
               style={[
                 styles.continueButton,
-                (!isOnShift || isProcessingCash || !isReadyToContinue) && styles.continueButtonDisabled,
+                (!isOnShift || isProcessingCash || isLoadingFees || !isReadyToContinue) && styles.continueButtonDisabled,
               ]}
-              disabled={isProcessingCash}
+              disabled={isProcessingCash || isLoadingFees}
             >
-              {isProcessingCash ? (
+              {isProcessingCash || isLoadingFees ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
                 <Text
@@ -924,54 +1046,8 @@ export default function TapToPayEnterAmountScreen() {
       {/* ────────────────────────────────────────────────────────── */}
       {screenStep === 'confirm' && (
         <View style={styles.confirmContentWrap}>
-          {/* Method Toggle Capsule */}
-          <View style={styles.methodCapsuleOuter}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => setSelectedMethod('tap')}
-              style={[
-                styles.methodSegment,
-                selectedMethod === 'tap' && styles.methodSegmentActive,
-              ]}
-            >
-              <Svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-                <Circle cx="8" cy="12" r="1.8" fill={selectedMethod === 'tap' ? '#0F172A' : '#475569'} />
-                <Path d="M12 7 C14.5 9 14.5 15 12 17" stroke={selectedMethod === 'tap' ? '#0F172A' : '#475569'} strokeWidth="2.2" strokeLinecap="round" />
-                <Path d="M16 4.5 C19.5 7.5 19.5 16.5 16 19.5" stroke={selectedMethod === 'tap' ? '#0F172A' : '#475569'} strokeWidth="2.2" strokeLinecap="round" />
-              </Svg>
-              <Text style={[styles.methodLabel, selectedMethod === 'tap' && styles.methodLabelActive]}>
-                Tap & Go
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => setSelectedMethod('card')}
-              style={[
-                styles.methodSegment,
-                selectedMethod === 'card' && styles.methodSegmentActive,
-              ]}
-            >
-              <Feather name="credit-card" size={14} color={selectedMethod === 'card' ? '#0F172A' : '#475569'} />
-              <Text style={[styles.methodLabel, selectedMethod === 'card' && styles.methodLabelActive]}>
-                Card
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => setSelectedMethod('cash')}
-              style={[
-                styles.methodSegment,
-                selectedMethod === 'cash' && styles.methodSegmentActive,
-              ]}
-            >
-              <Ionicons name="cash-outline" size={16} color={selectedMethod === 'cash' ? '#0F172A' : '#475569'} />
-              <Text style={[styles.methodLabel, selectedMethod === 'cash' && styles.methodLabelActive]}>
-                Cash
-              </Text>
-            </TouchableOpacity>
-          </View>
+          {/* Dynamic Method Toggle Capsule */}
+          {renderMethodCapsule()}
 
           {/* Active Shift Required Warning (strictly enforced for both Owner & Employee) */}
           {!isOnShift && (
@@ -1112,7 +1188,7 @@ export default function TapToPayEnterAmountScreen() {
             </View>
 
             <View style={[styles.summaryRow, { marginTop: 14 }]}>
-              <Text style={styles.summaryLabel}>+ Service Charge (4%)</Text>
+              <Text style={styles.summaryLabel}>{serviceChargeLabel}</Text>
               <Text style={styles.summaryValue}>${serviceChargeFormatted}</Text>
             </View>
 
@@ -1153,9 +1229,9 @@ export default function TapToPayEnterAmountScreen() {
               >
                 {!isTaxiReady
                   ? 'Select Route to Continue'
-                  : selectedMethod === 'tap'
+                  : activeMethod === 'tap'
                     ? 'Tap to Pay'
-                    : selectedMethod === 'card'
+                    : activeMethod === 'card'
                       ? 'Continue to Charge'
                       : 'Confirm Cash Payment'}
               </Text>

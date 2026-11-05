@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { authService } from '../services/authService';
 import { tokenStorage } from '../services/tokenStorage';
 import { onDashboardHeaderSync, dashboardService } from '../services/dashboardService';
+import { APP_CONFIG } from '../constants/appConfig';
 
 export type LoginType =
   | 'taxi_owner'
@@ -206,7 +207,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         deviceInfo: {
           platform: 'android',
           deviceId: 'D9F345A1-9721-4E65-B6E3-138240D9F7C2',
-          appVersion: '1.0.0',
+          appVersion: APP_CONFIG.version,
         },
       });
       setUser(liveUser);

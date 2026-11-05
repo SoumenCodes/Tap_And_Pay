@@ -167,8 +167,10 @@ export default function OtherBusinessEmployeeDashboard({
   const tapSplit = splitAmount(tapRevFormatted);
 
   // Recent transactions list
+  const recentTxnsSection =
+    dashboardData?.recent_transactions || dashboardData?.recent_trips;
   const recentTxns: RecentTransactionItem[] =
-    dashboardData?.recent_transactions?.list || [];
+    recentTxnsSection?.list || [];
 
   const handleCreateSale = () => {
     paymentSession.markPaymentCompleted();
@@ -444,7 +446,7 @@ export default function OtherBusinessEmployeeDashboard({
                   <Image
                     source={{ uri: (user?.logoUrl || header?.logo_url)! }}
                     style={styles.crownBadgeImage}
-                    resizeMode="cover"
+                    resizeMode="contain"
                   />
                 ) : (
                   <Ionicons name="card-outline" size={22} color="#0F172A" />
@@ -560,7 +562,7 @@ export default function OtherBusinessEmployeeDashboard({
         <View style={styles.recentSection}>
           <View style={styles.recentHeaderRow}>
             <Text style={styles.recentSectionTitle}>
-              {dashboardData?.recent_transactions?.title || 'Recent Transactions'}
+              {recentTxnsSection?.title || 'Recent Transactions'}
             </Text>
             <TouchableOpacity
               activeOpacity={0.7}
@@ -593,7 +595,9 @@ export default function OtherBusinessEmployeeDashboard({
           {recentTxns.map((txn, index) => {
             const txnCode = txn.txn_id || txn.transaction_id || `#TXN-${txn.id}`;
             const timeText =
+              (txn.date ? formatSydneyToUserTime(txn.date) : null) ||
               (txn.created_at ? formatSydneyToUserTime(txn.created_at) : null) ||
+              txn.time ||
               txn.time_formatted ||
               txn.created_at ||
               '--';
@@ -735,12 +739,13 @@ const styles = StyleSheet.create({
     borderColor: '#FEF08A',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+    padding: 3,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 3,
-    padding: 2.5,
   },
   avatarBadgeImage: {
     width: '100%',
@@ -899,6 +904,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 12,
     overflow: 'hidden',
+    padding: 3,
   },
   crownBadgeImage: {
     width: '100%',

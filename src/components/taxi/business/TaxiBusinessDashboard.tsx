@@ -388,9 +388,9 @@ export default function TaxiBusinessDashboard({
             {/* Bottom-left row: Avatar + Translucent Text Badge */}
             <View style={styles.bannerBottomRow}>
               <View style={styles.avatarBox}>
-                {header?.logo_url ? (
+                {Boolean(header?.logo_url || user?.logoUrl) ? (
                   <Image
-                    source={{ uri: header.logo_url }}
+                    source={{ uri: (header?.logo_url || user?.logoUrl)! }}
                     style={styles.avatarLogoImage}
                     resizeMode="contain"
                   />
@@ -484,7 +484,7 @@ export default function TaxiBusinessDashboard({
                     <Image
                       source={{ uri: (user?.logoUrl || header?.logo_url)! }}
                       style={styles.taxiLogoImage}
-                      resizeMode="cover"
+                      resizeMode="contain"
                     />
                   ) : (
                     <MaterialCommunityIcons name="taxi" size={28} color="#0F172A" />
@@ -826,6 +826,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
+    padding: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
@@ -998,6 +999,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 14,
     overflow: 'hidden',
+    padding: 4,
   },
   taxiLogoImage: {
     width: '100%',

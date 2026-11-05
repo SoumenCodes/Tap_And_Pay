@@ -485,7 +485,7 @@ export default function OtherBusinessDashboard({
                   <Image
                     source={{ uri: (user?.logoUrl || header?.logo_url)! }}
                     style={styles.crownBadgeImage}
-                    resizeMode="cover"
+                    resizeMode="contain"
                   />
                 ) : (
                   <Ionicons name="card-outline" size={22} color="#0F172A" />
@@ -893,12 +893,13 @@ const styles = StyleSheet.create({
     borderColor: '#FEF08A',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+    padding: 3,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 3,
-    padding: 3,
   },
   avatarBadgeImage: {
     width: '100%',
@@ -1072,6 +1073,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 12,
     overflow: 'hidden',
+    padding: 3,
   },
   saleTextWrap: {
     flex: 1,

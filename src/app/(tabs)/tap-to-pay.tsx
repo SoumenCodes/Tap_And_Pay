@@ -829,7 +829,7 @@ export default function TapToPayEnterAmountScreen() {
                   <Image
                     source={{ uri: user.logoUrl }}
                     style={styles.crownBadgeImage}
-                    resizeMode="cover"
+                    resizeMode="contain"
                   />
                 ) : (
                   <View style={styles.fallbackLogoContainer}>
@@ -1008,7 +1008,7 @@ export default function TapToPayEnterAmountScreen() {
                 <Image
                   source={{ uri: user.logoUrl }}
                   style={styles.shiftAvatarImage}
-                  resizeMode="cover"
+                  resizeMode="contain"
                 />
               ) : (
                 <View style={styles.fallbackAvatarBox}>
@@ -1358,6 +1358,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
+    padding: 3,
   },
   shiftAvatarImage: {
     width: '100%',
@@ -1486,6 +1487,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#FEF08A',
+    padding: 3,
   },
   crownBadgeImage: {
     width: '100%',

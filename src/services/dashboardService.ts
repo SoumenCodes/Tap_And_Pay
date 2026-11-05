@@ -124,12 +124,17 @@ export interface RecentTransactionItem {
   payment_method?: string;
   payment_method_label?: string;
   created_at?: string;
+  date?: string;
+  date_formatted?: string;
+  time?: string;
   time_formatted?: string;
   status?: string;
+  payment_status?: string;
   pickup?: string;
   dropoff?: string;
   pickup_location?: string;
   dropoff_location?: string;
+  drop_location?: string | null;
   route?: {
     pickup?: string;
     dropoff?: string;
@@ -142,6 +147,8 @@ export interface RecentTransactionsSection {
   count: number;
   list: RecentTransactionItem[];
 }
+
+export type RecentTripsSection = RecentTransactionsSection;
 
 export interface DashboardData {
   user_type_key: string;
@@ -160,6 +167,7 @@ export interface DashboardData {
   active_employees?: ActiveEmployeesSection;
   active_drivers?: ActiveDriversSection;
   recent_transactions?: RecentTransactionsSection;
+  recent_trips?: RecentTripsSection;
 }
 
 export interface DashboardResponse {

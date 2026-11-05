@@ -265,8 +265,8 @@ export default function LoginScreen() {
                   style={styles.testChip}
                   activeOpacity={0.75}
                   onPress={() =>
-                    handleQuickCredentialLogin('proweuxauyotro-1597@yopmail.com'
-                      , 'Palash@123')
+                    handleQuickCredentialLogin('ckryoaction1@gmail.com'
+                      , 'Soumen@123')
                   }
                 >
                   <Text style={styles.testChipText}>🏢 Taxi Company</Text>
@@ -276,7 +276,7 @@ export default function LoginScreen() {
                   style={styles.testChip}
                   activeOpacity={0.75}
                   onPress={() =>
-                    handleQuickCredentialLogin('zafar.dnk5@gmail.com', 'Zafar@1986')
+                    handleQuickCredentialLogin('ckryoaction1+1@gmail.com', 'U9Ger?*@?w')
                   }
                 >
                   <Text style={styles.testChipText}>🚖 Driver</Text>

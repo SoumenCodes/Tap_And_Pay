@@ -176,8 +176,10 @@ export default function TaxiOwnerDashboard({
   const tapSplit = splitAmount(tapAmountFormatted);
 
   // Recent trips
+  const recentTripsSection =
+    dashboardData?.recent_trips || dashboardData?.recent_transactions;
   const recentTrips: RecentTransactionItem[] =
-    dashboardData?.recent_transactions?.list || [];
+    recentTripsSection?.list || [];
 
   const handleStartTaxiFare = () => {
     paymentSession.markPaymentCompleted();
@@ -361,9 +363,9 @@ export default function TaxiOwnerDashboard({
             {/* Bottom-left branding: Logo / Initials Avatar + Business Name */}
             <View style={styles.bannerBottomRow}>
               <View style={styles.avatarBox}>
-                {header?.logo_url ? (
+                {Boolean(header?.logo_url || user?.logoUrl) ? (
                   <Image
-                    source={{ uri: header.logo_url }}
+                    source={{ uri: (header?.logo_url || user?.logoUrl)! }}
                     style={styles.avatarLogo}
                     resizeMode="contain"
                   />
@@ -457,7 +459,7 @@ export default function TaxiOwnerDashboard({
                   <Image
                     source={{ uri: (user?.logoUrl || header?.logo_url)! }}
                     style={styles.taxiLogoImage}
-                    resizeMode="cover"
+                    resizeMode="contain"
                   />
                 ) : (
                   <MaterialCommunityIcons name="taxi" size={26} color="#0F172A" />
@@ -563,7 +565,7 @@ export default function TaxiOwnerDashboard({
         <View style={styles.recentSection}>
           <View style={styles.recentHeaderRow}>
             <Text style={styles.recentTitle}>
-              {dashboardData?.recent_transactions?.title || 'Recent Trips'}
+              {recentTripsSection?.title || 'Recent Trips'}
             </Text>
             <TouchableOpacity
               activeOpacity={0.7}
@@ -596,7 +598,9 @@ export default function TaxiOwnerDashboard({
           {recentTrips.map((txn, index) => {
             const txnCode = txn.txn_id || txn.transaction_id || `#TXN-${txn.id}`;
             const timeText =
+              (txn.date ? formatSydneyToUserTime(txn.date) : null) ||
               (txn.created_at ? formatSydneyToUserTime(txn.created_at) : null) ||
+              txn.time ||
               txn.time_formatted ||
               '--';
             const method = (txn.payment_method || 'card').toLowerCase();
@@ -605,7 +609,7 @@ export default function TaxiOwnerDashboard({
             const amountStr = txn.amount_formatted || (txn.amount !== undefined ? `$${Number(txn.amount).toFixed(2)}` : '$0.00');
             const split = splitAmount(amountStr);
             const pickupText = txn.pickup || txn.pickup_location || txn.route?.pickup;
-            const dropoffText = txn.dropoff || txn.dropoff_location || txn.route?.dropoff;
+            const dropoffText = txn.dropoff || txn.dropoff_location || txn.drop_location || txn.route?.dropoff;
             const hasRoute = Boolean(pickupText || dropoffText);
 
             return (
@@ -742,6 +746,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
+    padding: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
@@ -901,6 +906,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 14,
     overflow: 'hidden',
+    padding: 4,
   },
   taxiLogoImage: {
     width: '100%',

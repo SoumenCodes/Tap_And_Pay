@@ -121,10 +121,10 @@ export default function TaxiOwnerDashboard({
     header?.taxi_no !== undefined
       ? header.taxi_no
       : dashboardData?.taxi_no !== undefined
-      ? dashboardData.taxi_no
-      : header?.identifier_type === 'taxi_no'
-      ? header?.identifier_value
-      : null;
+        ? dashboardData.taxi_no
+        : header?.identifier_type === 'taxi_no'
+          ? header?.identifier_value
+          : null;
   const displayTaxiNumber =
     rawTaxiNo !== null && rawTaxiNo !== undefined && String(rawTaxiNo).trim() !== '' && String(rawTaxiNo).trim() !== '--'
       ? String(rawTaxiNo).trim()
@@ -152,9 +152,9 @@ export default function TaxiOwnerDashboard({
 
   const displayStartTime = isOnShift
     ? (rawStartAt ? formatSydneyToUserTime(rawStartAt) : null) ||
-      (rawStartTime ? formatSydneyToUserTime(rawStartTime) : null) ||
-      sessionStartTime ||
-      '--'
+    (rawStartTime ? formatSydneyToUserTime(rawStartTime) : null) ||
+    sessionStartTime ||
+    '--'
     : '--';
 
   const activeShiftCode =
@@ -614,7 +614,7 @@ export default function TaxiOwnerDashboard({
               color="#FFFFFF"
               style={{ marginRight: 8 }}
             />
-            <Text style={styles.shiftButtonText}>Register Your self as driver</Text>
+            <Text style={styles.shiftButtonText}>Register Your driver</Text>
           </TouchableOpacity>
         )}
 

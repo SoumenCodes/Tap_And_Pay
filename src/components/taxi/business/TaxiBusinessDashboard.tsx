@@ -122,10 +122,10 @@ export default function TaxiBusinessDashboard({
     header?.taxi_no !== undefined
       ? header.taxi_no
       : dashboardData?.taxi_no !== undefined
-      ? dashboardData.taxi_no
-      : header?.identifier_type === 'taxi_no'
-      ? header?.identifier_value
-      : null;
+        ? dashboardData.taxi_no
+        : header?.identifier_type === 'taxi_no'
+          ? header?.identifier_value
+          : null;
   const displayTaxiNumber =
     rawTaxiNo !== null && rawTaxiNo !== undefined && String(rawTaxiNo).trim() !== '' && String(rawTaxiNo).trim() !== '--'
       ? String(rawTaxiNo).trim()
@@ -641,7 +641,7 @@ export default function TaxiBusinessDashboard({
                 color="#FFFFFF"
                 style={{ marginRight: 8 }}
               />
-              <Text style={styles.shiftButtonText}>Register Your self as driver</Text>
+              <Text style={styles.shiftButtonText}>Register Your driver</Text>
             </TouchableOpacity>
           )}
 

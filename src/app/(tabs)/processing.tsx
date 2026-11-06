@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useTerminal } from '../../context/TerminalContext';
 import { addTransaction } from '../../services/transactionStore';
 import { calculateFee, type PaymentMethodType } from '../../utils/feeCalculator';
@@ -40,12 +40,14 @@ export default function ProcessingScreen() {
     pickup_id?: string;
     dropup_id?: string;
     dropoff_id?: string;
+    payment_attempt_id?: string;
   }>();
 
-  const { runSimulatedPayment, statusMessage, errorMessage } = useTerminal();
+  const { runSimulatedPayment, statusMessage, errorMessage, resetPaymentState } = useTerminal();
   const [isFailed, setIsFailed] = useState(false);
   const [errorReason, setErrorReason] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [isPaymentCompleted, setIsPaymentCompleted] = useState(false);
   const [showLogsModal, setShowLogsModal] = useState(false);
 
   const rawAmount = params.amount || '0';
@@ -113,14 +115,36 @@ export default function ProcessingScreen() {
   });
 
   const isExecutingRef = useRef(false);
-  const executedRetryRef = useRef<number>(-1);
+  const executedAttemptKeyRef = useRef<string>('');
+
+  // Whenever the processing screen gains focus, prepare for a fresh payment run
+  useFocusEffect(
+    useCallback(() => {
+      setIsFailed(false);
+      setErrorReason(null);
+      setIsPaymentCompleted(false);
+
+      return () => {
+        // When leaving processing screen, release all execution locks and reset terminal state
+        isExecutingRef.current = false;
+        executedAttemptKeyRef.current = '';
+        setIsPaymentCompleted(false);
+        if (resetPaymentState) {
+          resetPaymentState();
+        }
+      };
+    }, [resetPaymentState])
+  );
+
+  const attemptId = params.payment_attempt_id || '';
+  const currentExecutionKey = `${params.amount || '0'}_${params.method || 'tap'}_${attemptId}_${retryCount}`;
 
   useEffect(() => {
-    // Strictly prevent duplicate payment API calls on mount or during re-renders
-    if (executedRetryRef.current === retryCount || isExecutingRef.current) {
+    // Strictly prevent duplicate payment API calls for the same attempt key or during active flight
+    if (executedAttemptKeyRef.current === currentExecutionKey || isExecutingRef.current) {
       return;
     }
-    executedRetryRef.current = retryCount;
+    executedAttemptKeyRef.current = currentExecutionKey;
     isExecutingRef.current = true;
 
     async function process() {
@@ -150,6 +174,7 @@ export default function ProcessingScreen() {
         });
 
         if (result.success && result.paymentIntent) {
+          setIsPaymentCompleted(true);
           const pi = result.paymentIntent;
           const charge = pi.charges?.[0];
           const cardDetails =
@@ -217,12 +242,14 @@ export default function ProcessingScreen() {
     }
 
     process();
-  }, [retryCount, errorMessage]);
+  }, [currentExecutionKey, errorMessage]);
 
   const handleRetry = () => {
     if (isExecutingRef.current) return;
     setIsFailed(false);
     setErrorReason(null);
+    setIsPaymentCompleted(false);
+    executedAttemptKeyRef.current = '';
     setRetryCount((c) => c + 1);
   };
 
@@ -392,7 +419,13 @@ export default function ProcessingScreen() {
           </View>
 
           {/* ── Status Text ── */}
-          <Text style={styles.title}>{statusMessage || 'Processing payment...'}</Text>
+          <Text style={styles.title}>
+            {isPaymentCompleted
+              ? 'Payment Successful'
+              : statusMessage === 'Payment Successful'
+                ? (paymentMethod === 'card' ? 'Processing card payment...' : 'Processing contactless payment...')
+                : statusMessage || 'Processing payment...'}
+          </Text>
           <Text style={styles.subtitle}>{"Please don't remove or move the card."}</Text>
         </View>
       )}

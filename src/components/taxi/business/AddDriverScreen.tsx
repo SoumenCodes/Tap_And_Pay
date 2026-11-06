@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,11 @@ import {
   Switch,
   ActivityIndicator,
   Image,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -20,9 +24,42 @@ import { driverService } from '../../../services/driverService';
 
 export default function AddDriverScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { showAlert, showPrompt } = useConfirmModal();
   const { id } = useLocalSearchParams<{ id?: string; mode?: string }>();
   const isEditMode = Boolean(id);
+
+  // Dynamic Keyboard tracking for smooth responsive input scrolling
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  // Field focus chaining refs
+  const firstNameRef = useRef<TextInput>(null);
+  const lastNameRef = useRef<TextInput>(null);
+  const phoneRef = useRef<TextInput>(null);
+  const dlNumberRef = useRef<TextInput>(null);
+  const dcNumberRef = useRef<TextInput>(null);
+  const assignedTaxiNoRef = useRef<TextInput>(null);
+  const emailRef = useRef<TextInput>(null);
+  const abnRef = useRef<TextInput>(null);
+  const addressRef = useRef<TextInput>(null);
+  const accountNameRef = useRef<TextInput>(null);
+  const bsbRef = useRef<TextInput>(null);
+  const accountNoRef = useRef<TextInput>(null);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => setKeyboardHeight(e.endCoordinates.height)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardHeight(0)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // Form Fields State (initialized cleanly without hardcoded mock fallbacks)
   const [firstName, setFirstName] = useState('');
@@ -472,12 +509,26 @@ export default function AddDriverScreen() {
           <Text style={styles.loadingText}>Loading driver details...</Text>
         </View>
       ) : (
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+        <KeyboardAvoidingView
+          style={styles.keyboardContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 52 : 0}
         >
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={[
+              styles.scrollContent,
+              {
+                paddingBottom: keyboardHeight > 0
+                  ? (Platform.OS === 'ios' ? 40 : keyboardHeight + 30)
+                  : 50,
+              },
+            ]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+          >
           {/* Section Heading with Icon */}
           <View style={styles.sectionHeadingRow}>
             <View style={styles.sectionIconBadge}>
@@ -622,11 +673,14 @@ export default function AddDriverScreen() {
           <View style={styles.fieldWrap}>
             <Text style={styles.fieldLabel}>First Name *</Text>
             <TextInput
+              ref={firstNameRef}
               style={styles.input}
               value={firstName}
               onChangeText={setFirstName}
               placeholder="First Name"
               placeholderTextColor="#94A3B8"
+              returnKeyType="next"
+              onSubmitEditing={() => lastNameRef.current?.focus()}
             />
           </View>
 
@@ -634,11 +688,14 @@ export default function AddDriverScreen() {
           <View style={styles.fieldWrap}>
             <Text style={styles.fieldLabel}>Last Name *</Text>
             <TextInput
+              ref={lastNameRef}
               style={styles.input}
               value={lastName}
               onChangeText={setLastName}
               placeholder="Last Name"
               placeholderTextColor="#94A3B8"
+              returnKeyType="next"
+              onSubmitEditing={() => phoneRef.current?.focus()}
             />
           </View>
 
@@ -650,12 +707,15 @@ export default function AddDriverScreen() {
                 <Text style={styles.countryCodeText}>+61</Text>
               </View>
               <TextInput
+                ref={phoneRef}
                 style={[styles.input, { flex: 1 }]}
                 value={phone}
                 onChangeText={setPhone}
                 placeholder="e.g. 0400 555 320"
                 placeholderTextColor="#94A3B8"
                 keyboardType="phone-pad"
+                returnKeyType="next"
+                onSubmitEditing={() => dlNumberRef.current?.focus()}
               />
             </View>
           </View>
@@ -664,12 +724,15 @@ export default function AddDriverScreen() {
           <View style={styles.fieldWrap}>
             <Text style={styles.fieldLabel}>Driving License Number</Text>
             <TextInput
+              ref={dlNumberRef}
               style={styles.input}
               value={dlNumber}
               onChangeText={setDlNumber}
               placeholder="e.g. DL938210481"
               placeholderTextColor="#94A3B8"
               autoCapitalize="characters"
+              returnKeyType="next"
+              onSubmitEditing={() => dcNumberRef.current?.focus()}
             />
           </View>
 
@@ -677,12 +740,15 @@ export default function AddDriverScreen() {
           <View style={styles.fieldWrap}>
             <Text style={styles.fieldLabel}>DC Number *</Text>
             <TextInput
+              ref={dcNumberRef}
               style={styles.input}
               value={dcNumber}
               onChangeText={setDcNumber}
               placeholder="Driver Certificate (e.g. 93821048)"
               placeholderTextColor="#94A3B8"
               keyboardType="numeric"
+              returnKeyType="next"
+              onSubmitEditing={() => assignedTaxiNoRef.current?.focus()}
             />
           </View>
 
@@ -690,12 +756,15 @@ export default function AddDriverScreen() {
           <View style={styles.fieldWrap}>
             <Text style={styles.fieldLabel}>Assigned Taxi No.</Text>
             <TextInput
+              ref={assignedTaxiNoRef}
               style={styles.input}
               value={assignedTaxiNo}
               onChangeText={setAssignedTaxiNo}
               placeholder="e.g. M6061"
               placeholderTextColor="#94A3B8"
               autoCapitalize="characters"
+              returnKeyType="next"
+              onSubmitEditing={() => emailRef.current?.focus()}
             />
           </View>
 
@@ -703,6 +772,7 @@ export default function AddDriverScreen() {
           <View style={styles.fieldWrap}>
             <Text style={styles.fieldLabel}>Email</Text>
             <TextInput
+              ref={emailRef}
               style={styles.input}
               value={email}
               onChangeText={setEmail}
@@ -710,6 +780,8 @@ export default function AddDriverScreen() {
               placeholderTextColor="#94A3B8"
               keyboardType="email-address"
               autoCapitalize="none"
+              returnKeyType="next"
+              onSubmitEditing={() => abnRef.current?.focus()}
             />
           </View>
 
@@ -717,12 +789,15 @@ export default function AddDriverScreen() {
           <View style={styles.fieldWrap}>
             <Text style={styles.fieldLabel}>ABN</Text>
             <TextInput
+              ref={abnRef}
               style={styles.input}
               value={abn}
               onChangeText={setAbn}
               placeholder="e.g. 98765423101"
               placeholderTextColor="#94A3B8"
               keyboardType="numeric"
+              returnKeyType="next"
+              onSubmitEditing={() => addressRef.current?.focus()}
             />
           </View>
 
@@ -730,11 +805,14 @@ export default function AddDriverScreen() {
           <View style={styles.fieldWrap}>
             <Text style={styles.fieldLabel}>Address</Text>
             <TextInput
+              ref={addressRef}
               style={styles.input}
               value={address}
               onChangeText={setAddress}
               placeholder="Full address"
               placeholderTextColor="#94A3B8"
+              returnKeyType="next"
+              onSubmitEditing={() => accountNameRef.current?.focus()}
             />
           </View>
 
@@ -742,11 +820,14 @@ export default function AddDriverScreen() {
           <View style={styles.fieldWrap}>
             <Text style={styles.fieldLabel}>Bank Account Name</Text>
             <TextInput
+              ref={accountNameRef}
               style={styles.input}
               value={accountName}
               onChangeText={setAccountName}
               placeholder="Name on bank account"
               placeholderTextColor="#94A3B8"
+              returnKeyType="next"
+              onSubmitEditing={() => bsbRef.current?.focus()}
             />
           </View>
 
@@ -755,23 +836,29 @@ export default function AddDriverScreen() {
             <View style={[styles.fieldWrap, { flex: 1 }]}>
               <Text style={styles.fieldLabel}>BSB</Text>
               <TextInput
+                ref={bsbRef}
                 style={styles.input}
                 value={bsb}
                 onChangeText={setBsb}
                 placeholder="e.g. 063-123"
                 placeholderTextColor="#94A3B8"
+                returnKeyType="next"
+                onSubmitEditing={() => accountNoRef.current?.focus()}
               />
             </View>
 
             <View style={[styles.fieldWrap, { flex: 1 }]}>
               <Text style={styles.fieldLabel}>Account No.</Text>
               <TextInput
+                ref={accountNoRef}
                 style={styles.input}
                 value={accountNo}
                 onChangeText={setAccountNo}
                 placeholder="e.g. 109876541"
                 placeholderTextColor="#94A3B8"
                 keyboardType="numeric"
+                returnKeyType="done"
+                onSubmitEditing={() => Keyboard.dismiss()}
               />
             </View>
           </View>
@@ -838,6 +925,7 @@ export default function AddDriverScreen() {
 
           <View style={{ height: 32 }} />
         </ScrollView>
+        </KeyboardAvoidingView>
       )}
     </View>
   );
@@ -847,6 +935,9 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  keyboardContainer: {
+    flex: 1,
   },
   centerLoading: {
     flex: 1,

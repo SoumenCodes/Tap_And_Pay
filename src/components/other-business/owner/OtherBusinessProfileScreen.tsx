@@ -315,7 +315,7 @@ export default function OtherBusinessProfileScreen() {
                 icon: 'checkmark-circle-outline',
               });
               await fetchProfile();
-              dashboardService.getDashboard().catch(() => {});
+              dashboardService.getDashboard().catch(() => { });
             } else {
               if (
                 res.message?.toLowerCase().includes('already ended') ||
@@ -330,7 +330,7 @@ export default function OtherBusinessProfileScreen() {
                   icon: 'information-circle-outline',
                 });
                 await fetchProfile();
-                dashboardService.getDashboard().catch(() => {});
+                dashboardService.getDashboard().catch(() => { });
               } else {
                 showAlert({
                   title: 'End Shift Failed',
@@ -376,7 +376,7 @@ export default function OtherBusinessProfileScreen() {
             icon: 'checkmark-circle-outline',
           });
           await fetchProfile();
-          dashboardService.getDashboard().catch(() => {});
+          dashboardService.getDashboard().catch(() => { });
         } else {
           showAlert({
             title: 'Start Shift Failed',
@@ -437,15 +437,15 @@ export default function OtherBusinessProfileScreen() {
     user?.address?.formatted ||
     user?.address?.address_line1 ||
     '--';
-  const avatarUri = user?.logo_url || user?.profile_photo_url;
+  const avatarUri = user?.profile_photo_url || user?.logo_url;
 
   // Session values
   const shiftId = isOnShift
     ? session?.display_shift_id ||
-      session?.session_uuid ||
-      (session?.shift_id ? `SH${session.shift_id}` : null) ||
-      shiftService.getActiveShift()?.display_shift_id ||
-      '--'
+    session?.session_uuid ||
+    (session?.shift_id ? `SH${session.shift_id}` : null) ||
+    shiftService.getActiveShift()?.display_shift_id ||
+    '--'
     : 'No Active Shift';
   const totalAmountStr = session?.revenue?.total_amount_formatted || '$0.00';
   const txnsLabel = session?.revenue?.transaction_label || '0 Txns';
@@ -561,8 +561,8 @@ export default function OtherBusinessProfileScreen() {
               ? session?.started_at
                 ? `Started ${formatSydneyToUserDateTime(session.started_at)}${session.duration ? ` (${session.duration})` : ''}`
                 : session?.started_at_formatted
-                ? `Started ${session.started_at_formatted}${session.duration ? ` (${session.duration})` : ''}`
-                : 'Active • Ready for sales'
+                  ? `Started ${session.started_at_formatted}${session.duration ? ` (${session.duration})` : ''}`
+                  : 'Active • Ready for sales'
               : 'Off Shift • Standby'}
           </Text>
 
@@ -657,8 +657,8 @@ export default function OtherBusinessProfileScreen() {
                   ? 'Ending Shift...'
                   : 'Starting Shift...'
                 : isOnShift
-                ? session?.end_button_title || 'End Shift'
-                : 'Start Shift'}
+                  ? session?.end_button_title || 'End Shift'
+                  : 'Start Shift'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -688,8 +688,8 @@ export default function OtherBusinessProfileScreen() {
                     item.key === 'bank_details'
                       ? 'business-outline'
                       : item.key === 'manage_staff'
-                      ? 'people-outline'
-                      : 'swap-horizontal'
+                        ? 'people-outline'
+                        : 'swap-horizontal'
                   }
                   size={18}
                   color="#B45309"
@@ -936,11 +936,10 @@ export default function OtherBusinessProfileScreen() {
             </Text>
             <Text style={styles.updateModalDesc}>
               {bankData?.has_pending_approval
-                ? `You have a pending update request submitted${
-                    bankData.draft_bank_details?.submitted_ts
-                      ? ` on ${formatSubmittedDate(bankData.draft_bank_details.submitted_ts)}`
-                      : ''
-                  }. You can make adjustments to the draft details below and re-submit for approval.`
+                ? `You have a pending update request submitted${bankData.draft_bank_details?.submitted_ts
+                  ? ` on ${formatSubmittedDate(bankData.draft_bank_details.submitted_ts)}`
+                  : ''
+                }. You can make adjustments to the draft details below and re-submit for approval.`
                 : 'To protect your business payouts, changing bank account details requires security verification. Once submitted, current daily payouts will pause until the new account is verified.'}
             </Text>
 

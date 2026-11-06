@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,9 @@ import {
   Platform,
   ActivityIndicator,
   Image,
+  Keyboard,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -22,9 +24,34 @@ import { employeeService } from '../../../services/employeeService';
 
 export default function AddEmployeeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { showAlert, showPrompt } = useConfirmModal();
   const { id } = useLocalSearchParams<{ id?: string; mode?: string }>();
   const isEditMode = Boolean(id);
+
+  // Dynamic Keyboard tracking for smooth responsive input scrolling
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  // Focus chaining refs
+  const firstNameRef = useRef<TextInput>(null);
+  const lastNameRef = useRef<TextInput>(null);
+  const phoneRef = useRef<TextInput>(null);
+  const emailRef = useRef<TextInput>(null);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => setKeyboardHeight(e.endCoordinates.height)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardHeight(0)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // Form State (Clean Primitives with Zero Hardcoded Mock Fallbacks)
   const [firstName, setFirstName] = useState('');
@@ -353,12 +380,22 @@ export default function AddEmployeeScreen() {
         <KeyboardAvoidingView
           style={styles.keyboardContainer}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 52 : 0}
         >
           <ScrollView
             style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[
+              styles.scrollContent,
+              {
+                paddingBottom: keyboardHeight > 0
+                  ? (Platform.OS === 'ios' ? 40 : keyboardHeight + 30)
+                  : 50,
+              },
+            ]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
           >
             {/* Subheader Title with Amber Icon */}
             <View style={styles.headerCard}>
@@ -434,12 +471,15 @@ export default function AddEmployeeScreen() {
           <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>First Name *</Text>
             <TextInput
+              ref={firstNameRef}
               style={styles.textInput}
               placeholder="First name"
               placeholderTextColor="#94A3B8"
               value={firstName}
               onChangeText={setFirstName}
               autoCapitalize="words"
+              returnKeyType="next"
+              onSubmitEditing={() => lastNameRef.current?.focus()}
             />
           </View>
 
@@ -447,12 +487,15 @@ export default function AddEmployeeScreen() {
           <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>Last Name *</Text>
             <TextInput
+              ref={lastNameRef}
               style={styles.textInput}
               placeholder="Last name"
               placeholderTextColor="#94A3B8"
               value={lastName}
               onChangeText={setLastName}
               autoCapitalize="words"
+              returnKeyType="next"
+              onSubmitEditing={() => phoneRef.current?.focus()}
             />
           </View>
 
@@ -464,12 +507,15 @@ export default function AddEmployeeScreen() {
                 <Text style={styles.countryCodeText}>+61</Text>
               </View>
               <TextInput
+                ref={phoneRef}
                 style={[styles.textInput, styles.phoneInput]}
                 placeholder="e.g. 0400 555 320"
                 placeholderTextColor="#94A3B8"
                 value={phone}
                 onChangeText={setPhone}
                 keyboardType="phone-pad"
+                returnKeyType="next"
+                onSubmitEditing={() => emailRef.current?.focus()}
               />
             </View>
           </View>
@@ -478,6 +524,7 @@ export default function AddEmployeeScreen() {
           <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>Email ID</Text>
             <TextInput
+              ref={emailRef}
               style={styles.textInput}
               placeholder="e.g. employee@business.com"
               placeholderTextColor="#94A3B8"
@@ -486,6 +533,8 @@ export default function AddEmployeeScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              returnKeyType="done"
+              onSubmitEditing={() => Keyboard.dismiss()}
             />
           </View>
 

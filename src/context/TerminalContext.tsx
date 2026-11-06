@@ -38,6 +38,7 @@ interface TerminalContextValue {
     }
   ) => Promise<{ success: boolean; paymentIntent?: any; error?: string }>;
   clearError: () => void;
+  resetPaymentState: () => void;
 }
 
 const TerminalContext = createContext<TerminalContextValue | null>(null);
@@ -231,6 +232,11 @@ const SimulatedTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         isPaymentInFlightRef.current = true;
         setIsProcessing(true);
         setErrorMessage(null);
+        setStatusMessage(
+          paymentMethod === 'card'
+            ? 'Processing card payment...'
+            : 'Processing contactless payment...'
+        );
 
         appLogger.info('SIMULATED_TERMINAL', `Starting simulated payment for $${amount}`, {
           paymentMethod,
@@ -350,6 +356,13 @@ const SimulatedTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const clearError = () => setErrorMessage(null);
 
+  const resetPaymentState = useCallback(() => {
+    isPaymentInFlightRef.current = false;
+    setIsProcessing(false);
+    setErrorMessage(null);
+    setStatusMessage('Processing payment...');
+  }, []);
+
   return (
     <TerminalContext.Provider
       value={{
@@ -362,6 +375,7 @@ const SimulatedTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         initAndConnectSimulatedReader,
         runSimulatedPayment,
         clearError,
+        resetPaymentState,
       }}
     >
       {children}
@@ -683,6 +697,11 @@ const NativeTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ child
         isPaymentInFlightRef.current = true;
         setIsProcessing(true);
         setErrorMessage(null);
+        setStatusMessage(
+          paymentMethod === 'card'
+            ? 'Processing card payment...'
+            : 'Processing contactless payment...'
+        );
 
         appLogger.info('TERMINAL', `=== [START] runSimulatedPayment ===`, {
           amount,
@@ -850,6 +869,13 @@ const NativeTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const clearError = () => setErrorMessage(null);
 
+  const resetPaymentState = useCallback(() => {
+    isPaymentInFlightRef.current = false;
+    setIsProcessing(false);
+    setErrorMessage(null);
+    setStatusMessage('Processing payment...');
+  }, []);
+
   return (
     <TerminalContext.Provider
       value={{
@@ -862,6 +888,7 @@ const NativeTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ child
         initAndConnectSimulatedReader,
         runSimulatedPayment,
         clearError,
+        resetPaymentState,
       }}
     >
       {children}

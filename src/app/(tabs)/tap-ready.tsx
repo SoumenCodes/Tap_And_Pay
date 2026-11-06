@@ -219,6 +219,7 @@ export default function TapReadyScreen() {
         pickup_id: params.pickup_id || '',
         dropup_id: params.dropup_id || params.dropoff_id || '',
         dropoff_id: params.dropup_id || params.dropoff_id || '',
+        payment_attempt_id: `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       },
     });
   };

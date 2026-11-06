@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   View,
   Text,
@@ -17,6 +18,7 @@ import {
   shiftService,
   ShiftHistoryData,
   ShiftRecordItem,
+  onShiftChange,
 } from '../../../services/shiftService';
 import { formatShiftRecordTime } from '../../../utils/dateUtils';
 
@@ -231,9 +233,30 @@ export default function OtherBusinessEmployeeHistoryScreen({
     return () => clearTimeout(timer);
   }, [searchQuery, fetchHistory]);
 
-  const handleRefresh = () => {
+  const handleRefresh = useCallback(() => {
     fetchHistory({ page: 1, isRefresh: true });
-  };
+  }, [fetchHistory]);
+
+  const isFirstMountRef = useRef<boolean>(true);
+
+  // Sync shift changes across the app
+  useEffect(() => {
+    const unsub = onShiftChange(() => {
+      fetchHistory({ page: 1, isRefresh: true });
+    });
+    return () => unsub();
+  }, [fetchHistory]);
+
+  // Auto-refresh when navigating to the shift history tab or screen
+  useFocusEffect(
+    useCallback(() => {
+      if (isFirstMountRef.current) {
+        isFirstMountRef.current = false;
+        return;
+      }
+      fetchHistory({ page: 1, isRefresh: true });
+    }, [fetchHistory])
+  );
 
   // Scroll pagination: loads next page when employee scrolls near the end
   const handleLoadMore = () => {

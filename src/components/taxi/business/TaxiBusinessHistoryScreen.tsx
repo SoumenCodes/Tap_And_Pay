@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   View,
   Text,
@@ -22,6 +23,7 @@ import {
   ShiftHistoryData,
   ShiftRecordItem,
   ShiftSelectorItem,
+  onShiftChange,
 } from '../../../services/shiftService';
 import { formatShiftRecordTime } from '../../../utils/dateUtils';
 
@@ -262,6 +264,27 @@ export default function TaxiBusinessHistoryScreen({
   const handleRefresh = useCallback(() => {
     fetchShiftHistory({ page: 1, isRefresh: true });
   }, [fetchShiftHistory]);
+
+  const isFirstMountRef = useRef<boolean>(true);
+
+  // Sync shift changes across the app
+  useEffect(() => {
+    const unsub = onShiftChange(() => {
+      fetchShiftHistory({ page: 1, isRefresh: true });
+    });
+    return () => unsub();
+  }, [fetchShiftHistory]);
+
+  // Auto-refresh when navigating to the shift history tab or screen
+  useFocusEffect(
+    useCallback(() => {
+      if (isFirstMountRef.current) {
+        isFirstMountRef.current = false;
+        return;
+      }
+      fetchShiftHistory({ page: 1, isRefresh: true });
+    }, [fetchShiftHistory])
+  );
 
   // Infinite Scroll Pagination
   const handleLoadMore = useCallback(() => {

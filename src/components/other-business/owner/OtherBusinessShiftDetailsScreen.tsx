@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import HeaderBar from '../../common/HeaderBar';
 import ReceiptShareModal from '../../common/ReceiptShareModal';
 import { useConfirmModal } from '../../../context/ConfirmModalContext';
@@ -20,6 +20,7 @@ import {
   shiftService,
   ShiftDetailsData,
   ShiftDetailsTransactionItem,
+  onShiftChange,
 } from '../../../services/shiftService';
 import { receiptService } from '../../../services/receiptService';
 import {
@@ -126,9 +127,30 @@ export default function OtherBusinessShiftDetailsScreen({
     };
   }, [shiftId]);
 
-  const handleRefresh = () => {
+  const handleRefresh = useCallback(() => {
     fetchShiftDetails(filterType, true);
-  };
+  }, [fetchShiftDetails, filterType]);
+
+  const isFirstMountRef = useRef<boolean>(true);
+
+  // Sync shift changes across the app
+  useEffect(() => {
+    const unsub = onShiftChange(() => {
+      fetchShiftDetails(filterType, true);
+    });
+    return () => unsub();
+  }, [fetchShiftDetails, filterType]);
+
+  // Auto-refresh on screen focus
+  useFocusEffect(
+    useCallback(() => {
+      if (isFirstMountRef.current) {
+        isFirstMountRef.current = false;
+        return;
+      }
+      fetchShiftDetails(filterType, true);
+    }, [fetchShiftDetails, filterType])
+  );
 
   const handleFilterChange = (newFilter: TxnFilterType) => {
     setFilterType(newFilter);

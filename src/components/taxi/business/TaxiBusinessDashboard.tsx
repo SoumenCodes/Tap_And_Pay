@@ -357,9 +357,10 @@ export default function TaxiBusinessDashboard({
   };
 
   const handleDriverPress = (driver: ActiveDriverItem) => {
+    const targetDriverId = String(driver.id || driver.dc_number || '');
     router.push({
-      pathname: '/driver-details',
-      params: { id: String(driver.id) },
+      pathname: '/(tabs)/transactions',
+      params: targetDriverId ? { driverId: targetDriverId } : undefined,
     });
   };
 

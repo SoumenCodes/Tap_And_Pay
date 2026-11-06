@@ -12,6 +12,7 @@ import {
   Modal,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import HeaderBar from '../../common/HeaderBar';
@@ -20,6 +21,7 @@ import { driverService, DriverDetail, DriverDocumentDetail } from '../../../serv
 
 export default function DriverDetailsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { showAlert } = useConfirmModal();
   const params = useLocalSearchParams<{ driverId?: string; id?: string }>();
 
@@ -115,6 +117,8 @@ export default function DriverDetailsScreen() {
   const statusLabel = driver?.driver_status?.status_label || (isActive ? 'Active' : 'Inactive');
   const isStatusWarning = driver?.driver_status?.status_badge === 'warning';
 
+  const bottomNavHeight = 56 + Math.max(insets.bottom, 12);
+
   return (
     <View style={styles.root}>
       <StatusBar style="dark" />
@@ -155,7 +159,12 @@ export default function DriverDetailsScreen() {
       ) : (
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingBottom: bottomNavHeight + 24,
+            },
+          ]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -206,8 +215,8 @@ export default function DriverDetailsScreen() {
                         backgroundColor: isStatusWarning
                           ? '#F59E0B'
                           : isActive
-                          ? '#10B981'
-                          : '#94A3B8',
+                            ? '#10B981'
+                            : '#94A3B8',
                       },
                     ]}
                   />
@@ -218,8 +227,8 @@ export default function DriverDetailsScreen() {
                         color: isStatusWarning
                           ? '#D97706'
                           : isActive
-                          ? '#059669'
-                          : '#64748B',
+                            ? '#059669'
+                            : '#64748B',
                       },
                     ]}
                   >
@@ -417,8 +426,8 @@ export default function DriverDetailsScreen() {
                     backgroundColor: isStatusWarning
                       ? '#F59E0B'
                       : isActive
-                      ? '#10B981'
-                      : '#94A3B8',
+                        ? '#10B981'
+                        : '#94A3B8',
                   },
                 ]}
               />
@@ -456,7 +465,15 @@ export default function DriverDetailsScreen() {
       )}
 
       {/* ── BOTTOM TAB NAVIGATION BAR ── */}
-      <View style={styles.bottomTabNav}>
+      <View
+        style={[
+          styles.bottomTabNav,
+          {
+            height: bottomNavHeight,
+            paddingBottom: Math.max(insets.bottom, 10),
+          },
+        ]}
+      >
         <TouchableOpacity
           style={styles.bottomTabItem}
           onPress={() => router.replace('/(tabs)')}
@@ -496,7 +513,14 @@ export default function DriverDetailsScreen() {
         <View style={styles.viewerModalContainer}>
           <StatusBar style="light" />
           {/* Header */}
-          <View style={styles.viewerHeader}>
+          <View
+            style={[
+              styles.viewerHeader,
+              {
+                paddingTop: Math.max(insets.top, 36) + 16,
+              },
+            ]}
+          >
             <Text style={styles.viewerTitle} numberOfLines={1}>
               {previewDoc?.title || 'Document Preview'}
             </Text>
@@ -543,7 +567,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 12,
     paddingBottom: 24,
   },
   centerLoading: {

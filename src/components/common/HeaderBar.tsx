@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ViewStyle, Platform, StatusBar as RNStatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -34,12 +34,15 @@ export default function HeaderBar({
     }
   };
 
+  const statusBarHeight = Platform.OS === 'android' ? (RNStatusBar.currentHeight || 28) : 24;
+  const topPadding = Math.max(insets.top, statusBarHeight) + 8;
+
   return (
     <View
       style={[
         styles.container,
         {
-          paddingTop: Math.max(insets.top, 24) + 8,
+          paddingTop: topPadding,
         },
         showBorder && styles.bottomBorder,
         style,
@@ -89,7 +92,7 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 20,
-    paddingBottom: 2,
+    paddingBottom: 8,
   },
   bottomBorder: {
     borderBottomWidth: 1,

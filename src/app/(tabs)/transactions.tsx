@@ -113,7 +113,7 @@ export default function TransactionsTabScreen() {
     <TaxiBusinessHistoryScreen
       onSelectShift={handleSelectShift}
       taxiNumber={user.taxiNumber}
-      initialDriverId={params.driverId}
+      initialDriverId={params.driverId || params.empId}
       onDriverChange={handleDriverChange}
     />
   );

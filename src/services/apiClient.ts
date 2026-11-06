@@ -101,7 +101,7 @@ apiClient.interceptors.response.use(
     }
     console.log('====================================================\n');
 
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && !error.config?.url?.includes('/api/location')) {
       // Clear token when session expires
       tokenStorage.clearTokens();
     }

@@ -14,6 +14,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Keyboard,
 } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
@@ -702,6 +703,7 @@ export default function TapToPayEnterAmountScreen() {
   };
 
   const handleSelectLocation = (suburbName: string, id?: number) => {
+    Keyboard.dismiss();
     if (activePickerType === 'pickup') {
       setPickupLocation(suburbName);
       setPickupId(id ?? null);
@@ -710,6 +712,36 @@ export default function TapToPayEnterAmountScreen() {
       setDropoffId(id ?? null);
     }
     setIsLocationModalVisible(false);
+  };
+
+  const handleSubmitSearch = () => {
+    const query = searchLocationQuery.trim();
+    if (!query) {
+      Keyboard.dismiss();
+      return;
+    }
+
+    // 1. If exactly one result or exact name match exists, select it
+    if (suburbResults.length === 1) {
+      handleSelectLocation(suburbResults[0].suburb, suburbResults[0].id);
+      return;
+    }
+    const exactMatch = suburbResults.find(
+      (item) => item.suburb.toLowerCase() === query.toLowerCase()
+    );
+    if (exactMatch) {
+      handleSelectLocation(exactMatch.suburb, exactMatch.id);
+      return;
+    }
+
+    // 2. If no matching suburbs found in directory, use the typed custom query
+    if (suburbResults.length === 0 && !isLoadingLocations) {
+      handleSelectLocation(query);
+      return;
+    }
+
+    // 3. Otherwise dismiss keyboard to reveal all results clearly
+    Keyboard.dismiss();
   };
 
   const handleClearDropoff = () => {
@@ -1247,30 +1279,46 @@ export default function TapToPayEnterAmountScreen() {
         visible={isLocationModalVisible}
         animationType="slide"
         transparent
-        onRequestClose={() => setIsLocationModalVisible(false)}
+        onRequestClose={() => {
+          Keyboard.dismiss();
+          setIsLocationModalVisible(false);
+        }}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.locationModalOverlay}
         >
+          {/* Dimmed backdrop at top: tapping dismisses keyboard and closes modal */}
           <TouchableOpacity
             style={styles.modalBackdropTouch}
             activeOpacity={1}
-            onPress={() => setIsLocationModalVisible(false)}
+            onPress={() => {
+              Keyboard.dismiss();
+              setIsLocationModalVisible(false);
+            }}
           />
 
           <View style={styles.locationModalSheet}>
             <View style={styles.modalDragHandle} />
 
             <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalHeaderTitle}>
-                Select {activePickerType === 'pickup' ? 'Pickup' : 'Drop-off'} Location
-              </Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalHeaderTitle}>
+                  Select {activePickerType === 'pickup' ? 'Pickup' : 'Drop-off'} Location
+                </Text>
+                <Text style={styles.modalHeaderSubtitle}>
+                  Search Australian suburbs or enter a custom address
+                </Text>
+              </View>
               <TouchableOpacity
-                onPress={() => setIsLocationModalVisible(false)}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setIsLocationModalVisible(false);
+                }}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                style={styles.modalCloseButton}
               >
-                <Ionicons name="close" size={22} color="#64748B" />
+                <Ionicons name="close" size={20} color="#64748B" />
               </TouchableOpacity>
             </View>
 
@@ -1281,14 +1329,21 @@ export default function TapToPayEnterAmountScreen() {
                 style={styles.searchTextInput}
                 value={searchLocationQuery}
                 onChangeText={setSearchLocationQuery}
-                placeholder="Search suburb (e.g. Malabar, Airport)..."
+                placeholder="Search suburb, postcode, or location..."
                 placeholderTextColor="#94A3B8"
                 autoFocus
+                returnKeyType="search"
+                onSubmitEditing={handleSubmitSearch}
+                autoCapitalize="words"
+                autoCorrect={false}
               />
               {isLoadingLocations ? (
                 <ActivityIndicator size="small" color="#D97706" style={{ marginLeft: 6 }} />
               ) : searchLocationQuery.length > 0 ? (
-                <TouchableOpacity onPress={() => setSearchLocationQuery('')}>
+                <TouchableOpacity
+                  onPress={() => setSearchLocationQuery('')}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
                   <Ionicons name="close-circle" size={18} color="#94A3B8" />
                 </TouchableOpacity>
               ) : null}
@@ -1301,10 +1356,18 @@ export default function TapToPayEnterAmountScreen() {
                 activeOpacity={0.7}
                 onPress={() => handleSelectLocation(searchLocationQuery.trim())}
               >
-                <Ionicons name="navigate-circle-outline" size={20} color="#2563EB" style={{ marginRight: 8 }} />
-                <Text style={styles.customLocationText}>
-                  Use &quot;{searchLocationQuery.trim()}&quot;
-                </Text>
+                <View style={styles.customLocationIconBox}>
+                  <Ionicons name="navigate-circle" size={22} color="#2563EB" />
+                </View>
+                <View style={styles.customLocationTextCol}>
+                  <Text style={styles.customLocationText} numberOfLines={1}>
+                    Use &quot;{searchLocationQuery.trim()}&quot;
+                  </Text>
+                  <Text style={styles.customLocationSubtext} numberOfLines={1}>
+                    Tap or press Search to set as {activePickerType === 'pickup' ? 'pickup' : 'drop-off'}
+                  </Text>
+                </View>
+                <Ionicons name="arrow-forward-circle" size={20} color="#2563EB" />
               </TouchableOpacity>
             )}
 
@@ -1312,16 +1375,25 @@ export default function TapToPayEnterAmountScreen() {
             <FlatList
               data={suburbResults}
               keyExtractor={(item) => String(item.id)}
-              showsVerticalScrollIndicator={false}
+              showsVerticalScrollIndicator={true}
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+              contentContainerStyle={styles.locationListContent}
               ListEmptyComponent={
                 !isLoadingLocations ? (
-                  <View style={{ paddingVertical: 24, alignItems: 'center' }}>
-                    <Ionicons name="location-outline" size={30} color="#94A3B8" />
-                    <Text style={{ marginTop: 8, fontSize: 13, color: '#64748B', fontWeight: '500' }}>
+                  <View style={styles.emptyResultsBox}>
+                    <View style={styles.emptyIconCircle}>
+                      <Ionicons name="location-outline" size={26} color="#94A3B8" />
+                    </View>
+                    <Text style={styles.emptyTitleText}>
                       {searchLocationQuery.trim()
                         ? `No suburbs found for "${searchLocationQuery.trim()}"`
-                        : 'Type to search suburbs'}
+                        : 'Type to search Australian suburbs'}
+                    </Text>
+                    <Text style={styles.emptySubtext}>
+                      {searchLocationQuery.trim()
+                        ? `Tap "Use \\"${searchLocationQuery.trim()}\\"" above or press Search to use this location.`
+                        : 'Search by suburb name, airport, or enter a custom address.'}
                     </Text>
                   </View>
                 ) : null
@@ -1787,30 +1859,31 @@ const styles = StyleSheet.create({
   locationModalOverlay: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
   },
   modalBackdropTouch: {
-    flex: 1,
+    height: Platform.OS === 'ios' ? 70 : 50,
+    minHeight: 40,
   },
   locationModalSheet: {
+    flex: 1,
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
     paddingTop: 12,
-    paddingBottom: 32,
-    maxHeight: '75%',
+    paddingBottom: Platform.OS === 'ios' ? 24 : 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 8,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 10,
   },
   modalDragHandle: {
-    width: 36,
+    width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#CBD5E1',
+    backgroundColor: '#E2E8F0',
     alignSelf: 'center',
     marginBottom: 12,
   },
@@ -1818,12 +1891,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 12,
   },
   modalHeaderTitle: {
-    fontSize: 14.5,
+    fontSize: 15,
     fontWeight: '700',
     color: '#0F172A',
+  },
+  modalHeaderSubtitle: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  modalCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
   },
   searchInputWrap: {
     flexDirection: 'row',
@@ -1833,26 +1920,45 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
     paddingHorizontal: 12,
-    height: 44,
-    marginBottom: 12,
+    height: 46,
+    marginBottom: 10,
   },
   searchTextInput: {
     flex: 1,
-    fontSize: 12.5,
+    fontSize: 13,
     color: '#0F172A',
+    paddingVertical: 0,
   },
   customLocationOption: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#EFF6FF',
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 10,
+  },
+  customLocationIconBox: {
+    marginRight: 10,
+  },
+  customLocationTextCol: {
+    flex: 1,
   },
   customLocationText: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: '#2563EB',
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1D4ED8',
+  },
+  customLocationSubtext: {
+    fontSize: 10.5,
+    color: '#3B82F6',
+    marginTop: 1,
+  },
+  locationListContent: {
+    paddingBottom: 24,
+    flexGrow: 1,
   },
   locationItem: {
     flexDirection: 'row',
@@ -1865,7 +1971,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#FEF3C7',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -1874,14 +1980,42 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   locationItemName: {
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: '600',
     color: '#0F172A',
   },
   locationItemDesc: {
-    fontSize: 10.5,
+    fontSize: 11,
     color: '#64748B',
     marginTop: 1,
+  },
+  emptyResultsBox: {
+    paddingVertical: 32,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  emptyTitleText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#475569',
+    textAlign: 'center',
+  },
+  emptySubtext: {
+    fontSize: 11.5,
+    color: '#94A3B8',
+    textAlign: 'center',
+    marginTop: 4,
+    lineHeight: 16,
   },
   shiftWarningCard: {
     backgroundColor: '#FFFBEB',

@@ -12,3 +12,4 @@ export * from './locationService';
 export * from './cashPaymentService';
 export * from './receiptService';
 export * from './animatedGifService';
+export * from './receiptExportService';

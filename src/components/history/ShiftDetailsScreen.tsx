@@ -7,7 +7,6 @@ import {
   TextInput,
   TouchableOpacity,
   Image,
-  ActivityIndicator,
   Share,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -32,7 +31,7 @@ export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreen
   const { showAlert } = useConfirmModal();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<TxnFilterType>('all');
-  const [isExporting, setIsExporting] = useState(false);
+  const [_isExporting, _setIsExporting] = useState(false);
 
   // Filter transactions
   const filteredTransactions = useMemo(() => {
@@ -170,23 +169,23 @@ export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreen
   };
 
   // Reprint Shift Slip (Print directly via native print dialog)
-  const handleReprintShiftSlip = async () => {
+  const _handleReprintShiftSlip = async () => {
     try {
-      setIsExporting(true);
+      _setIsExporting(true);
       await Print.printAsync({
         html: getShiftSlipHtml(),
       });
     } catch (error) {
       console.warn('Print canceled or failed:', error);
     } finally {
-      setIsExporting(false);
+      _setIsExporting(false);
     }
   };
 
   // Share Report (Generate PDF in scoped cache & share via native sheet)
-  const handleShareReport = async () => {
+  const _handleShareReport = async () => {
     try {
-      setIsExporting(true);
+      _setIsExporting(true);
       const html = getShiftSlipHtml();
       const { uri, base64 } = await Print.printToFileAsync({
         html,
@@ -235,7 +234,7 @@ export default function ShiftDetailsScreen({ shift, onBack }: ShiftDetailsScreen
         });
       }
     } finally {
-      setIsExporting(false);
+      _setIsExporting(false);
     }
   };
 

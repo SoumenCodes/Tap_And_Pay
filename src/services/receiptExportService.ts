@@ -209,8 +209,8 @@ export async function generateReceiptHtml(input: UnifiedReceiptInput): Promise<s
     .ad-tag-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
     .ad-tag { font-size: 8.5px; font-weight: 800; color: #94A3B8; letter-spacing: 0.8px; text-transform: uppercase; }
     .ad-provider { font-size: 8.5px; font-weight: 700; color: #D97706; letter-spacing: 0.5px; }
-    .ad-img-box { flex: 1; width: 100%; height: calc(100% - 16px); border-radius: 12px; overflow: hidden; background: #0F172A; }
-    .ad-img-box img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .ad-img-box { flex: 1; width: 100%; height: calc(100% - 18px); border-radius: 12px; overflow: hidden; background: #0F172A; display: flex; align-items: center; justify-content: center; }
+    .ad-img-box img { width: 100%; height: 100%; max-width: 100%; max-height: 100%; object-fit: contain; object-position: center; display: block; }
   </style>
 </head>
 <body>

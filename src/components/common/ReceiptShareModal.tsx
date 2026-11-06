@@ -9,6 +9,7 @@ import {
   Image,
   Platform,
   Share,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { captureRef } from 'react-native-view-shot';
@@ -38,6 +39,13 @@ export default function ReceiptShareModal({
 }: ReceiptShareModalProps) {
   const { showAlert } = useConfirmModal();
   const [isSharing, setIsSharing] = useState(false);
+  const [sharingFormat, setSharingFormat] = useState<'photo' | 'gif' | 'pdf' | null>(null);
+
+  const sharingLabels: Record<string, string> = {
+    photo: 'Generating Image…',
+    gif: 'Creating Animated Card…',
+    pdf: 'Preparing PDF…',
+  };
 
   const receiptCardRef = useRef<View>(null);
   const adBannerCardRef = useRef<View>(null);
@@ -83,9 +91,10 @@ export default function ReceiptShareModal({
 
   // 1. Share as Image (PNG)
   const handleSharePhoto = async () => {
-    onClose();
     try {
       setIsSharing(true);
+      setSharingFormat('photo');
+
       if (!receiptCardRef.current) {
         throw new Error('Receipt view is not ready');
       }
@@ -109,6 +118,7 @@ export default function ReceiptShareModal({
         try {
           const fileInfo = await FileSystem.getInfoAsync(targetUri);
           if (fileInfo.exists) {
+            onClose();
             await Sharing.shareAsync(targetUri, {
               mimeType: 'image/png',
               dialogTitle: `Share Receipt Image - ${biz}`,
@@ -123,6 +133,7 @@ export default function ReceiptShareModal({
 
       const routeInfo = hasRoute ? `\nRoute: ${pickup || '--'} to ${dropoff || '--'}` : '';
       const shareMsg = `Receipt: ${biz}\nAmount: ${receiptInput.amountFormatted || `$${whole}.${cents}`}\nMethod: ${paymentMethodLabel}\nDate: ${dt}${routeInfo}`;
+      onClose();
       await Share.share(
         Platform.OS === 'ios'
           ? {
@@ -142,16 +153,18 @@ export default function ReceiptShareModal({
         message: 'Could not generate receipt image. Please try sharing as PDF.',
         type: 'danger',
       });
+      onClose();
     } finally {
       setIsSharing(false);
+      setSharingFormat(null);
     }
   };
 
   // 2. Share as Animated Card (GIF)
   const handleShareAnimatedGif = async () => {
-    onClose();
     try {
       setIsSharing(true);
+      setSharingFormat('gif');
 
       if (!receiptCardRef.current || !adBannerCardRef.current) {
         throw new Error('Receipt or Ad view is not ready');
@@ -195,6 +208,7 @@ export default function ReceiptShareModal({
         try {
           const fileInfo = await FileSystem.getInfoAsync(targetUri);
           if (fileInfo.exists) {
+            onClose();
             await Sharing.shareAsync(targetUri, {
               mimeType: 'image/gif',
               dialogTitle: `Share Animated Receipt - ${biz}`,
@@ -208,6 +222,7 @@ export default function ReceiptShareModal({
       }
 
       const shareMsg = `Animated Receipt: ${biz}\nAmount: ${receiptInput.amountFormatted || `$${whole}.${cents}`}\nMethod: ${paymentMethodLabel}\nDate: ${dt}`;
+      onClose();
       await Share.share(
         Platform.OS === 'ios'
           ? {
@@ -227,16 +242,18 @@ export default function ReceiptShareModal({
         message: 'Could not generate animated receipt. Please try sharing as Image or PDF.',
         type: 'danger',
       });
+      onClose();
     } finally {
       setIsSharing(false);
+      setSharingFormat(null);
     }
   };
 
   // 3. Share as PDF Document
   const handleSharePdf = async () => {
-    onClose();
     try {
       setIsSharing(true);
+      setSharingFormat('pdf');
 
       const html = await generateReceiptHtml(receiptInput);
       const { uri, base64 } = await Print.printToFileAsync({
@@ -268,6 +285,7 @@ export default function ReceiptShareModal({
       const isAvailable = await Sharing.isAvailableAsync();
       if (isAvailable) {
         try {
+          onClose();
           await Sharing.shareAsync(targetUri, {
             mimeType: 'application/pdf',
             dialogTitle: `Share Receipt - ${biz}`,
@@ -281,6 +299,7 @@ export default function ReceiptShareModal({
 
       const routeInfo = hasRoute ? `\nRoute: ${pickup || '--'} to ${dropoff || '--'}` : '';
       const shareMsg = `Receipt: ${biz}\nAmount: ${receiptInput.amountFormatted || `$${whole}.${cents}`}\nMethod: ${paymentMethodLabel}\nDate: ${dt}${routeInfo}`;
+      onClose();
       await Share.share(
         Platform.OS === 'ios'
           ? {
@@ -300,8 +319,10 @@ export default function ReceiptShareModal({
         message: 'Unable to share receipt.',
         type: 'danger',
       });
+      onClose();
     } finally {
       setIsSharing(false);
+      setSharingFormat(null);
     }
   };
 
@@ -489,9 +510,9 @@ export default function ReceiptShareModal({
         visible={visible}
         transparent
         animationType="slide"
-        onRequestClose={onClose}
+        onRequestClose={isSharing ? undefined : onClose}
       >
-        <TouchableWithoutFeedback onPress={onClose}>
+        <TouchableWithoutFeedback onPress={isSharing ? undefined : onClose}>
           <View style={styles.modalOverlay}>
             <TouchableWithoutFeedback onPress={() => {}}>
               <View style={styles.modalSheet}>
@@ -500,20 +521,30 @@ export default function ReceiptShareModal({
                 <View style={styles.modalHeaderRow}>
                   <View>
                     <Text style={styles.modalTitle}>Share Receipt</Text>
-                    <Text style={styles.modalSubtitle}>Select your preferred format to share</Text>
+                    <Text style={styles.modalSubtitle}>
+                      {isSharing && sharingFormat
+                        ? sharingLabels[sharingFormat]
+                        : 'Select your preferred format to share'}
+                    </Text>
                   </View>
-                  <TouchableOpacity
-                    style={styles.modalCloseBtn}
-                    onPress={onClose}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <Feather name="x" size={20} color="#64748B" />
-                  </TouchableOpacity>
+                  {!isSharing && (
+                    <TouchableOpacity
+                      style={styles.modalCloseBtn}
+                      onPress={onClose}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Feather name="x" size={20} color="#64748B" />
+                    </TouchableOpacity>
+                  )}
                 </View>
 
                 {/* Option 1: Share as Image (PNG) */}
                 <TouchableOpacity
-                  style={styles.modalOptionCard}
+                  style={[
+                    styles.modalOptionCard,
+                    isSharing && sharingFormat === 'photo' && styles.modalOptionCardActive,
+                    isSharing && sharingFormat !== 'photo' && styles.modalOptionCardDisabled,
+                  ]}
                   activeOpacity={0.75}
                   onPress={handleSharePhoto}
                   disabled={isSharing}
@@ -526,13 +557,21 @@ export default function ReceiptShareModal({
                       <Text style={styles.modalOptionTitle}>Share as Image (PNG)</Text>
                     </View>
                   </View>
-                  <Feather name="chevron-right" size={18} color="#94A3B8" />
+                  {isSharing && sharingFormat === 'photo' ? (
+                    <ActivityIndicator size="small" color="#D97706" />
+                  ) : (
+                    <Feather name="chevron-right" size={18} color="#94A3B8" />
+                  )}
                 </TouchableOpacity>
 
                 {/* Option 2: Animated Card (GIF) when ad_banner is true */}
                 {hasAd && bannerUrl && (
                   <TouchableOpacity
-                    style={styles.modalOptionCard}
+                    style={[
+                      styles.modalOptionCard,
+                      isSharing && sharingFormat === 'gif' && styles.modalOptionCardActive,
+                      isSharing && sharingFormat !== 'gif' && styles.modalOptionCardDisabled,
+                    ]}
                     activeOpacity={0.75}
                     onPress={handleShareAnimatedGif}
                     disabled={isSharing}
@@ -545,13 +584,21 @@ export default function ReceiptShareModal({
                         <Text style={styles.modalOptionTitle}>Share Animated Card</Text>
                       </View>
                     </View>
-                    <Feather name="chevron-right" size={18} color="#94A3B8" />
+                    {isSharing && sharingFormat === 'gif' ? (
+                      <ActivityIndicator size="small" color="#9333EA" />
+                    ) : (
+                      <Feather name="chevron-right" size={18} color="#94A3B8" />
+                    )}
                   </TouchableOpacity>
                 )}
 
                 {/* Option 3: PDF Document */}
                 <TouchableOpacity
-                  style={styles.modalOptionCard}
+                  style={[
+                    styles.modalOptionCard,
+                    isSharing && sharingFormat === 'pdf' && styles.modalOptionCardActive,
+                    isSharing && sharingFormat !== 'pdf' && styles.modalOptionCardDisabled,
+                  ]}
                   activeOpacity={0.75}
                   onPress={handleSharePdf}
                   disabled={isSharing}
@@ -564,14 +611,19 @@ export default function ReceiptShareModal({
                       <Text style={styles.modalOptionTitle}>Share as PDF Document</Text>
                     </View>
                   </View>
-                  <Feather name="chevron-right" size={18} color="#94A3B8" />
+                  {isSharing && sharingFormat === 'pdf' ? (
+                    <ActivityIndicator size="small" color="#2563EB" />
+                  ) : (
+                    <Feather name="chevron-right" size={18} color="#94A3B8" />
+                  )}
                 </TouchableOpacity>
 
                 {/* Cancel Button */}
                 <TouchableOpacity
-                  style={styles.modalCancelBtn}
+                  style={[styles.modalCancelBtn, isSharing && { opacity: 0.4 }]}
                   onPress={onClose}
                   activeOpacity={0.7}
+                  disabled={isSharing}
                 >
                   <Text style={styles.modalCancelText}>Cancel</Text>
                 </TouchableOpacity>
@@ -958,6 +1010,13 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 12,
     marginBottom: 10,
+  },
+  modalOptionCardActive: {
+    backgroundColor: '#F0F9FF',
+    borderColor: '#93C5FD',
+  },
+  modalOptionCardDisabled: {
+    opacity: 0.4,
   },
   modalOptionIconBox: {
     width: 44,

@@ -22,6 +22,13 @@ import HeaderBar from '../../common/HeaderBar';
 import { useConfirmModal } from '../../../context/ConfirmModalContext';
 import { employeeService } from '../../../services/employeeService';
 
+const DEFAULT_EMPLOYEE_FIELD_OFFSETS: Record<string, number> = {
+  firstName: 170,
+  lastName: 250,
+  phone: 330,
+  email: 420,
+};
+
 export default function AddEmployeeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -29,7 +36,10 @@ export default function AddEmployeeScreen() {
   const { id } = useLocalSearchParams<{ id?: string; mode?: string }>();
   const isEditMode = Boolean(id);
 
-  // Dynamic Keyboard tracking for smooth responsive input scrolling
+  // Dynamic Scroll & Keyboard tracking for responsive auto-scrolling
+  const scrollViewRef = useRef<ScrollView>(null);
+  const fieldOffsets = useRef<Record<string, number>>({});
+  const activeFieldRef = useRef<string | null>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   // Focus chaining refs
@@ -38,14 +48,58 @@ export default function AddEmployeeScreen() {
   const phoneRef = useRef<TextInput>(null);
   const emailRef = useRef<TextInput>(null);
 
+  const scrollToField = (fieldName: string) => {
+    const measuredY = fieldOffsets.current[fieldName];
+    const y =
+      typeof measuredY === 'number' && measuredY > 0
+        ? measuredY
+        : (DEFAULT_EMPLOYEE_FIELD_OFFSETS[fieldName] ?? 300);
+
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({
+        y: Math.max(0, y - 24),
+        animated: true,
+      });
+    }
+  };
+
+  const handleFieldFocus = (fieldName: string) => {
+    activeFieldRef.current = fieldName;
+    setTimeout(() => {
+      scrollToField(fieldName);
+    }, 50);
+    setTimeout(() => {
+      scrollToField(fieldName);
+    }, 150);
+    setTimeout(() => {
+      if (activeFieldRef.current === fieldName) {
+        scrollToField(fieldName);
+      }
+    }, 320);
+  };
+
   useEffect(() => {
     const showSub = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      (e) => setKeyboardHeight(e.endCoordinates.height)
+      (e) => {
+        const kbHeight = e.endCoordinates.height;
+        setKeyboardHeight(kbHeight);
+        if (activeFieldRef.current) {
+          const current = activeFieldRef.current;
+          setTimeout(() => {
+            scrollToField(current);
+          }, 40);
+          setTimeout(() => {
+            scrollToField(current);
+          }, 180);
+        }
+      }
     );
     const hideSub = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => setKeyboardHeight(0)
+      () => {
+        setKeyboardHeight(0);
+      }
     );
     return () => {
       showSub.remove();
@@ -383,19 +437,20 @@ export default function AddEmployeeScreen() {
           keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 52 : 0}
         >
           <ScrollView
+            ref={scrollViewRef}
             style={styles.scrollView}
             contentContainerStyle={[
               styles.scrollContent,
               {
                 paddingBottom: keyboardHeight > 0
-                  ? (Platform.OS === 'ios' ? 40 : keyboardHeight + 30)
-                  : 50,
+                  ? keyboardHeight + 120
+                  : Math.max(insets.bottom + 40, 60),
               },
             ]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
-            automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+            automaticallyAdjustKeyboardInsets={false}
           >
             {/* Subheader Title with Amber Icon */}
             <View style={styles.headerCard}>
@@ -468,7 +523,12 @@ export default function AddEmployeeScreen() {
             </View>
 
           {/* Field: First Name */}
-          <View style={styles.fieldGroup}>
+          <View
+            style={styles.fieldGroup}
+            onLayout={(e) => {
+              fieldOffsets.current['firstName'] = e.nativeEvent.layout.y;
+            }}
+          >
             <Text style={styles.fieldLabel}>First Name *</Text>
             <TextInput
               ref={firstNameRef}
@@ -479,12 +539,23 @@ export default function AddEmployeeScreen() {
               onChangeText={setFirstName}
               autoCapitalize="words"
               returnKeyType="next"
+              onFocus={() => handleFieldFocus('firstName')}
+              onBlur={() => {
+                if (activeFieldRef.current === 'firstName') {
+                  activeFieldRef.current = null;
+                }
+              }}
               onSubmitEditing={() => lastNameRef.current?.focus()}
             />
           </View>
 
           {/* Field: Last Name */}
-          <View style={styles.fieldGroup}>
+          <View
+            style={styles.fieldGroup}
+            onLayout={(e) => {
+              fieldOffsets.current['lastName'] = e.nativeEvent.layout.y;
+            }}
+          >
             <Text style={styles.fieldLabel}>Last Name *</Text>
             <TextInput
               ref={lastNameRef}
@@ -495,12 +566,23 @@ export default function AddEmployeeScreen() {
               onChangeText={setLastName}
               autoCapitalize="words"
               returnKeyType="next"
+              onFocus={() => handleFieldFocus('lastName')}
+              onBlur={() => {
+                if (activeFieldRef.current === 'lastName') {
+                  activeFieldRef.current = null;
+                }
+              }}
               onSubmitEditing={() => phoneRef.current?.focus()}
             />
           </View>
 
           {/* Field: Phone Number */}
-          <View style={styles.fieldGroup}>
+          <View
+            style={styles.fieldGroup}
+            onLayout={(e) => {
+              fieldOffsets.current['phone'] = e.nativeEvent.layout.y;
+            }}
+          >
             <Text style={styles.fieldLabel}>Phone Number *</Text>
             <View style={styles.phoneRow}>
               <View style={styles.countryCodeBox}>
@@ -515,13 +597,24 @@ export default function AddEmployeeScreen() {
                 onChangeText={setPhone}
                 keyboardType="phone-pad"
                 returnKeyType="next"
+                onFocus={() => handleFieldFocus('phone')}
+                onBlur={() => {
+                  if (activeFieldRef.current === 'phone') {
+                    activeFieldRef.current = null;
+                  }
+                }}
                 onSubmitEditing={() => emailRef.current?.focus()}
               />
             </View>
           </View>
 
           {/* Field: Email ID */}
-          <View style={styles.fieldGroup}>
+          <View
+            style={styles.fieldGroup}
+            onLayout={(e) => {
+              fieldOffsets.current['email'] = e.nativeEvent.layout.y;
+            }}
+          >
             <Text style={styles.fieldLabel}>Email ID</Text>
             <TextInput
               ref={emailRef}
@@ -534,6 +627,12 @@ export default function AddEmployeeScreen() {
               autoCapitalize="none"
               autoCorrect={false}
               returnKeyType="done"
+              onFocus={() => handleFieldFocus('email')}
+              onBlur={() => {
+                if (activeFieldRef.current === 'email') {
+                  activeFieldRef.current = null;
+                }
+              }}
               onSubmitEditing={() => Keyboard.dismiss()}
             />
           </View>

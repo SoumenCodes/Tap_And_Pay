@@ -22,6 +22,22 @@ import HeaderBar from '../../common/HeaderBar';
 import { useConfirmModal } from '../../../context/ConfirmModalContext';
 import { driverService } from '../../../services/driverService';
 
+const DEFAULT_DRIVER_FIELD_OFFSETS: Record<string, number> = {
+  firstName: 220,
+  lastName: 300,
+  phone: 380,
+  dlNumber: 460,
+  dcNumber: 540,
+  assignedTaxiNo: 620,
+  email: 700,
+  abn: 780,
+  address: 860,
+  accountName: 940,
+  bankDetails: 1020,
+  bsb: 1020,
+  accountNo: 1020,
+};
+
 export default function AddDriverScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -29,7 +45,10 @@ export default function AddDriverScreen() {
   const { id } = useLocalSearchParams<{ id?: string; mode?: string }>();
   const isEditMode = Boolean(id);
 
-  // Dynamic Keyboard tracking for smooth responsive input scrolling
+  // Dynamic Scroll & Keyboard tracking for responsive auto-scrolling
+  const scrollViewRef = useRef<ScrollView>(null);
+  const fieldOffsets = useRef<Record<string, number>>({});
+  const activeFieldRef = useRef<string | null>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   // Field focus chaining refs
@@ -46,14 +65,58 @@ export default function AddDriverScreen() {
   const bsbRef = useRef<TextInput>(null);
   const accountNoRef = useRef<TextInput>(null);
 
+  const scrollToField = (fieldName: string) => {
+    const measuredY = fieldOffsets.current[fieldName];
+    const y =
+      typeof measuredY === 'number' && measuredY > 0
+        ? measuredY
+        : (DEFAULT_DRIVER_FIELD_OFFSETS[fieldName] ?? 400);
+
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({
+        y: Math.max(0, y - 24),
+        animated: true,
+      });
+    }
+  };
+
+  const handleFieldFocus = (fieldName: string) => {
+    activeFieldRef.current = fieldName;
+    setTimeout(() => {
+      scrollToField(fieldName);
+    }, 50);
+    setTimeout(() => {
+      scrollToField(fieldName);
+    }, 150);
+    setTimeout(() => {
+      if (activeFieldRef.current === fieldName) {
+        scrollToField(fieldName);
+      }
+    }, 320);
+  };
+
   useEffect(() => {
     const showSub = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      (e) => setKeyboardHeight(e.endCoordinates.height)
+      (e) => {
+        const kbHeight = e.endCoordinates.height;
+        setKeyboardHeight(kbHeight);
+        if (activeFieldRef.current) {
+          const current = activeFieldRef.current;
+          setTimeout(() => {
+            scrollToField(current);
+          }, 40);
+          setTimeout(() => {
+            scrollToField(current);
+          }, 180);
+        }
+      }
     );
     const hideSub = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => setKeyboardHeight(0)
+      () => {
+        setKeyboardHeight(0);
+      }
     );
     return () => {
       showSub.remove();
@@ -515,19 +578,20 @@ export default function AddDriverScreen() {
           keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 52 : 0}
         >
           <ScrollView
+            ref={scrollViewRef}
             style={styles.scrollView}
             contentContainerStyle={[
               styles.scrollContent,
               {
                 paddingBottom: keyboardHeight > 0
-                  ? (Platform.OS === 'ios' ? 40 : keyboardHeight + 30)
-                  : 50,
+                  ? keyboardHeight + 120
+                  : Math.max(insets.bottom + 40, 60),
               },
             ]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
-            automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+            automaticallyAdjustKeyboardInsets={false}
           >
           {/* Section Heading with Icon */}
           <View style={styles.sectionHeadingRow}>
@@ -670,7 +734,12 @@ export default function AddDriverScreen() {
 
           {/* ── FORM FIELDS ── */}
           {/* First Name */}
-          <View style={styles.fieldWrap}>
+          <View
+            style={styles.fieldWrap}
+            onLayout={(e) => {
+              fieldOffsets.current['firstName'] = e.nativeEvent.layout.y;
+            }}
+          >
             <Text style={styles.fieldLabel}>First Name *</Text>
             <TextInput
               ref={firstNameRef}
@@ -680,12 +749,23 @@ export default function AddDriverScreen() {
               placeholder="First Name"
               placeholderTextColor="#94A3B8"
               returnKeyType="next"
+              onFocus={() => handleFieldFocus('firstName')}
+              onBlur={() => {
+                if (activeFieldRef.current === 'firstName') {
+                  activeFieldRef.current = null;
+                }
+              }}
               onSubmitEditing={() => lastNameRef.current?.focus()}
             />
           </View>
 
           {/* Last Name */}
-          <View style={styles.fieldWrap}>
+          <View
+            style={styles.fieldWrap}
+            onLayout={(e) => {
+              fieldOffsets.current['lastName'] = e.nativeEvent.layout.y;
+            }}
+          >
             <Text style={styles.fieldLabel}>Last Name *</Text>
             <TextInput
               ref={lastNameRef}
@@ -695,12 +775,23 @@ export default function AddDriverScreen() {
               placeholder="Last Name"
               placeholderTextColor="#94A3B8"
               returnKeyType="next"
+              onFocus={() => handleFieldFocus('lastName')}
+              onBlur={() => {
+                if (activeFieldRef.current === 'lastName') {
+                  activeFieldRef.current = null;
+                }
+              }}
               onSubmitEditing={() => phoneRef.current?.focus()}
             />
           </View>
 
           {/* Phone Number */}
-          <View style={styles.fieldWrap}>
+          <View
+            style={styles.fieldWrap}
+            onLayout={(e) => {
+              fieldOffsets.current['phone'] = e.nativeEvent.layout.y;
+            }}
+          >
             <Text style={styles.fieldLabel}>Phone Number *</Text>
             <View style={styles.phoneRow}>
               <View style={styles.countryCodeBox}>
@@ -715,13 +806,24 @@ export default function AddDriverScreen() {
                 placeholderTextColor="#94A3B8"
                 keyboardType="phone-pad"
                 returnKeyType="next"
+                onFocus={() => handleFieldFocus('phone')}
+                onBlur={() => {
+                  if (activeFieldRef.current === 'phone') {
+                    activeFieldRef.current = null;
+                  }
+                }}
                 onSubmitEditing={() => dlNumberRef.current?.focus()}
               />
             </View>
           </View>
 
           {/* Driving License Number */}
-          <View style={styles.fieldWrap}>
+          <View
+            style={styles.fieldWrap}
+            onLayout={(e) => {
+              fieldOffsets.current['dlNumber'] = e.nativeEvent.layout.y;
+            }}
+          >
             <Text style={styles.fieldLabel}>Driving License Number</Text>
             <TextInput
               ref={dlNumberRef}
@@ -732,12 +834,23 @@ export default function AddDriverScreen() {
               placeholderTextColor="#94A3B8"
               autoCapitalize="characters"
               returnKeyType="next"
+              onFocus={() => handleFieldFocus('dlNumber')}
+              onBlur={() => {
+                if (activeFieldRef.current === 'dlNumber') {
+                  activeFieldRef.current = null;
+                }
+              }}
               onSubmitEditing={() => dcNumberRef.current?.focus()}
             />
           </View>
 
           {/* DC Number */}
-          <View style={styles.fieldWrap}>
+          <View
+            style={styles.fieldWrap}
+            onLayout={(e) => {
+              fieldOffsets.current['dcNumber'] = e.nativeEvent.layout.y;
+            }}
+          >
             <Text style={styles.fieldLabel}>DC Number *</Text>
             <TextInput
               ref={dcNumberRef}
@@ -748,12 +861,23 @@ export default function AddDriverScreen() {
               placeholderTextColor="#94A3B8"
               keyboardType="numeric"
               returnKeyType="next"
+              onFocus={() => handleFieldFocus('dcNumber')}
+              onBlur={() => {
+                if (activeFieldRef.current === 'dcNumber') {
+                  activeFieldRef.current = null;
+                }
+              }}
               onSubmitEditing={() => assignedTaxiNoRef.current?.focus()}
             />
           </View>
 
           {/* Assigned Taxi No */}
-          <View style={styles.fieldWrap}>
+          <View
+            style={styles.fieldWrap}
+            onLayout={(e) => {
+              fieldOffsets.current['assignedTaxiNo'] = e.nativeEvent.layout.y;
+            }}
+          >
             <Text style={styles.fieldLabel}>Assigned Taxi No.</Text>
             <TextInput
               ref={assignedTaxiNoRef}
@@ -764,12 +888,23 @@ export default function AddDriverScreen() {
               placeholderTextColor="#94A3B8"
               autoCapitalize="characters"
               returnKeyType="next"
+              onFocus={() => handleFieldFocus('assignedTaxiNo')}
+              onBlur={() => {
+                if (activeFieldRef.current === 'assignedTaxiNo') {
+                  activeFieldRef.current = null;
+                }
+              }}
               onSubmitEditing={() => emailRef.current?.focus()}
             />
           </View>
 
           {/* Email */}
-          <View style={styles.fieldWrap}>
+          <View
+            style={styles.fieldWrap}
+            onLayout={(e) => {
+              fieldOffsets.current['email'] = e.nativeEvent.layout.y;
+            }}
+          >
             <Text style={styles.fieldLabel}>Email</Text>
             <TextInput
               ref={emailRef}
@@ -781,12 +916,23 @@ export default function AddDriverScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
               returnKeyType="next"
+              onFocus={() => handleFieldFocus('email')}
+              onBlur={() => {
+                if (activeFieldRef.current === 'email') {
+                  activeFieldRef.current = null;
+                }
+              }}
               onSubmitEditing={() => abnRef.current?.focus()}
             />
           </View>
 
           {/* ABN */}
-          <View style={styles.fieldWrap}>
+          <View
+            style={styles.fieldWrap}
+            onLayout={(e) => {
+              fieldOffsets.current['abn'] = e.nativeEvent.layout.y;
+            }}
+          >
             <Text style={styles.fieldLabel}>ABN</Text>
             <TextInput
               ref={abnRef}
@@ -797,12 +943,23 @@ export default function AddDriverScreen() {
               placeholderTextColor="#94A3B8"
               keyboardType="numeric"
               returnKeyType="next"
+              onFocus={() => handleFieldFocus('abn')}
+              onBlur={() => {
+                if (activeFieldRef.current === 'abn') {
+                  activeFieldRef.current = null;
+                }
+              }}
               onSubmitEditing={() => addressRef.current?.focus()}
             />
           </View>
 
           {/* Address */}
-          <View style={styles.fieldWrap}>
+          <View
+            style={styles.fieldWrap}
+            onLayout={(e) => {
+              fieldOffsets.current['address'] = e.nativeEvent.layout.y;
+            }}
+          >
             <Text style={styles.fieldLabel}>Address</Text>
             <TextInput
               ref={addressRef}
@@ -812,12 +969,23 @@ export default function AddDriverScreen() {
               placeholder="Full address"
               placeholderTextColor="#94A3B8"
               returnKeyType="next"
+              onFocus={() => handleFieldFocus('address')}
+              onBlur={() => {
+                if (activeFieldRef.current === 'address') {
+                  activeFieldRef.current = null;
+                }
+              }}
               onSubmitEditing={() => accountNameRef.current?.focus()}
             />
           </View>
 
           {/* Bank Account Name */}
-          <View style={styles.fieldWrap}>
+          <View
+            style={styles.fieldWrap}
+            onLayout={(e) => {
+              fieldOffsets.current['accountName'] = e.nativeEvent.layout.y;
+            }}
+          >
             <Text style={styles.fieldLabel}>Bank Account Name</Text>
             <TextInput
               ref={accountNameRef}
@@ -827,12 +995,25 @@ export default function AddDriverScreen() {
               placeholder="Name on bank account"
               placeholderTextColor="#94A3B8"
               returnKeyType="next"
+              onFocus={() => handleFieldFocus('accountName')}
+              onBlur={() => {
+                if (activeFieldRef.current === 'accountName') {
+                  activeFieldRef.current = null;
+                }
+              }}
               onSubmitEditing={() => bsbRef.current?.focus()}
             />
           </View>
 
           {/* BSB & Account No */}
-          <View style={styles.splitRow}>
+          <View
+            style={styles.splitRow}
+            onLayout={(e) => {
+              fieldOffsets.current['bankDetails'] = e.nativeEvent.layout.y;
+              fieldOffsets.current['bsb'] = e.nativeEvent.layout.y;
+              fieldOffsets.current['accountNo'] = e.nativeEvent.layout.y;
+            }}
+          >
             <View style={[styles.fieldWrap, { flex: 1 }]}>
               <Text style={styles.fieldLabel}>BSB</Text>
               <TextInput
@@ -843,6 +1024,12 @@ export default function AddDriverScreen() {
                 placeholder="e.g. 063-123"
                 placeholderTextColor="#94A3B8"
                 returnKeyType="next"
+                onFocus={() => handleFieldFocus('bsb')}
+                onBlur={() => {
+                  if (activeFieldRef.current === 'bsb') {
+                    activeFieldRef.current = null;
+                  }
+                }}
                 onSubmitEditing={() => accountNoRef.current?.focus()}
               />
             </View>
@@ -858,6 +1045,12 @@ export default function AddDriverScreen() {
                 placeholderTextColor="#94A3B8"
                 keyboardType="numeric"
                 returnKeyType="done"
+                onFocus={() => handleFieldFocus('accountNo')}
+                onBlur={() => {
+                  if (activeFieldRef.current === 'accountNo') {
+                    activeFieldRef.current = null;
+                  }
+                }}
                 onSubmitEditing={() => Keyboard.dismiss()}
               />
             </View>

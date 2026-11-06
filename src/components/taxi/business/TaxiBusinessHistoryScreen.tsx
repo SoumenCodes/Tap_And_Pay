@@ -31,6 +31,7 @@ interface TaxiBusinessHistoryScreenProps {
   onSelectShift: (shift: ShiftRecordItem | any) => void;
   taxiNumber?: string;
   initialDriverId?: string;
+  onDriverChange?: (driverId: string | null) => void;
 }
 
 type ShiftFilterType = 'all' | 'paid' | 'unpaid';
@@ -39,6 +40,7 @@ export default function TaxiBusinessHistoryScreen({
   onSelectShift,
   taxiNumber,
   initialDriverId,
+  onDriverChange,
 }: TaxiBusinessHistoryScreenProps) {
   const PAGE_LIMIT = 10;
 
@@ -158,17 +160,20 @@ export default function TaxiBusinessHistoryScreen({
           const drvList = selector?.driver_list || selector?.employee_list || selector?.options || [];
           if (drvList.length > 0) {
             setSelectedDriver((prev) => {
-              if (prev) {
-                const match = drvList.find((d) => String(d.id) === String(prev.id));
-                return match || prev;
+              if (!prev) return null;
+              const match = drvList.find(
+                (d) => String(d.id) === String(prev.id) || d.code === prev.code
+              );
+              if (!match) return prev;
+              if (
+                match.id === prev.id &&
+                match.code === prev.code &&
+                match.name === prev.name &&
+                match.photo === prev.photo
+              ) {
+                return prev;
               }
-              if (initialDriverId) {
-                const match = drvList.find(
-                  (d) => String(d.id) === String(initialDriverId) || d.code === String(initialDriverId)
-                );
-                return match || null;
-              }
-              return null;
+              return match;
             });
           }
         } else {
@@ -184,17 +189,32 @@ export default function TaxiBusinessHistoryScreen({
         setIsLoadingMore(false);
       }
     },
-    [selectedDriver, filterType, searchQuery, startDate, endDate, initialDriverId]
+    [selectedDriver, filterType, searchQuery, startDate, endDate]
   );
+
+  const fetchShiftHistoryRef = useRef(fetchShiftHistory);
+  useEffect(() => {
+    fetchShiftHistoryRef.current = fetchShiftHistory;
+  });
+
+  const hasInitiallyLoadedRef = useRef(false);
+  const lastAppliedDriverIdRef = useRef<string | undefined>(undefined);
 
   // Initial load
   useEffect(() => {
+    const targetDriverId = initialDriverId && initialDriverId.trim() ? initialDriverId.trim() : undefined;
+    if (hasInitiallyLoadedRef.current && targetDriverId === lastAppliedDriverIdRef.current) {
+      return;
+    }
+    hasInitiallyLoadedRef.current = true;
+    lastAppliedDriverIdRef.current = targetDriverId;
+
     let isMounted = true;
     shiftService
       .getShiftHistory({
         page: 1,
         limit: PAGE_LIMIT,
-        driver_id: initialDriverId || undefined,
+        driver_id: targetDriverId,
       })
       .then((res) => {
         if (!isMounted || !res?.data) return;
@@ -222,9 +242,9 @@ export default function TaxiBusinessHistoryScreen({
 
         const selectorData = res.data.header?.selector;
         const drvList = selectorData?.driver_list || selectorData?.employee_list || selectorData?.options || [];
-        if (drvList.length > 0 && initialDriverId) {
+        if (drvList.length > 0 && targetDriverId) {
           const match = drvList.find(
-            (d) => String(d.id) === String(initialDriverId) || d.code === String(initialDriverId)
+            (d) => String(d.id) === String(targetDriverId) || d.code === String(targetDriverId)
           );
           if (match) setSelectedDriver(match);
         }
@@ -241,8 +261,7 @@ export default function TaxiBusinessHistoryScreen({
     return () => {
       isMounted = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [initialDriverId]);
 
   // Handle Debounced Search
   useEffect(() => {
@@ -253,27 +272,27 @@ export default function TaxiBusinessHistoryScreen({
     const timer = setTimeout(() => {
       if (searchQuery.trim() !== activeSearchRef.current) {
         activeSearchRef.current = searchQuery.trim();
-        fetchShiftHistory({ page: 1, search: searchQuery.trim() });
+        fetchShiftHistoryRef.current({ page: 1, search: searchQuery.trim() });
       }
     }, 450);
 
     return () => clearTimeout(timer);
-  }, [searchQuery, fetchShiftHistory]);
+  }, [searchQuery]);
 
   // Pull-to-refresh
   const handleRefresh = useCallback(() => {
-    fetchShiftHistory({ page: 1, isRefresh: true });
-  }, [fetchShiftHistory]);
+    fetchShiftHistoryRef.current({ page: 1, isRefresh: true });
+  }, []);
 
   const isFirstMountRef = useRef<boolean>(true);
 
   // Sync shift changes across the app
   useEffect(() => {
     const unsub = onShiftChange(() => {
-      fetchShiftHistory({ page: 1, isRefresh: true });
+      fetchShiftHistoryRef.current({ page: 1, isRefresh: true });
     });
     return () => unsub();
-  }, [fetchShiftHistory]);
+  }, []);
 
   // Auto-refresh when navigating to the shift history tab or screen
   useFocusEffect(
@@ -282,8 +301,8 @@ export default function TaxiBusinessHistoryScreen({
         isFirstMountRef.current = false;
         return;
       }
-      fetchShiftHistory({ page: 1, isRefresh: true });
-    }, [fetchShiftHistory])
+      fetchShiftHistoryRef.current({ page: 1, isRefresh: true });
+    }, [])
   );
 
   // Infinite Scroll Pagination
@@ -302,8 +321,11 @@ export default function TaxiBusinessHistoryScreen({
 
   // Driver Selector
   const handleSelectDriver = (driver: ShiftSelectorItem | null) => {
+    const targetDrvId = driver ? String(driver.id) : undefined;
+    lastAppliedDriverIdRef.current = targetDrvId;
     setSelectedDriver(driver);
     setIsDriverModalVisible(false);
+    onDriverChange?.(driver ? String(driver.id) : null);
     fetchShiftHistory({ page: 1, drvId: driver?.id ?? null });
   };
 

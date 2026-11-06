@@ -16,7 +16,7 @@ import { ShiftRecordItem } from '../../services/shiftService';
 
 export default function TransactionsTabScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ shiftId?: string; empId?: string }>();
+  const params = useLocalSearchParams<{ shiftId?: string; empId?: string; driverId?: string }>();
   const { user } = useAuth();
 
   // Handle hardware back button on Android (called unconditionally)
@@ -42,6 +42,14 @@ export default function TransactionsTabScreen() {
 
   const handleBackToHistory = () => {
     router.setParams({ shiftId: '' });
+  };
+
+  const handleEmployeeChange = (empId: string | null) => {
+    router.setParams({ empId: empId || '' });
+  };
+
+  const handleDriverChange = (driverId: string | null) => {
+    router.setParams({ driverId: driverId || '' });
   };
 
   // If a shift is selected, display live shift details
@@ -75,6 +83,7 @@ export default function TransactionsTabScreen() {
         userName={user.name}
         initialEmpId={params.empId}
         onSelectShift={handleSelectShift}
+        onEmployeeChange={handleEmployeeChange}
       />
     );
   }
@@ -104,6 +113,8 @@ export default function TransactionsTabScreen() {
     <TaxiBusinessHistoryScreen
       onSelectShift={handleSelectShift}
       taxiNumber={user.taxiNumber}
+      initialDriverId={params.driverId}
+      onDriverChange={handleDriverChange}
     />
   );
 }

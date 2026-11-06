@@ -201,6 +201,11 @@ export default function TaxiOwnerHistoryScreen({
     };
   }, []);
 
+  const fetchShiftHistoryRef = useRef(fetchShiftHistory);
+  useEffect(() => {
+    fetchShiftHistoryRef.current = fetchShiftHistory;
+  });
+
   // Handle Debounced Search
   useEffect(() => {
     if (isInitialMount.current) {
@@ -210,27 +215,27 @@ export default function TaxiOwnerHistoryScreen({
     const timer = setTimeout(() => {
       if (searchQuery.trim() !== activeSearchRef.current) {
         activeSearchRef.current = searchQuery.trim();
-        fetchShiftHistory({ page: 1, search: searchQuery.trim() });
+        fetchShiftHistoryRef.current({ page: 1, search: searchQuery.trim() });
       }
     }, 450);
 
     return () => clearTimeout(timer);
-  }, [searchQuery, fetchShiftHistory]);
+  }, [searchQuery]);
 
   // Pull-to-refresh
   const handleRefresh = useCallback(() => {
-    fetchShiftHistory({ page: 1, isRefresh: true });
-  }, [fetchShiftHistory]);
+    fetchShiftHistoryRef.current({ page: 1, isRefresh: true });
+  }, []);
 
   const isFirstMountRef = useRef<boolean>(true);
 
   // Sync shift changes across the app
   useEffect(() => {
     const unsub = onShiftChange(() => {
-      fetchShiftHistory({ page: 1, isRefresh: true });
+      fetchShiftHistoryRef.current({ page: 1, isRefresh: true });
     });
     return () => unsub();
-  }, [fetchShiftHistory]);
+  }, []);
 
   // Auto-refresh when navigating to the shift history tab or screen
   useFocusEffect(
@@ -239,8 +244,8 @@ export default function TaxiOwnerHistoryScreen({
         isFirstMountRef.current = false;
         return;
       }
-      fetchShiftHistory({ page: 1, isRefresh: true });
-    }, [fetchShiftHistory])
+      fetchShiftHistoryRef.current({ page: 1, isRefresh: true });
+    }, [])
   );
 
   // Infinite Scroll Pagination

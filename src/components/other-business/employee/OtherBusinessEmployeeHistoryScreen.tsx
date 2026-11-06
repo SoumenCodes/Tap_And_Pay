@@ -217,6 +217,11 @@ export default function OtherBusinessEmployeeHistoryScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const fetchHistoryRef = useRef(fetchHistory);
+  useEffect(() => {
+    fetchHistoryRef.current = fetchHistory;
+  });
+
   // Debounced search input to query API smoothly without lagging keystrokes
   useEffect(() => {
     if (isInitialMount.current) {
@@ -227,25 +232,25 @@ export default function OtherBusinessEmployeeHistoryScreen({
 
     const timer = setTimeout(() => {
       activeSearchRef.current = searchQuery;
-      fetchHistory({ page: 1, search: searchQuery });
+      fetchHistoryRef.current({ page: 1, search: searchQuery });
     }, 450);
 
     return () => clearTimeout(timer);
-  }, [searchQuery, fetchHistory]);
+  }, [searchQuery]);
 
   const handleRefresh = useCallback(() => {
-    fetchHistory({ page: 1, isRefresh: true });
-  }, [fetchHistory]);
+    fetchHistoryRef.current({ page: 1, isRefresh: true });
+  }, []);
 
   const isFirstMountRef = useRef<boolean>(true);
 
   // Sync shift changes across the app
   useEffect(() => {
     const unsub = onShiftChange(() => {
-      fetchHistory({ page: 1, isRefresh: true });
+      fetchHistoryRef.current({ page: 1, isRefresh: true });
     });
     return () => unsub();
-  }, [fetchHistory]);
+  }, []);
 
   // Auto-refresh when navigating to the shift history tab or screen
   useFocusEffect(
@@ -254,8 +259,8 @@ export default function OtherBusinessEmployeeHistoryScreen({
         isFirstMountRef.current = false;
         return;
       }
-      fetchHistory({ page: 1, isRefresh: true });
-    }, [fetchHistory])
+      fetchHistoryRef.current({ page: 1, isRefresh: true });
+    }, [])
   );
 
   // Scroll pagination: loads next page when employee scrolls near the end

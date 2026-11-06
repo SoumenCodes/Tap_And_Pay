@@ -91,6 +91,7 @@ export interface OtherBusinessTransactionsScreenProps {
   userName?: string;
   initialEmpId?: string;
   onSelectShift?: (shift: ShiftRecordItem | any) => void;
+  onEmployeeChange?: (empId: string | null) => void;
 }
 
 type ShiftFilterType = 'all' | 'paid' | 'unpaid';
@@ -100,6 +101,7 @@ export default function OtherBusinessTransactionsScreen({
   userName = 'Merchant Owner',
   initialEmpId,
   onSelectShift,
+  onEmployeeChange,
 }: OtherBusinessTransactionsScreenProps) {
   const { showAlert } = useConfirmModal();
 
@@ -223,17 +225,20 @@ export default function OtherBusinessTransactionsScreen({
           const empList = res.data.header?.selector?.employee_list || [];
           if (empList.length > 0) {
             setSelectedEmployee((prev) => {
-              if (prev) {
-                const match = empList.find((e) => e.id === prev.id);
-                return match || prev;
+              if (!prev) return null;
+              const match = empList.find(
+                (e) => String(e.id) === String(prev.id) || e.code === prev.code
+              );
+              if (!match) return prev;
+              if (
+                match.id === prev.id &&
+                match.code === prev.code &&
+                match.name === prev.name &&
+                match.photo === prev.photo
+              ) {
+                return prev;
               }
-              if (initialEmpId) {
-                const match = empList.find(
-                  (e) => String(e.id) === String(initialEmpId) || e.code === String(initialEmpId)
-                );
-                return match || null;
-              }
-              return null;
+              return match;
             });
           }
         } else {
@@ -249,21 +254,32 @@ export default function OtherBusinessTransactionsScreen({
         setIsLoadingMore(false);
       }
     },
-    [selectedEmployee, filterType, searchQuery, startDate, endDate, initialEmpId]
+    [selectedEmployee, filterType, searchQuery, startDate, endDate]
   );
+
+  const fetchShiftHistoryRef = useRef(fetchShiftHistory);
+  useEffect(() => {
+    fetchShiftHistoryRef.current = fetchShiftHistory;
+  });
+
+  const hasInitiallyLoadedRef = useRef(false);
+  const lastAppliedEmpIdRef = useRef<string | undefined>(undefined);
 
   // Initial load via asynchronous promise resolution to comply with React 19 effect purity
   useEffect(() => {
+    const targetEmpId = initialEmpId && initialEmpId.trim() ? initialEmpId.trim() : undefined;
+    if (hasInitiallyLoadedRef.current && targetEmpId === lastAppliedEmpIdRef.current) {
+      return;
+    }
+    hasInitiallyLoadedRef.current = true;
+    lastAppliedEmpIdRef.current = targetEmpId;
+
     let isMounted = true;
     shiftService
       .getShiftHistory({
         page: 1,
         limit: PAGE_LIMIT,
-        employee_id: initialEmpId || undefined,
-        status: filterType !== 'all' ? filterType : undefined,
-        search: searchQuery.trim() || undefined,
-        start_date: startDate || undefined,
-        end_date: endDate || undefined,
+        employee_id: targetEmpId,
       })
       .then((res) => {
         if (!isMounted || !res?.data) return;
@@ -288,9 +304,9 @@ export default function OtherBusinessTransactionsScreen({
           setDateRangeText(res.data.filters.date_range);
         }
         const empList = res.data.header?.selector?.employee_list || [];
-        if (empList.length > 0 && initialEmpId) {
+        if (empList.length > 0 && targetEmpId) {
           const match = empList.find(
-            (e) => String(e.id) === String(initialEmpId) || e.code === String(initialEmpId)
+            (e) => String(e.id) === String(targetEmpId) || e.code === String(targetEmpId)
           );
           if (match) {
             setSelectedEmployee(match);
@@ -309,7 +325,6 @@ export default function OtherBusinessTransactionsScreen({
     return () => {
       isMounted = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialEmpId]);
 
   // Debounced search input to query API smoothly without lagging keystrokes
@@ -322,26 +337,26 @@ export default function OtherBusinessTransactionsScreen({
 
     const timer = setTimeout(() => {
       activeSearchRef.current = searchQuery;
-      fetchShiftHistory({ page: 1, search: searchQuery });
+      fetchShiftHistoryRef.current({ page: 1, search: searchQuery });
     }, 450);
 
     return () => clearTimeout(timer);
-  }, [searchQuery, fetchShiftHistory]);
+  }, [searchQuery]);
 
   // Handle pull to refresh
   const handleRefresh = useCallback(() => {
-    fetchShiftHistory({ page: 1, isRefresh: true });
-  }, [fetchShiftHistory]);
+    fetchShiftHistoryRef.current({ page: 1, isRefresh: true });
+  }, []);
 
   const isFirstMountRef = useRef<boolean>(true);
 
   // Sync shift changes across the app
   useEffect(() => {
     const unsub = onShiftChange(() => {
-      fetchShiftHistory({ page: 1, isRefresh: true });
+      fetchShiftHistoryRef.current({ page: 1, isRefresh: true });
     });
     return () => unsub();
-  }, [fetchShiftHistory]);
+  }, []);
 
   // Auto-refresh when navigating to the shift history tab or screen
   useFocusEffect(
@@ -350,8 +365,8 @@ export default function OtherBusinessTransactionsScreen({
         isFirstMountRef.current = false;
         return;
       }
-      fetchShiftHistory({ page: 1, isRefresh: true });
-    }, [fetchShiftHistory])
+      fetchShiftHistoryRef.current({ page: 1, isRefresh: true });
+    }, [])
   );
 
   // Scroll pagination: loads next page when user scrolls near the end
@@ -373,8 +388,11 @@ export default function OtherBusinessTransactionsScreen({
 
   // Handle Employee Selection
   const handleSelectEmployee = (emp: ShiftSelectorEmployee | null) => {
+    const targetEmpId = emp ? String(emp.id) : undefined;
+    lastAppliedEmpIdRef.current = targetEmpId;
     setSelectedEmployee(emp);
     setIsEmployeeModalVisible(false);
+    onEmployeeChange?.(emp ? String(emp.id) : null);
     fetchShiftHistory({ page: 1, empId: emp ? emp.id : null });
   };
 

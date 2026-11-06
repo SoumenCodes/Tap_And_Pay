@@ -127,19 +127,29 @@ export default function OtherBusinessShiftDetailsScreen({
     };
   }, [shiftId]);
 
+  const fetchShiftDetailsRef = useRef(fetchShiftDetails);
+  useEffect(() => {
+    fetchShiftDetailsRef.current = fetchShiftDetails;
+  });
+
+  const filterTypeRef = useRef(filterType);
+  useEffect(() => {
+    filterTypeRef.current = filterType;
+  });
+
   const handleRefresh = useCallback(() => {
-    fetchShiftDetails(filterType, true);
-  }, [fetchShiftDetails, filterType]);
+    fetchShiftDetailsRef.current(filterTypeRef.current, true);
+  }, []);
 
   const isFirstMountRef = useRef<boolean>(true);
 
   // Sync shift changes across the app
   useEffect(() => {
     const unsub = onShiftChange(() => {
-      fetchShiftDetails(filterType, true);
+      fetchShiftDetailsRef.current(filterTypeRef.current, true);
     });
     return () => unsub();
-  }, [fetchShiftDetails, filterType]);
+  }, []);
 
   // Auto-refresh on screen focus
   useFocusEffect(
@@ -148,8 +158,8 @@ export default function OtherBusinessShiftDetailsScreen({
         isFirstMountRef.current = false;
         return;
       }
-      fetchShiftDetails(filterType, true);
-    }, [fetchShiftDetails, filterType])
+      fetchShiftDetailsRef.current(filterTypeRef.current, true);
+    }, [])
   );
 
   const handleFilterChange = (newFilter: TxnFilterType) => {

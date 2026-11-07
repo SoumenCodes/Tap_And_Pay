@@ -35,6 +35,8 @@ interface TerminalContextValue {
       service_charges?: number | null;
       pickup?: string | null;
       dropoff?: string | null;
+      pickup_location?: string | null;
+      dropup_location?: string | null;
     }
   ) => Promise<{ success: boolean; paymentIntent?: any; error?: string }>;
   clearError: () => void;
@@ -222,6 +224,8 @@ const SimulatedTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         service_charges?: number | null;
         pickup?: string | null;
         dropoff?: string | null;
+        pickup_location?: string | null;
+        dropup_location?: string | null;
       }
     ): Promise<{ success: boolean; paymentIntent?: any; error?: string }> => {
       try {
@@ -687,6 +691,8 @@ const NativeTerminalProvider: React.FC<{ children: React.ReactNode }> = ({ child
         service_charges?: number | null;
         pickup?: string | null;
         dropoff?: string | null;
+        pickup_location?: string | null;
+        dropup_location?: string | null;
       }
     ): Promise<{ success: boolean; paymentIntent?: any; error?: string }> => {
       try {

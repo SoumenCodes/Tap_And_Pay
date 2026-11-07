@@ -193,6 +193,8 @@ export async function createPaymentIntentOnBackend(
     service_charges?: number | null;
     pickup?: string | null;
     dropoff?: string | null;
+    pickup_location?: string | null;
+    dropup_location?: string | null;
   }
 ): Promise<CreatePaymentIntentResponse> {
   const formattedCard = card
@@ -216,18 +218,29 @@ export async function createPaymentIntentOnBackend(
     if (routeDetails.service_charges !== undefined && routeDetails.service_charges !== null) {
       payload.service_charges = Number(routeDetails.service_charges) || 0;
     }
-    if (routeDetails.pickup_id !== undefined && routeDetails.pickup_id !== null && routeDetails.pickup_id !== '') {
-      const pId = Number(routeDetails.pickup_id);
-      payload.pickup_id = !isNaN(pId) ? pId : routeDetails.pickup_id;
-    }
+    const rawPickupId = routeDetails.pickup_id;
+    const parsedPickupId =
+      rawPickupId !== undefined && rawPickupId !== null && rawPickupId !== '' && !isNaN(Number(rawPickupId))
+        ? Number(rawPickupId)
+        : null;
+
     const rawDropId = routeDetails.dropup_id ?? routeDetails.dropoff_id;
-    if (rawDropId !== undefined && rawDropId !== null && rawDropId !== '') {
-      const dId = Number(rawDropId);
-      payload.dropup_id = !isNaN(dId) ? dId : rawDropId;
-      payload.dropoff_id = !isNaN(dId) ? dId : rawDropId;
-    }
-    if (routeDetails.pickup) payload.pickup = routeDetails.pickup;
-    if (routeDetails.dropoff) payload.dropoff = routeDetails.dropoff;
+    const parsedDropId =
+      rawDropId !== undefined && rawDropId !== null && rawDropId !== '' && !isNaN(Number(rawDropId))
+        ? Number(rawDropId)
+        : null;
+
+    payload.pickup_id = parsedPickupId;
+    payload.dropup_id = parsedDropId;
+    // pickup_location is ONLY sent for custom input (when pickup_id is null)
+    payload.pickup_location = parsedPickupId !== null ? null : (routeDetails.pickup_location || null);
+    // dropup_location is ONLY sent for custom input (when dropup_id is null)
+    payload.dropup_location = parsedDropId !== null ? null : (routeDetails.dropup_location || null);
+  } else {
+    payload.pickup_id = null;
+    payload.dropup_id = null;
+    payload.pickup_location = null;
+    payload.dropup_location = null;
   }
 
   try {

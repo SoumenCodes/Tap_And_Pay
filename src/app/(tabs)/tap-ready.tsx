@@ -182,6 +182,8 @@ export default function TapReadyScreen() {
     service_charges?: string;
     pickup?: string;
     dropoff?: string;
+    pickup_location?: string;
+    dropup_location?: string;
     pickup_id?: string;
     dropup_id?: string;
     dropoff_id?: string;
@@ -213,9 +215,10 @@ export default function TapReadyScreen() {
         service_charges: params.service_charges || '0',
         pickup: params.pickup || '',
         dropoff: params.dropoff || '',
+        pickup_location: params.pickup_location || '',
+        dropup_location: params.dropup_location || '',
         pickup_id: params.pickup_id || '',
-        dropup_id: params.dropup_id || params.dropoff_id || '',
-        dropoff_id: params.dropup_id || params.dropoff_id || '',
+        dropup_id: params.dropup_id || '',
         payment_attempt_id: `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       },
     });

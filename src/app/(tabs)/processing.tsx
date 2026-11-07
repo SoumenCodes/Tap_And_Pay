@@ -37,6 +37,8 @@ export default function ProcessingScreen() {
     cardInput?: string;
     pickup?: string;
     dropoff?: string;
+    pickup_location?: string;
+    dropup_location?: string;
     pickup_id?: string;
     dropup_id?: string;
     dropoff_id?: string;
@@ -90,6 +92,8 @@ export default function ProcessingScreen() {
     parsedCardInput,
     pickup: params.pickup || '',
     dropoff: params.dropoff || '',
+    pickup_location: params.pickup_location || '',
+    dropup_location: params.dropup_location || '',
     pickup_id: params.pickup_id || '',
     dropup_id: params.dropup_id || params.dropoff_id || '',
     dropoff_id: params.dropup_id || params.dropoff_id || '',
@@ -106,6 +110,8 @@ export default function ProcessingScreen() {
       parsedCardInput,
       pickup: params.pickup || '',
       dropoff: params.dropoff || '',
+      pickup_location: params.pickup_location || '',
+      dropup_location: params.dropup_location || '',
       pickup_id: params.pickup_id || '',
       dropup_id: params.dropup_id || params.dropoff_id || '',
       dropoff_id: params.dropup_id || params.dropoff_id || '',
@@ -156,6 +162,8 @@ export default function ProcessingScreen() {
         parsedCardInput: cardInput,
         pickup,
         dropoff,
+        pickup_location: pickLoc,
+        dropup_location: dropLoc,
         pickup_id: pId,
         dropup_id: dId,
         runSimulatedPayment: executePayment,
@@ -168,9 +176,8 @@ export default function ProcessingScreen() {
           service_charges: service_charges !== undefined ? service_charges : 0,
           pickup_id: pId ? (Number(pId) || pId) : null,
           dropup_id: dId ? (Number(dId) || dId) : null,
-          dropoff_id: dId ? (Number(dId) || dId) : null,
-          pickup: pickup || null,
-          dropoff: dropoff || null,
+          pickup_location: pickLoc || null,
+          dropup_location: dropLoc || null,
         });
 
         if (result.success && result.paymentIntent) {

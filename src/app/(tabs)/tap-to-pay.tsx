@@ -57,6 +57,38 @@ const KEYPAD_ROWS = [
   ['.', '0', 'backspace'],
 ];
 
+const getLocationIconDetails = (item: SuburbLocation) => {
+  const idStr = String(item.id || '').toLowerCase();
+  const subLower = (item.suburb || '').toLowerCase();
+  const descLower = (item.description || '').toLowerCase();
+
+  if (idStr === 'hospital' || subLower.includes('hospital') || descLower.includes('hospital')) {
+    return { name: 'medical' as const };
+  }
+  if (idStr === 'home' || subLower === 'home') {
+    return { name: 'home' as const };
+  }
+  if (subLower.includes('airport') || subLower.includes('(mel)') || descLower.includes('airport')) {
+    return { name: 'airplane' as const };
+  }
+  if (subLower.includes('station') || descLower.includes('station')) {
+    return { name: 'train' as const };
+  }
+  if (subLower.includes('casino') || subLower.includes('hotel') || descLower.includes('casino') || descLower.includes('hotel')) {
+    return { name: 'star' as const };
+  }
+  if (subLower.includes('beach') || descLower.includes('beach')) {
+    return { name: 'sunny' as const };
+  }
+  if (subLower.includes('shopping') || subLower.includes('centre') || subLower.includes('center')) {
+    return { name: 'cart' as const };
+  }
+  if (subLower.includes('mcg') || subLower.includes('cricket') || subLower.includes('stadium')) {
+    return { name: 'trophy' as const };
+  }
+  return { name: 'location-outline' as const };
+};
+
 export default function TapToPayEnterAmountScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ reset?: string }>();
@@ -77,13 +109,18 @@ export default function TapToPayEnterAmountScreen() {
 
   // Interactive Route state (for Taxi business/owner/driver)
   const [pickupLocation, setPickupLocation] = useState<string>('');
+  const [pickupLocationAddress, setPickupLocationAddress] = useState<string>('');
   const [pickupId, setPickupId] = useState<number | null>(null);
+  const [isPickupCustom, setIsPickupCustom] = useState<boolean>(false);
   const [dropoffLocation, setDropoffLocation] = useState<string>('');
+  const [dropoffLocationAddress, setDropoffLocationAddress] = useState<string>('');
   const [dropoffId, setDropoffId] = useState<number | null>(null);
+  const [isDropoffCustom, setIsDropoffCustom] = useState<boolean>(false);
 
   // Searchable Suburb Dropdown Modal state
   const [isLocationModalVisible, setIsLocationModalVisible] = useState<boolean>(false);
   const [activePickerType, setActivePickerType] = useState<'pickup' | 'dropoff'>('pickup');
+  const [locationView, setLocationView] = useState<'main' | 'home'>('main');
   const [searchLocationQuery, setSearchLocationQuery] = useState<string>('');
   const [suburbResults, setSuburbResults] = useState<SuburbLocation[]>([]);
   const [isLoadingLocations, setIsLoadingLocations] = useState<boolean>(false);
@@ -134,9 +171,14 @@ export default function TapToPayEnterAmountScreen() {
     setScreenStep('amount');
     setSelectedMethod('tap');
     setPickupLocation('');
+    setPickupLocationAddress('');
     setPickupId(null);
+    setIsPickupCustom(false);
     setDropoffLocation('');
+    setDropoffLocationAddress('');
     setDropoffId(null);
+    setIsDropoffCustom(false);
+    setLocationView('main');
     setSearchLocationQuery('');
     setSuburbResults([]);
     setIsLocationModalVisible(false);
@@ -144,18 +186,19 @@ export default function TapToPayEnterAmountScreen() {
     setIsLoadingFees(false);
   }, []);
 
-  // Fetch suburbs dynamically from /api/location?search=<query>
+  // Fetch suburbs/locations dynamically from /api/location?type=<type>&search=<query>
   useEffect(() => {
     if (!isLocationModalVisible) return;
     let isMounted = true;
     const trimmed = searchLocationQuery.trim();
+    const typeParam = locationView === 'home' ? 'home' : undefined;
 
     const timer = setTimeout(async () => {
       try {
         if (isMounted) {
           setIsLoadingLocations(true);
         }
-        const results = await locationService.searchLocations(trimmed);
+        const results = await locationService.searchLocations(trimmed, typeParam);
         if (isMounted) {
           setSuburbResults(results);
         }
@@ -174,7 +217,7 @@ export default function TapToPayEnterAmountScreen() {
       isMounted = false;
       clearTimeout(timer);
     };
-  }, [searchLocationQuery, isLocationModalVisible]);
+  }, [searchLocationQuery, isLocationModalVisible, locationView]);
 
   // Subscribe to external payment reset events (e.g. from payment completion)
   useEffect(() => {
@@ -413,8 +456,8 @@ export default function TapToPayEnterAmountScreen() {
   const isAmountValid = numericAmount > 0;
   const isTaxiReady =
     isOtherBusiness ||
-    (Boolean(pickupId && pickupLocation && pickupLocation.trim() !== '' && pickupLocation !== 'Select Pickup') &&
-      Boolean(dropoffId && dropoffLocation && dropoffLocation.trim() !== '' && dropoffLocation !== 'Select Drop Off'));
+    (Boolean(pickupLocation && pickupLocation.trim() !== '' && pickupLocation !== 'Select Pickup') &&
+      Boolean(dropoffLocation && dropoffLocation.trim() !== '' && dropoffLocation !== 'Select Drop Off'));
   const isReadyToContinue = isAmountValid && isTaxiReady;
 
   // Continue from keypad to Confirm screen (Taxi) or directly to Payment (Other Business)
@@ -431,19 +474,19 @@ export default function TapToPayEnterAmountScreen() {
 
     // 2. Route validation: Pickup & Drop-off are mandatory for Taxi roles
     if (!isOtherBusiness) {
-      if (!pickupId || !pickupLocation || pickupLocation.trim() === '' || pickupLocation === 'Select Pickup') {
+      if (!pickupLocation || pickupLocation.trim() === '' || pickupLocation === 'Select Pickup') {
         showAlert({
           title: 'Pickup Location Required',
-          message: 'Selecting a Pickup location is mandatory. Please select a pickup suburb from the dropdown.',
+          message: 'Selecting a Pickup location is mandatory. Please select a pickup location or address.',
           type: 'warning',
         });
         return;
       }
 
-      if (!dropoffId || !dropoffLocation || dropoffLocation.trim() === '' || dropoffLocation === 'Select Drop Off') {
+      if (!dropoffLocation || dropoffLocation.trim() === '' || dropoffLocation === 'Select Drop Off') {
         showAlert({
           title: 'Drop-off Location Required',
-          message: 'Selecting a Drop-off location is mandatory. Please select a drop-off suburb from the dropdown.',
+          message: 'Selecting a Drop-off location is mandatory. Please select a drop-off location or address.',
           type: 'warning',
         });
         return;
@@ -457,12 +500,23 @@ export default function TapToPayEnterAmountScreen() {
     if (isOtherBusiness) {
       // Other business skips the taxi confirm/route/breakup screen and goes directly to payment
       const finalAmountFormatted = numericAmount.toFixed(2);
+      const finalPickupId = (!isPickupCustom && typeof pickupId === 'number' && pickupId > 0) ? pickupId : null;
+      const finalPickupLoc = isPickupCustom && pickupLocation ? (pickupLocationAddress || pickupLocation).trim() : null;
+
+      const finalDropupId = (!isDropoffCustom && typeof dropoffId === 'number' && dropoffId > 0) ? dropoffId : null;
+      const finalDropupLoc = isDropoffCustom && dropoffLocation ? (dropoffLocationAddress || dropoffLocation).trim() : null;
 
       if (activeMethod === 'card') {
         router.push({
           pathname: '/(tabs)/card-entry',
           params: {
             amount: finalAmountFormatted,
+            pickup: pickupLocation,
+            dropoff: dropoffLocation,
+            pickup_location: finalPickupLoc || '',
+            dropup_location: finalDropupLoc || '',
+            pickup_id: finalPickupId !== null ? String(finalPickupId) : '',
+            dropup_id: finalDropupId !== null ? String(finalDropupId) : '',
           },
         });
       } else if (activeMethod === 'tap') {
@@ -470,6 +524,12 @@ export default function TapToPayEnterAmountScreen() {
           pathname: '/(tabs)/tap-ready',
           params: {
             amount: finalAmountFormatted,
+            pickup: pickupLocation,
+            dropoff: dropoffLocation,
+            pickup_location: finalPickupLoc || '',
+            dropup_location: finalDropupLoc || '',
+            pickup_id: finalPickupId !== null ? String(finalPickupId) : '',
+            dropup_id: finalDropupId !== null ? String(finalDropupId) : '',
           },
         });
       } else {
@@ -480,6 +540,10 @@ export default function TapToPayEnterAmountScreen() {
           const cashTxnData = await cashPaymentService.recordCashPayment({
             amount: amt,
             shift_session_id: sid,
+            pickup_id: finalPickupId,
+            dropup_id: finalDropupId,
+            pickup_location: finalPickupLoc,
+            dropup_location: finalDropupLoc,
           });
 
           const realTxnId = cashTxnData.transaction_id || `TXN-${Date.now()}`;
@@ -566,19 +630,19 @@ export default function TapToPayEnterAmountScreen() {
 
     // 2. Route validation: Pickup & Drop-off are mandatory for Taxi roles
     if (!isOtherBusiness) {
-      if (!pickupId || !pickupLocation || pickupLocation.trim() === '' || pickupLocation === 'Select Pickup') {
+      if (!pickupLocation || pickupLocation.trim() === '' || pickupLocation === 'Select Pickup') {
         showAlert({
           title: 'Pickup Location Required',
-          message: 'Selecting a Pickup location is mandatory. Please select a pickup suburb from the dropdown.',
+          message: 'Selecting a Pickup location is mandatory. Please select a pickup location or address.',
           type: 'warning',
         });
         return;
       }
 
-      if (!dropoffId || !dropoffLocation || dropoffLocation.trim() === '' || dropoffLocation === 'Select Drop Off') {
+      if (!dropoffLocation || dropoffLocation.trim() === '' || dropoffLocation === 'Select Drop Off') {
         showAlert({
           title: 'Drop-off Location Required',
-          message: 'Selecting a Drop-off location is mandatory. Please select a drop-off suburb from the dropdown.',
+          message: 'Selecting a Drop-off location is mandatory. Please select a drop-off location or address.',
           type: 'warning',
         });
         return;
@@ -589,6 +653,12 @@ export default function TapToPayEnterAmountScreen() {
     const sid = await ensureActiveShift();
     if (!sid) return;
 
+    const finalPickupId = (!isPickupCustom && typeof pickupId === 'number' && pickupId > 0) ? pickupId : null;
+    const finalPickupLoc = isPickupCustom && pickupLocation ? (pickupLocationAddress || pickupLocation).trim() : null;
+
+    const finalDropupId = (!isDropoffCustom && typeof dropoffId === 'number' && dropoffId > 0) ? dropoffId : null;
+    const finalDropupLoc = isDropoffCustom && dropoffLocation ? (dropoffLocationAddress || dropoffLocation).trim() : null;
+
     if (activeMethod === 'card') {
       router.push({
         pathname: '/(tabs)/card-entry',
@@ -597,9 +667,10 @@ export default function TapToPayEnterAmountScreen() {
           service_charges: serviceChargeFormatted,
           pickup: pickupLocation,
           dropoff: dropoffLocation,
-          pickup_id: pickupId ? String(pickupId) : '',
-          dropup_id: dropoffId ? String(dropoffId) : '',
-          dropoff_id: dropoffId ? String(dropoffId) : '',
+          pickup_location: finalPickupLoc || '',
+          dropup_location: finalDropupLoc || '',
+          pickup_id: finalPickupId !== null ? String(finalPickupId) : '',
+          dropup_id: finalDropupId !== null ? String(finalDropupId) : '',
         },
       });
     } else if (activeMethod === 'tap') {
@@ -610,9 +681,10 @@ export default function TapToPayEnterAmountScreen() {
           service_charges: serviceChargeFormatted,
           pickup: pickupLocation,
           dropoff: dropoffLocation,
-          pickup_id: pickupId ? String(pickupId) : '',
-          dropup_id: dropoffId ? String(dropoffId) : '',
-          dropoff_id: dropoffId ? String(dropoffId) : '',
+          pickup_location: finalPickupLoc || '',
+          dropup_location: finalDropupLoc || '',
+          pickup_id: finalPickupId !== null ? String(finalPickupId) : '',
+          dropup_id: finalDropupId !== null ? String(finalDropupId) : '',
         },
       });
     } else {
@@ -624,11 +696,10 @@ export default function TapToPayEnterAmountScreen() {
           amount: amt,
           shift_session_id: sid,
           service_charges: serviceCharge,
-          pickup_id: pickupId ? Number(pickupId) : null,
-          dropup_id: dropoffId ? Number(dropoffId) : null,
-          dropoff_id: dropoffId ? Number(dropoffId) : null,
-          pickup: pickupLocation,
-          dropoff: dropoffLocation,
+          pickup_id: finalPickupId,
+          dropup_id: finalDropupId,
+          pickup_location: finalPickupLoc,
+          dropup_location: finalDropupLoc,
         });
 
         const realTxnId = cashTxnData.transaction_id || `TXN-${Date.now()}`;
@@ -659,9 +730,11 @@ export default function TapToPayEnterAmountScreen() {
             service_charges: serviceChargeFormatted,
             pickup: pickupLocation,
             dropoff: dropoffLocation,
-            pickup_id: pickupId ? String(pickupId) : '',
-            dropup_id: dropoffId ? String(dropoffId) : '',
-            dropoff_id: dropoffId ? String(dropoffId) : '',
+            pickup_location: finalPickupLoc || '',
+            dropup_location: finalDropupLoc || '',
+            pickup_id: finalPickupId !== null ? String(finalPickupId) : '',
+            dropup_id: finalDropupId !== null ? String(finalDropupId) : '',
+            dropoff_id: finalDropupId !== null ? String(finalDropupId) : '',
             paymentId: realTxnId,
             cardBrand: 'Cash',
             cardLast4: '----',
@@ -698,18 +771,56 @@ export default function TapToPayEnterAmountScreen() {
   // Open searchable dropdown
   const handleOpenLocationPicker = (type: 'pickup' | 'dropoff') => {
     setActivePickerType(type);
+    setLocationView('main');
     setSearchLocationQuery('');
     setIsLocationModalVisible(true);
   };
 
-  const handleSelectLocation = (suburbName: string, id?: number) => {
+  const handleSelectLocationItem = (item: SuburbLocation) => {
+    // If user clicked 'home', navigate into Home suburbs list
+    if (String(item.id).toLowerCase() === 'home') {
+      setLocationView('home');
+      setSearchLocationQuery('');
+      return;
+    }
+
     Keyboard.dismiss();
+    const displayName = item.suburb;
+    const address =
+      item.description && item.description.toLowerCase() !== 'choose subrub'
+        ? item.description
+        : item.suburb;
+    const numId = typeof item.id === 'number' && item.id > 0 ? item.id : null;
+
     if (activePickerType === 'pickup') {
-      setPickupLocation(suburbName);
-      setPickupId(id ?? null);
+      setPickupLocation(displayName);
+      setPickupLocationAddress(address);
+      setPickupId(numId);
+      setIsPickupCustom(numId === null);
     } else {
-      setDropoffLocation(suburbName);
-      setDropoffId(id ?? null);
+      setDropoffLocation(displayName);
+      setDropoffLocationAddress(address);
+      setDropoffId(numId);
+      setIsDropoffCustom(numId === null);
+    }
+    setIsLocationModalVisible(false);
+  };
+
+  const handleSelectCustomLocation = (customAddress: string) => {
+    const trimmed = customAddress.trim();
+    if (!trimmed) return;
+    Keyboard.dismiss();
+
+    if (activePickerType === 'pickup') {
+      setPickupLocation(trimmed);
+      setPickupLocationAddress(trimmed);
+      setPickupId(null);
+      setIsPickupCustom(true);
+    } else {
+      setDropoffLocation(trimmed);
+      setDropoffLocationAddress(trimmed);
+      setDropoffId(null);
+      setIsDropoffCustom(true);
     }
     setIsLocationModalVisible(false);
   };
@@ -722,31 +833,27 @@ export default function TapToPayEnterAmountScreen() {
     }
 
     // 1. If exactly one result or exact name match exists, select it
-    if (suburbResults.length === 1) {
-      handleSelectLocation(suburbResults[0].suburb, suburbResults[0].id);
+    if (suburbResults.length === 1 && String(suburbResults[0].id).toLowerCase() !== 'home') {
+      handleSelectLocationItem(suburbResults[0]);
       return;
     }
     const exactMatch = suburbResults.find(
-      (item) => item.suburb.toLowerCase() === query.toLowerCase()
+      (item) => item.suburb.toLowerCase() === query.toLowerCase() && String(item.id).toLowerCase() !== 'home'
     );
     if (exactMatch) {
-      handleSelectLocation(exactMatch.suburb, exactMatch.id);
+      handleSelectLocationItem(exactMatch);
       return;
     }
 
-    // 2. If no matching suburbs found in directory, use the typed custom query
-    if (suburbResults.length === 0 && !isLoadingLocations) {
-      handleSelectLocation(query);
-      return;
-    }
-
-    // 3. Otherwise dismiss keyboard to reveal all results clearly
-    Keyboard.dismiss();
+    // 2. Otherwise use the typed custom query
+    handleSelectCustomLocation(query);
   };
 
   const handleClearDropoff = () => {
     setDropoffLocation('');
+    setDropoffLocationAddress('');
     setDropoffId(null);
+    setIsDropoffCustom(false);
     handleOpenLocationPicker('dropoff');
   };
 
@@ -934,6 +1041,11 @@ export default function TapToPayEnterAmountScreen() {
                     >
                       {pickupLocation || 'Select Pickup '}
                     </Text>
+                    {pickupLocationAddress && pickupLocationAddress !== pickupLocation ? (
+                      <Text style={styles.routeLocationAddressSub} numberOfLines={1}>
+                        {pickupLocationAddress}
+                      </Text>
+                    ) : null}
                   </View>
                   <Feather name="chevron-down" size={16} color="#94A3B8" />
                 </TouchableOpacity>
@@ -960,6 +1072,11 @@ export default function TapToPayEnterAmountScreen() {
                     >
                       {dropoffLocation || 'Select Drop Off '}
                     </Text>
+                    {dropoffLocationAddress && dropoffLocationAddress !== dropoffLocation ? (
+                      <Text style={styles.routeLocationAddressSub} numberOfLines={1}>
+                        {dropoffLocationAddress}
+                      </Text>
+                    ) : null}
                   </View>
 
                   {dropoffLocation ? (
@@ -1168,6 +1285,11 @@ export default function TapToPayEnterAmountScreen() {
                   >
                     {pickupLocation || 'Select Pickup '}
                   </Text>
+                  {pickupLocationAddress && pickupLocationAddress !== pickupLocation ? (
+                    <Text style={styles.routeLocationAddressSub} numberOfLines={1}>
+                      {pickupLocationAddress}
+                    </Text>
+                  ) : null}
                 </View>
               </TouchableOpacity>
 
@@ -1192,6 +1314,11 @@ export default function TapToPayEnterAmountScreen() {
                   >
                     {dropoffLocation || 'Select Drop Off '}
                   </Text>
+                  {dropoffLocationAddress && dropoffLocationAddress !== dropoffLocation ? (
+                    <Text style={styles.routeLocationAddressSub} numberOfLines={1}>
+                      {dropoffLocationAddress}
+                    </Text>
+                  ) : null}
                 </View>
                 {dropoffLocation ? (
                   <TouchableOpacity
@@ -1281,7 +1408,12 @@ export default function TapToPayEnterAmountScreen() {
         transparent
         onRequestClose={() => {
           Keyboard.dismiss();
-          setIsLocationModalVisible(false);
+          if (locationView === 'home') {
+            setLocationView('main');
+            setSearchLocationQuery('');
+          } else {
+            setIsLocationModalVisible(false);
+          }
         }}
       >
         <KeyboardAvoidingView
@@ -1302,13 +1434,31 @@ export default function TapToPayEnterAmountScreen() {
             <View style={styles.modalDragHandle} />
 
             <View style={styles.modalHeaderRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.modalHeaderTitle}>
-                  Select {activePickerType === 'pickup' ? 'Pickup' : 'Drop-off'} Location
-                </Text>
-                <Text style={styles.modalHeaderSubtitle}>
-                  Search Australian suburbs or enter a custom address
-                </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                {locationView === 'home' && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      setLocationView('main');
+                      setSearchLocationQuery('');
+                    }}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    style={{ marginRight: 10 }}
+                  >
+                    <Ionicons name="arrow-back" size={22} color="#0F172A" />
+                  </TouchableOpacity>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalHeaderTitle}>
+                    {locationView === 'home'
+                      ? `Select ${activePickerType === 'pickup' ? 'Pickup' : 'Drop-off'} Suburb`
+                      : `Select ${activePickerType === 'pickup' ? 'Pickup' : 'Drop-off'} Location`}
+                  </Text>
+                  <Text style={styles.modalHeaderSubtitle}>
+                    {locationView === 'home'
+                      ? 'Choose Subrub or search by name'
+                      : 'Search hospital, airport, address...'}
+                  </Text>
+                </View>
               </View>
               <TouchableOpacity
                 onPress={() => {
@@ -1318,18 +1468,22 @@ export default function TapToPayEnterAmountScreen() {
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 style={styles.modalCloseButton}
               >
-                <Ionicons name="close" size={20} color="#64748B" />
+                <Ionicons name="close" size={22} color="#64748B" />
               </TouchableOpacity>
             </View>
 
-            {/* Search Input */}
+            {/* Search Input matching Screenshot */}
             <View style={styles.searchInputWrap}>
               <Ionicons name="search" size={18} color="#94A3B8" style={{ marginRight: 8 }} />
               <TextInput
                 style={styles.searchTextInput}
                 value={searchLocationQuery}
                 onChangeText={setSearchLocationQuery}
-                placeholder="Search suburb, postcode, or location..."
+                placeholder={
+                  locationView === 'home'
+                    ? 'Search suburb, postcode...'
+                    : 'Search hospital, airport, address...'
+                }
                 placeholderTextColor="#94A3B8"
                 autoFocus
                 returnKeyType="search"
@@ -1354,27 +1508,27 @@ export default function TapToPayEnterAmountScreen() {
               <TouchableOpacity
                 style={styles.customLocationOption}
                 activeOpacity={0.7}
-                onPress={() => handleSelectLocation(searchLocationQuery.trim())}
+                onPress={() => handleSelectCustomLocation(searchLocationQuery.trim())}
               >
                 <View style={styles.customLocationIconBox}>
-                  <Ionicons name="navigate-circle" size={22} color="#2563EB" />
+                  <Ionicons name="navigate-circle" size={22} color="#D97706" />
                 </View>
                 <View style={styles.customLocationTextCol}>
                   <Text style={styles.customLocationText} numberOfLines={1}>
                     Use &quot;{searchLocationQuery.trim()}&quot;
                   </Text>
                   <Text style={styles.customLocationSubtext} numberOfLines={1}>
-                    Tap or press Search to set as {activePickerType === 'pickup' ? 'pickup' : 'drop-off'}
+                    Tap to set as custom {activePickerType === 'pickup' ? 'pickup' : 'drop-off'} location
                   </Text>
                 </View>
-                <Ionicons name="arrow-forward-circle" size={20} color="#2563EB" />
+                <Ionicons name="arrow-forward-circle" size={20} color="#D97706" />
               </TouchableOpacity>
             )}
 
-            {/* Dynamic Suburbs Suggestions List */}
+            {/* Dynamic Locations Suggestions List */}
             <FlatList
               data={suburbResults}
-              keyExtractor={(item) => String(item.id)}
+              keyExtractor={(item, index) => `${String(item.id)}_${index}`}
               showsVerticalScrollIndicator={true}
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="on-drag"
@@ -1387,33 +1541,42 @@ export default function TapToPayEnterAmountScreen() {
                     </View>
                     <Text style={styles.emptyTitleText}>
                       {searchLocationQuery.trim()
-                        ? `No suburbs found for "${searchLocationQuery.trim()}"`
-                        : 'Type to search Australian suburbs'}
+                        ? `No results found for "${searchLocationQuery.trim()}"`
+                        : 'No locations available'}
                     </Text>
                     <Text style={styles.emptySubtext}>
                       {searchLocationQuery.trim()
-                        ? `Tap "Use \\"${searchLocationQuery.trim()}\\"" above or press Search to use this location.`
+                        ? `Tap "Use \\"${searchLocationQuery.trim()}\\"" above to use this location.`
                         : 'Search by suburb name, airport, or enter a custom address.'}
                     </Text>
                   </View>
                 ) : null
               }
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.locationItem}
-                  activeOpacity={0.7}
-                  onPress={() => handleSelectLocation(item.suburb, item.id)}
-                >
-                  <View style={styles.locationItemIconBox}>
-                    <Ionicons name="location-sharp" size={18} color="#D97706" />
-                  </View>
-                  <View style={styles.locationItemTextWrap}>
-                    <Text style={styles.locationItemName}>{item.suburb}</Text>
-                    <Text style={styles.locationItemDesc}>Australia</Text>
-                  </View>
-                  <Feather name="chevron-right" size={16} color="#CBD5E1" />
-                </TouchableOpacity>
-              )}
+              renderItem={({ item }) => {
+                const iconDetails = getLocationIconDetails(item);
+                const displayDesc = item.description || item.suburb;
+
+                return (
+                  <TouchableOpacity
+                    style={styles.locationItem}
+                    activeOpacity={0.7}
+                    onPress={() => handleSelectLocationItem(item)}
+                  >
+                    <View style={styles.locationItemIconBox}>
+                      <Ionicons name={iconDetails.name} size={20} color="#0F172A" />
+                    </View>
+                    <View style={styles.locationItemTextWrap}>
+                      <Text style={styles.locationItemName} numberOfLines={1}>
+                        {item.suburb}
+                      </Text>
+                      <Text style={styles.locationItemDesc} numberOfLines={1}>
+                        {displayDesc}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
+                  </TouchableOpacity>
+                );
+              }}
             />
           </View>
         </KeyboardAvoidingView>
@@ -1894,12 +2057,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   modalHeaderTitle: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '700',
     color: '#0F172A',
   },
   modalHeaderSubtitle: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#64748B',
     marginTop: 2,
   },
@@ -1915,17 +2078,17 @@ const styles = StyleSheet.create({
   searchInputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     paddingHorizontal: 12,
-    height: 46,
+    height: 48,
     marginBottom: 10,
   },
   searchTextInput: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 14,
     color: '#0F172A',
     paddingVertical: 0,
   },
@@ -1963,30 +2126,35 @@ const styles = StyleSheet.create({
   locationItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
   },
   locationItemIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#FEF3C7',
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 14,
   },
   locationItemTextWrap: {
     flex: 1,
   },
   locationItemName: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
     color: '#0F172A',
   },
   locationItemDesc: {
-    fontSize: 11,
+    fontSize: 13,
     color: '#64748B',
+    marginTop: 2,
+  },
+  routeLocationAddressSub: {
+    fontSize: 11,
+    color: '#94A3B8',
     marginTop: 1,
   },
   emptyResultsBox: {

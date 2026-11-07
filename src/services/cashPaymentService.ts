@@ -8,6 +8,8 @@ export interface CashPaymentPayload {
   pickup_id?: number | string | null;
   dropup_id?: number | string | null;
   dropoff_id?: number | string | null;
+  pickup_location?: string | null;
+  dropup_location?: string | null;
   pickup?: string | null;
   dropoff?: string | null;
 }
@@ -49,18 +51,24 @@ export const cashPaymentService = {
     if (payload.service_charges !== undefined && payload.service_charges !== null) {
       cleanPayload.service_charges = Number(payload.service_charges) || 0;
     }
-    if (payload.pickup_id !== undefined && payload.pickup_id !== null && payload.pickup_id !== '') {
-      const pId = Number(payload.pickup_id);
-      cleanPayload.pickup_id = !isNaN(pId) ? pId : payload.pickup_id;
-    }
+    const rawPickupId = payload.pickup_id;
+    const parsedPickupId =
+      rawPickupId !== undefined && rawPickupId !== null && rawPickupId !== '' && !isNaN(Number(rawPickupId))
+        ? Number(rawPickupId)
+        : null;
+
     const rawDropId = payload.dropup_id ?? payload.dropoff_id;
-    if (rawDropId !== undefined && rawDropId !== null && rawDropId !== '') {
-      const dId = Number(rawDropId);
-      cleanPayload.dropup_id = !isNaN(dId) ? dId : rawDropId;
-      cleanPayload.dropoff_id = !isNaN(dId) ? dId : rawDropId;
-    }
-    if (payload.pickup) cleanPayload.pickup = payload.pickup;
-    if (payload.dropoff) cleanPayload.dropoff = payload.dropoff;
+    const parsedDropId =
+      rawDropId !== undefined && rawDropId !== null && rawDropId !== '' && !isNaN(Number(rawDropId))
+        ? Number(rawDropId)
+        : null;
+
+    cleanPayload.pickup_id = parsedPickupId;
+    cleanPayload.dropup_id = parsedDropId;
+    // pickup_location is ONLY sent for custom input (when pickup_id is null)
+    cleanPayload.pickup_location = parsedPickupId !== null ? null : (payload.pickup_location || null);
+    // dropup_location is ONLY sent for custom input (when dropup_id is null)
+    cleanPayload.dropup_location = parsedDropId !== null ? null : (payload.dropup_location || null);
 
     appLogger.info('CASH_PAYMENT', 'Sending cash payment to backend:', cleanPayload);
     try {

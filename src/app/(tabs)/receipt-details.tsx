@@ -782,15 +782,18 @@ const styles = StyleSheet.create({
   },
   routeColLeft: {
     flex: 1,
+    minWidth: 0,
   },
   routeColRight: {
     flex: 1,
+    minWidth: 0,
     alignItems: 'flex-end',
   },
   arrowContainer: {
     paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   routeLabel: {
     fontSize: 9.5,
@@ -803,6 +806,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0F172A',
     marginTop: 2,
+    lineHeight: 18,
+    flexWrap: 'wrap',
   },
   metaList: {
     gap: 8,

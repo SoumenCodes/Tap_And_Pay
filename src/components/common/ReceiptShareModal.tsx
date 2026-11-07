@@ -388,14 +388,14 @@ export default function ReceiptShareModal({
               <View style={styles.shareRouteSection}>
                 <View style={styles.shareRouteCol}>
                   <Text style={styles.shareRouteLabel}>PICKUP</Text>
-                  <Text style={styles.shareRouteVal} numberOfLines={1}>
+                  <Text style={styles.shareRouteVal}>
                     {pickup || '--'}
                   </Text>
                 </View>
                 <Ionicons name="arrow-forward" size={16} color="#F59E0B" style={{ marginHorizontal: 6 }} />
                 <View style={[styles.shareRouteCol, { alignItems: 'flex-end' }]}>
                   <Text style={[styles.shareRouteLabel, { textAlign: 'right' }]}>DROP OFF</Text>
-                  <Text style={[styles.shareRouteVal, { textAlign: 'right' }]} numberOfLines={1}>
+                  <Text style={[styles.shareRouteVal, { textAlign: 'right' }]}>
                     {dropoff || '--'}
                   </Text>
                 </View>
@@ -765,6 +765,7 @@ const styles = StyleSheet.create({
   },
   shareRouteCol: {
     flex: 1,
+    minWidth: 0,
   },
   shareRouteLabel: {
     fontSize: 9,
@@ -777,6 +778,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0F172A',
     marginTop: 1,
+    lineHeight: 15,
+    flexWrap: 'wrap',
   },
   shareBreakdownBox: {
     width: '100%',

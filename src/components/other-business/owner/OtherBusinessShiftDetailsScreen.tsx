@@ -713,10 +713,10 @@ export default function OtherBusinessShiftDetailsScreen({
                             <View style={styles.orangePin} />
                           </View>
                           <View style={styles.routeTextsCol}>
-                            <Text style={styles.routeAddressText} numberOfLines={1}>
+                            <Text style={styles.routeAddressText}>
                               {pickupLoc || '--'}
                             </Text>
-                            <Text style={[styles.routeAddressText, { marginTop: 7 }]} numberOfLines={1}>
+                            <Text style={[styles.routeAddressText, { marginTop: 7 }]}>
                               {dropLoc || '--'}
                             </Text>
                           </View>

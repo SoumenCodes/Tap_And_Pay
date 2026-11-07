@@ -181,11 +181,11 @@ export async function generateReceiptHtml(input: UnifiedReceiptInput): Promise<s
     .paid-dot { width: 6px; height: 6px; border-radius: 50%; background: #10B981; margin-right: 4px; }
     .divider { height: 1px; background: #F1F5F9; margin: 9px 0; }
     .route-row { display: flex; justify-content: space-between; align-items: center; padding: 0 4px; text-align: left; }
-    .route-col { flex: 1; }
+    .route-col { flex: 1; min-width: 0; }
     .route-col.right { text-align: right; }
     .route-label { font-size: 9.5px; font-weight: 700; color: #94A3B8; letter-spacing: 0.5px; }
-    .route-val { font-size: 12px; font-weight: 700; color: #0F172A; margin-top: 1px; }
-    .arrow { font-size: 16px; color: #F59E0B; padding: 0 6px; }
+    .route-val { font-size: 12px; font-weight: 700; color: #0F172A; margin-top: 1px; word-break: break-word; overflow-wrap: break-word; white-space: normal; line-height: 1.35; }
+    .arrow { font-size: 16px; color: #F59E0B; padding: 0 6px; flex-shrink: 0; }
     .breakdown-box { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 8px 10px; margin: 4px 0; }
     .breakdown-hdr { font-size: 9.5px; font-weight: 800; color: #64748B; letter-spacing: 0.5px; text-align: left; margin-bottom: 4px; }
     .breakdown-row { display: flex; justify-content: space-between; font-size: 11px; margin: 2px 0; color: #64748B; }

@@ -38,6 +38,7 @@ function TaxiReceiptScreen() {
     amount?: string;
     method?: string;
     paymentId?: string;
+    txnId?: string;
     cardLast4?: string;
     cardBrand?: string;
     pickup?: string;
@@ -48,6 +49,9 @@ function TaxiReceiptScreen() {
     phone?: string;
     dateStr?: string;
     timestamp?: string;
+    businessName?: string;
+    businessLogo?: string;
+    receiptJson?: string;
   }>();
 
   const rawAmount = params.amount || '0.00';
@@ -60,47 +64,55 @@ function TaxiReceiptScreen() {
     ? 'Cash'
     : (params.cardBrand || (isTap ? 'Contactless' : 'Visa')).trim();
   const cardLast4 = isCash ? '' : (params.cardLast4 || '••••');
-  const paymentId = params.paymentId || (isCash ? 'CASH-PAYMENT' : '--');
 
-  const [receiptData, setReceiptData] = useState<ReceiptData | null>(() =>
-    receiptService.getCachedReceipt(params.paymentId)
-  );
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(() => {
+    if (params.receiptJson) {
+      try {
+        const parsed = JSON.parse(params.receiptJson);
+        if (parsed && typeof parsed === 'object') return parsed;
+      } catch { }
+    }
+    return (
+      receiptService.getCachedReceipt(params.paymentId) ||
+      receiptService.getCachedReceipt(params.txnId)
+    );
+  });
+
+  const paymentId =
+    receiptData?.payment_id || params.paymentId || params.txnId || (isCash ? 'CASH-PAYMENT' : '--');
 
   useEffect(() => {
-    if (params.paymentId && params.paymentId !== '--' && params.paymentId !== 'CASH-PAYMENT' && !receiptData) {
+    const lookupId = params.txnId || params.paymentId;
+    if (lookupId && lookupId !== '--' && lookupId !== 'CASH-PAYMENT') {
       let isMounted = true;
       receiptService
-        .getReceipt(params.paymentId)
+        .getReceipt(lookupId)
         .then((data) => {
-          if (isMounted) setReceiptData(data);
+          if (isMounted && data) {
+            setReceiptData(data);
+          }
         })
         .catch(() => { });
       return () => {
         isMounted = false;
       };
     }
-  }, [params.paymentId, receiptData]);
+  }, [params.paymentId, params.txnId]);
 
   const cachedHeader = getCachedDashboardHeader();
   const cachedUser = tokenStorage.getCachedUser();
-
-  const isOtherBiz =
-    user?.loginType === 'other_business' ||
-    user?.loginType === 'other_business_employee';
 
   const [extraHeader, setExtraHeader] = useState<{ abn?: string; phone?: string }>({
     abn:
       (params.abn && params.abn !== '--' ? params.abn : undefined) ||
       user?.abn ||
       cachedHeader?.abn ||
-      cachedUser?.abn ||
-      (isOtherBiz ? '50110219475' : undefined),
+      cachedUser?.abn,
     phone:
       (params.phone && params.phone !== '--' ? params.phone : undefined) ||
       user?.phone ||
       cachedHeader?.phone ||
-      cachedUser?.phone ||
-      (isOtherBiz ? '9932783473' : undefined),
+      cachedUser?.phone,
   });
 
   useEffect(() => {
@@ -129,9 +141,9 @@ function TaxiReceiptScreen() {
   }, []);
 
   const businessName =
-    receiptData?.business_name || user?.businessName || user?.name || '--';
+    receiptData?.business_name || params.businessName || user?.businessName || user?.name || '--';
   const logoUrl = normalizeImageUrl(
-    receiptData?.business_logo || user?.logoUrl || cachedHeader?.logo_url
+    receiptData?.business_logo || params.businessLogo || user?.logoUrl || cachedHeader?.logo_url
   );
   const taxiNumber =
     receiptData?.taxi_number || receiptData?.taxi_no || params.taxiNumber || user?.taxiNumber || '--';
@@ -151,7 +163,7 @@ function TaxiReceiptScreen() {
 
   const effectiveNumericAmount =
     receiptData?.amount !== undefined && receiptData?.amount !== null
-      ? receiptData.amount
+      ? Number(receiptData.amount)
       : numericAmount;
 
   const abn =
@@ -161,16 +173,17 @@ function TaxiReceiptScreen() {
     user?.abn ||
     cachedHeader?.abn ||
     cachedUser?.abn ||
-    (isOtherBiz ? '50110219475' : '--');
+    '--';
 
   const phone =
     receiptData?.phone_no ||
+    receiptData?.phone ||
     (params.phone && params.phone.trim() !== '' && params.phone !== '--' ? params.phone : null) ||
     extraHeader.phone ||
     user?.phone ||
     cachedHeader?.phone ||
     cachedUser?.phone ||
-    (isOtherBiz ? '9932783473' : '--');
+    '--';
 
   const cardBrandFinal =
     receiptData?.card_brand || cardBrand;
@@ -243,7 +256,7 @@ function TaxiReceiptScreen() {
       abn,
       phone,
       amount: effectiveNumericAmount,
-      amountFormatted: `$${formattedWithComma}.${decimalPart}`,
+      amountFormatted: receiptData?.amount_formatted || `$${formattedWithComma}.${decimalPart}`,
       dateTime: formattedDate,
       paymentMethod: paymentMethodLabel,
       paymentType: paymentMethodBadgeLabel,
@@ -278,6 +291,7 @@ function TaxiReceiptScreen() {
     hasAdBanner,
     bannerImageUrl,
     breakdown,
+    receiptData?.amount_formatted,
   ]);
 
   const handleOpenShareMenu = () => {
@@ -387,7 +401,7 @@ function TaxiReceiptScreen() {
 
               <View style={styles.paidBadge}>
                 <View style={styles.greenDot} />
-                <Text style={styles.paidText}>PAID</Text>
+                <Text style={styles.paidText}>{receiptData?.payment_status?.toUpperCase() || 'PAID'}</Text>
               </View>
             </View>
 
@@ -531,6 +545,26 @@ function TaxiReceiptScreen() {
               />
             </View>
           </View>
+
+          {/* ── Optional Sponsored Advertisement Banner (From API response) ── */}
+          {hasAdBanner && bannerImageUrl ? (
+            <View style={styles.adBannerCard}>
+              <View style={styles.adBannerHeader}>
+                <View style={styles.adSponsoredPill}>
+                  <Ionicons name="sparkles" size={11} color="#92400E" style={{ marginRight: 4 }} />
+                  <Text style={styles.adSponsoredPillText}>SPONSORED ADVERTISEMENT</Text>
+                </View>
+                <Text style={styles.adBrandText}>SE PAY</Text>
+              </View>
+              <View style={styles.adImageWrap}>
+                <Image
+                  source={{ uri: bannerImageUrl }}
+                  style={styles.adImage}
+                  resizeMode="contain"
+                />
+              </View>
+            </View>
+          ) : null}
 
           {/* ── Bottom Action Buttons ── */}
           <View style={styles.actions}>
@@ -933,6 +967,55 @@ const styles = StyleSheet.create({
   sePayLogo: {
     width: 105,
     height: 24,
+  },
+  adBannerCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    borderRadius: 16,
+    padding: 12,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  adBannerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  adSponsoredPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+  },
+  adSponsoredPillText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#92400E',
+    letterSpacing: 0.5,
+  },
+  adBrandText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#D97706',
+    letterSpacing: 0.5,
+  },
+  adImageWrap: {
+    width: '100%',
+    height: 120,
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  adImage: {
+    width: '100%',
+    height: '100%',
   },
   actions: {
     flexDirection: 'row',

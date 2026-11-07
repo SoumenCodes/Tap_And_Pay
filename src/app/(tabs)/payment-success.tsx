@@ -92,14 +92,17 @@ export default function PaymentSuccessScreen() {
     let dropoffVal = params.dropoff || '';
     let taxiNoVal = '';
     let dcNoVal = '';
+    let serverReceipt: any = null;
+    let serverDateStr = formattedDate;
 
     // Fetch official server receipt if valid payment ID exists
     if (paymentId && paymentId !== '--' && paymentId !== 'CASH-PAYMENT') {
       setIsFetchingReceipt(true);
       try {
         const receipt = await receiptService.getReceipt(paymentId);
+        serverReceipt = receipt;
         if (receipt.abn) abnValue = receipt.abn;
-        if (receipt.phone_no) phoneValue = receipt.phone_no;
+        if (receipt.phone_no || receipt.phone) phoneValue = receipt.phone_no || receipt.phone || phoneValue;
         if (receipt.amount !== undefined && receipt.amount !== null) {
           realAmount = String(receipt.amount);
         }
@@ -118,6 +121,13 @@ export default function PaymentSuccessScreen() {
         if (receipt.dc_number) {
           dcNoVal = receipt.dc_number;
         }
+        if (receipt.date_time) {
+          serverDateStr = formatSydneyToUserDateTime(receipt.date_time);
+        }
+        receiptService.setCachedReceipt(paymentId, receipt);
+        if (receipt.payment_id) {
+          receiptService.setCachedReceipt(receipt.payment_id, receipt);
+        }
       } catch (err) {
         // Non-blocking graceful fallback to route params
         console.warn('Failed to pre-fetch receipt from server:', err);
@@ -126,21 +136,28 @@ export default function PaymentSuccessScreen() {
       }
     }
 
+    const finalPaymentId = serverReceipt?.payment_id || paymentId;
+    const finalMethod = (serverReceipt?.payment_type || serverReceipt?.payment_method || (isCash ? 'cash' : isTap ? 'tap' : 'card')).toLowerCase();
+
     router.push({
       pathname: '/(tabs)/receipt-details',
       params: {
         amount: realAmount,
-        method: isCash ? 'cash' : isTap ? 'tap' : 'card',
-        paymentId,
+        method: finalMethod.includes('cash') ? 'cash' : finalMethod.includes('tap') ? 'tap' : 'card',
+        paymentId: finalPaymentId,
+        txnId: paymentId,
         cardLast4,
         cardBrand: realCardBrand,
-        dateStr: formattedDate,
+        dateStr: serverDateStr,
         pickup: pickupVal,
         dropoff: dropoffVal,
         taxiNumber: taxiNoVal,
         dcNumber: dcNoVal,
         abn: abnValue,
         phone: phoneValue,
+        businessName: serverReceipt?.business_name || businessName,
+        businessLogo: serverReceipt?.business_logo || '',
+        receiptJson: serverReceipt ? JSON.stringify(serverReceipt) : '',
       },
     });
   };

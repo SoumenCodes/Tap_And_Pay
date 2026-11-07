@@ -37,11 +37,15 @@ export default function OtherBusinessReceiptScreen() {
     amount?: string;
     method?: string;
     paymentId?: string;
+    txnId?: string;
     cardLast4?: string;
     cardBrand?: string;
     dateStr?: string;
     abn?: string;
     phone?: string;
+    businessName?: string;
+    businessLogo?: string;
+    receiptJson?: string;
   }>();
 
   const rawAmount = params.amount || '0.00';
@@ -54,26 +58,40 @@ export default function OtherBusinessReceiptScreen() {
     ? 'Cash'
     : (params.cardBrand || (isTap ? 'Contactless' : 'Visa')).trim();
   const cardLast4 = isCash ? '' : (params.cardLast4 || '••••');
-  const paymentId = params.paymentId || (isCash ? 'CASH-PAYMENT' : '--');
 
-  const [receiptData, setReceiptData] = useState<ReceiptData | null>(() =>
-    receiptService.getCachedReceipt(params.paymentId)
-  );
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(() => {
+    if (params.receiptJson) {
+      try {
+        const parsed = JSON.parse(params.receiptJson);
+        if (parsed && typeof parsed === 'object') return parsed;
+      } catch { }
+    }
+    return (
+      receiptService.getCachedReceipt(params.paymentId) ||
+      receiptService.getCachedReceipt(params.txnId)
+    );
+  });
+
+  const paymentId =
+    receiptData?.payment_id || params.paymentId || params.txnId || (isCash ? 'CASH-PAYMENT' : '--');
 
   useEffect(() => {
-    if (params.paymentId && params.paymentId !== '--' && params.paymentId !== 'CASH-PAYMENT' && !receiptData) {
+    const lookupId = params.txnId || params.paymentId;
+    if (lookupId && lookupId !== '--' && lookupId !== 'CASH-PAYMENT') {
       let isMounted = true;
       receiptService
-        .getReceipt(params.paymentId)
+        .getReceipt(lookupId)
         .then((data) => {
-          if (isMounted) setReceiptData(data);
+          if (isMounted && data) {
+            setReceiptData(data);
+          }
         })
         .catch(() => { });
       return () => {
         isMounted = false;
       };
     }
-  }, [params.paymentId, receiptData]);
+  }, [params.paymentId, params.txnId]);
 
   const dateStr =
     (params.dateStr && params.dateStr.trim() !== '' && params.dateStr !== '--'

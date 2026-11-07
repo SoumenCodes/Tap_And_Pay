@@ -83,6 +83,9 @@ export const receiptService = {
         receipt.banner_image_url = normalizeImageUrl(receipt.banner_image_url);
       }
       receiptCache.set(cleanId, receipt);
+      if (receipt.payment_id && receipt.payment_id.trim() !== cleanId) {
+        receiptCache.set(receipt.payment_id.trim(), receipt);
+      }
       return receipt;
     } catch (err: any) {
       const errMsg =
@@ -95,19 +98,22 @@ export const receiptService = {
   },
 
   /**
+   * Manually store a receipt into memory cache by ID and payment_id
+   */
+  setCachedReceipt: (id: string, receipt: ReceiptData) => {
+    if (!id || id.trim() === '') return;
+    const clean = id.trim();
+    receiptCache.set(clean, receipt);
+    if (receipt.payment_id && receipt.payment_id.trim() !== clean) {
+      receiptCache.set(receipt.payment_id.trim(), receipt);
+    }
+  },
+
+  /**
    * Retrieves cached receipt without network call
    */
   getCachedReceipt: (paymentId?: string | null): ReceiptData | null => {
     if (!paymentId) return null;
     return receiptCache.get(paymentId.trim()) || null;
-  },
-
-  /**
-   * Stores receipt data manually in memory
-   */
-  setCachedReceipt: (paymentId: string, data: ReceiptData): void => {
-    if (paymentId) {
-      receiptCache.set(paymentId.trim(), data);
-    }
   },
 };

@@ -55,10 +55,10 @@ export default function ReceiptShareModal({
   }
 
   const { whole, cents } = formatReceiptAmount(receiptInput.amount);
-  const biz = receiptInput.businessName || 'Business';
+  const biz = receiptInput.businessName || '--';
   const logoUrl = normalizeImageUrl(receiptInput.businessLogo);
-  const abnVal = receiptInput.abn || '19113303849';
-  const phoneVal = receiptInput.phone || '9113303849';
+  const abnVal = receiptInput.abn || '--';
+  const phoneVal = receiptInput.phone || '--';
   const isTaxi = Boolean(receiptInput.isTaxi || receiptInput.taxiNumber);
   const taxiNo = receiptInput.taxiNumber || '';
   const dcNo = receiptInput.dcNumber || '';

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -199,16 +199,13 @@ export default function TapReadyScreen() {
         })
       : rawAmount;
 
-  const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/(tabs)/tap-to-pay');
-    }
-  };
+  const hasTriggeredRef = useRef(false);
 
-  const handleProceedToProcess = () => {
-    router.push({
+  const handleProceedToProcess = useCallback(() => {
+    if (hasTriggeredRef.current) return;
+    hasTriggeredRef.current = true;
+
+    router.replace({
       pathname: '/(tabs)/processing',
       params: {
         amount: rawAmount,
@@ -222,6 +219,24 @@ export default function TapReadyScreen() {
         payment_attempt_id: `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       },
     });
+  }, [rawAmount, params, router]);
+
+  useEffect(() => {
+    // Automatically proceed to payment processing without requiring an extra manual click
+    const timer = setTimeout(() => {
+      handleProceedToProcess();
+    }, 700);
+
+    return () => clearTimeout(timer);
+  }, [handleProceedToProcess]);
+
+  const handleBack = () => {
+    hasTriggeredRef.current = true;
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/tap-to-pay');
+    }
   };
 
   return (
